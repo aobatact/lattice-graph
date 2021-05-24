@@ -3,7 +3,7 @@ use petgraph::{
     data::{DataMap, DataMapMut},
     graph::{IndexType, NodeIndex},
     visit::{
-        Data, EdgeRef, GraphBase, GraphProp, IntoEdgeReferences, IntoNeighbors,
+        Data, EdgeRef, GraphBase, GraphProp, IntoEdgeReferences, IntoEdges, IntoNeighbors,
         IntoNodeIdentifiers, NodeCompactIndexable, NodeCount, NodeIndexable,
     },
     Undirected,
@@ -266,40 +266,6 @@ where
                 return None;
             }
         }
-        /*
-        let mut e = (Default::default(), Default::default(), Direction::Vertical);
-        let mut hol = false;
-        if let Some(ex) = self.prv {
-            if ex.2 == Direction::Vertical {
-                e = ex;
-                hol = true;
-            }
-        }
-        loop {
-            if hol {
-                let item = self.horizontal[e.0.index()].get(e.1.index());
-                if let Some(item) = item {
-                    e.2 = Direction::Horizontal;
-                    return Some(EdgeReference(e, item));
-                }
-            }
-
-            if let Some(next) = self.nodes.next() {
-                let item = self
-                    .vertical
-                    .get(next.0.index())
-                    .map(|x| x.get(next.1.index()))
-                    .flatten();
-                e = (next.0, next.1, Direction::Vertical);
-                self.prv = Some(e);
-                if let Some(item) = item {
-                    return Some(EdgeReference(e, item));
-                }
-            } else {
-                return None;
-            }
-        }
-        */
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -308,18 +274,49 @@ where
     }
 }
 
-/*
 impl<'a, N, E, Ix> IntoEdges for &'a SquareGraph<N, E, Ix>
 where
     Ix: IndexType,
+    E: Copy,
+    Range<Ix>: Iterator<Item = Ix>,
 {
-    type Edges;
+    type Edges = std::vec::IntoIter<EdgeReference<'a, E, Ix>>;
 
     fn edges(self, a: Self::NodeId) -> Self::Edges {
-        todo!()
+        let v = self.vertical_node_count();
+        let h = self.horizontal_node_count();
+        let va = a.0.index();
+        let ha = a.1.index();
+        let mut vec = Vec::new();
+        if va != 0 {
+            vec.push(EdgeReference(
+                (NodeIndex::new(va - 1), a.1, Direction::Vertical),
+                &self.vertical[va - 1][ha],
+            ));
+        }
+        if va < v - 1 {
+            vec.push(EdgeReference(
+                (NodeIndex::new(va + 1), a.1, Direction::Vertical),
+                &self.vertical[va + 1][ha],
+            ));
+        }
+        if ha != 0 {
+            vec.push(EdgeReference(
+                (a.0, NodeIndex::new(ha - 1), Direction::Horizontal),
+                &self.vertical[va - 1][ha],
+            ));
+        }
+        if ha < h - 1 {
+            vec.push(EdgeReference(
+                (a.0, NodeIndex::new(ha + 1), Direction::Horizontal),
+                &self.vertical[va + 1][ha],
+            ));
+        }
+        vec.into_iter()
     }
 }
 
+/*
 
 impl<'a, N, E, Ix> IntoEdgesDirected for &'a SquareGraph<N, E, Ix>
 where
@@ -516,7 +513,7 @@ mod tests {
     }
 
     #[test]
-    fn node_indices() {
+    fn node_identifiers() {
         let sq = SquareGraph::<_, _, u32>::new_with(
             5,
             3,
@@ -530,5 +527,28 @@ mod tests {
             let x3 = sq.from_index(x2);
             assert_eq!(x, x3);
         }
+    }
+
+    #[test]
+    fn edge_references() {
+        let sq = SquareGraph::<_, _, u32>::new_with(
+            5,
+            3,
+            |x, y| x + 2 * y,
+            |x, y, d| (x + 2 * y) as i32 * (if d.is_vertical() { 1 } else { -1 }),
+        );
+
+        let mut i = 0;
+        let mut x = -1;
+        for e in sq
+            .edge_references()
+            .filter(|x| x.id().2 == Direction::Vertical)
+        {
+            let y = sq.to_index((e.0 .0, e.0 .1)) as i32;
+            assert!(x < y);
+            x = y;
+            i += 1;
+        }
+        assert_eq!(i, 12);
     }
 }

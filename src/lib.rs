@@ -1,4 +1,4 @@
-mod square;
+pub mod square;
 
 #[cfg(test)]
 mod tests {

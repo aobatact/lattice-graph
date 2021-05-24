@@ -8,7 +8,7 @@ use petgraph::{
     },
     Undirected,
 };
-use std::{iter::FusedIterator, marker::PhantomData, ops::RangeInclusive};
+use std::{iter::FusedIterator, marker::PhantomData, ops::Range};
 
 pub type VerticalIndex<Ix> = NodeIndex<Ix>;
 pub type HorizontalIndex<Ix> = NodeIndex<Ix>;
@@ -30,6 +30,15 @@ pub enum Direction {
     Horizontal,
 }
 
+impl Direction {
+    pub fn is_vertical(&self) -> bool {
+        *self == Direction::Vertical
+    }
+    pub fn is_horizontal(&self) -> bool {
+        *self == Direction::Horizontal
+    }
+}
+
 impl<N, E, Ix> SquareGraph<N, E, Ix>
 where
     Ix: IndexType,
@@ -47,13 +56,10 @@ where
 
     pub fn new(v: usize, h: usize) -> Self
     where
-        N: Default + Clone,
-        E: Default + Clone,
+        N: Default,
+        E: Default,
     {
-        let nodes = vec![vec![N::default(); h]; v];
-        let vertical = vec![vec![E::default(); h]; v - 1];
-        let horizontal = vec![vec![E::default(); h - 1]; v];
-        Self::new_raw(nodes, vertical, horizontal)
+        Self::new_with(v, h, |_, _| N::default(), |_, _, _| E::default())
     }
 
     pub fn new_with<FN, FE>(v: usize, h: usize, mut fnode: FN, mut fedge: FE) -> Self
@@ -61,15 +67,14 @@ where
         FN: FnMut(usize, usize) -> N,
         FE: FnMut(usize, usize, Direction) -> E,
     {
-        //let vec = (0..=v).map(|vi|(0..=h).map(|hi|fnode(vi,hi)).collect_vec()).collect_vec();
         let mut nodes = Vec::with_capacity(v);
-        let mut vertical = Vec::with_capacity(v);
-        let mut horizontal = Vec::with_capacity(v - 1);
+        let mut vertical = Vec::with_capacity(v - 1);
+        let mut horizontal = Vec::with_capacity(v);
 
         for vi in 0..v - 1 {
             let mut nv = Vec::with_capacity(h);
-            let mut vv = Vec::with_capacity(h - 1);
-            let mut hv = Vec::with_capacity(h);
+            let mut vv = Vec::with_capacity(h);
+            let mut hv = Vec::with_capacity(h - 1);
             for hi in 0..h - 1 {
                 nv.push(fnode(vi, hi));
                 vv.push(fedge(vi, hi, Direction::Vertical));
@@ -173,7 +178,7 @@ impl<'a, N, E, Ix> IntoEdgeReferences for &'a SquareGraph<N, E, Ix>
 where
     Ix: IndexType,
     E: Copy,
-    RangeInclusive<Ix>: Iterator<Item = Ix>,
+    Range<Ix>: Iterator<Item = Ix>,
 {
     type EdgeRef = EdgeReference<'a, E, Ix>;
     type EdgeReferences = EdgeReferences<'a, E, Ix>;
@@ -187,9 +192,7 @@ where
 pub struct EdgeReference<'a, E, Ix>((VerticalIndex<Ix>, HorizontalIndex<Ix>, Direction), &'a E);
 impl<'a, E: Copy, Ix: IndexType> EdgeRef for EdgeReference<'a, E, Ix> {
     type NodeId = (VerticalIndex<Ix>, HorizontalIndex<Ix>);
-
     type EdgeId = (VerticalIndex<Ix>, HorizontalIndex<Ix>, Direction);
-
     type Weight = E;
 
     fn source(&self) -> Self::NodeId {
@@ -233,7 +236,7 @@ impl<'a, E, Ix: IndexType> EdgeReferences<'a, E, Ix> {
 impl<'a, E, Ix> Iterator for EdgeReferences<'a, E, Ix>
 where
     Ix: IndexType,
-    RangeInclusive<Ix>: Iterator<Item = Ix>,
+    Range<Ix>: Iterator<Item = Ix>,
 {
     type Item = EdgeReference<'a, E, Ix>;
 
@@ -378,27 +381,27 @@ where
 impl<'a, N, E, Ix> IntoNodeIdentifiers for &'a SquareGraph<N, E, Ix>
 where
     Ix: IndexType,
-    RangeInclusive<Ix>: Iterator<Item = Ix>,
+    Range<Ix>: Iterator<Item = Ix>,
 {
     type NodeIdentifiers = NodeIndices<Ix>;
 
     fn node_identifiers(self) -> Self::NodeIdentifiers {
-        NodeIndices::new(self.horizontal_node_count(), self.vertical_node_count())
+        NodeIndices::new(self.vertical_node_count(), self.horizontal_node_count())
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct NodeIndices<Ix> {
-    p: itertools::Product<RangeInclusive<usize>, RangeInclusive<usize>>,
+    p: itertools::Product<Range<usize>, Range<usize>>,
     size: usize,
     pd: PhantomData<Ix>,
 }
 
 impl<Ix> NodeIndices<Ix> {
-    pub fn new(v: usize, h: usize) -> Self {
+    fn new(v: usize, h: usize) -> Self {
         Self {
-            p: (0..=v).cartesian_product(0..=h),
-            size: (v + 1) * (h + 1),
+            p: (0..v).cartesian_product(0..h),
+            size: v * h,
             pd: PhantomData,
         }
     }
@@ -406,7 +409,7 @@ impl<Ix> NodeIndices<Ix> {
 
 impl<Ix: IndexType> Iterator for NodeIndices<Ix>
 where
-    RangeInclusive<Ix>: Iterator<Item = Ix>,
+    Range<Ix>: Iterator<Item = Ix>,
 {
     type Item = (VerticalIndex<Ix>, HorizontalIndex<Ix>);
 
@@ -422,10 +425,10 @@ where
     }
 }
 
-impl<Ix: IndexType> FusedIterator for NodeIndices<Ix> where RangeInclusive<Ix>: Iterator<Item = Ix> {}
+impl<Ix: IndexType> FusedIterator for NodeIndices<Ix> where Range<Ix>: Iterator<Item = Ix> {}
 impl<Ix: IndexType> ExactSizeIterator for NodeIndices<Ix>
 where
-    RangeInclusive<Ix>: Iterator<Item = Ix>,
+    Range<Ix>: Iterator<Item = Ix>,
 {
     fn len(&self) -> usize {
         self.size
@@ -467,11 +470,65 @@ where
     }
 
     fn to_index(self: &Self, a: Self::NodeId) -> usize {
-        a.0.index() * self.horizontal_node_count() + self.vertical_node_count()
+        a.0.index() * self.horizontal_node_count() + a.1.index()
     }
 
     fn from_index(self: &Self, i: usize) -> Self::NodeId {
         let h = self.horizontal_node_count();
         (NodeIndex::new(i / h), NodeIndex::new(i % h))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    type NI = NodeIndex;
+
+    #[test]
+    fn gen() {
+        let sq = SquareGraph::<_, _, u32>::new_with(
+            4,
+            3,
+            |x, y| x + 2 * y,
+            |x, y, d| (x + 2 * y) as i32 * (if d.is_vertical() { 1 } else { -1 }),
+        );
+        assert_eq!(sq.node_weight((NI::new(0), NI::new(0))), Some(&0));
+        assert_eq!(sq.node_weight((NI::new(3), NI::new(0))), Some(&3));
+        assert_eq!(sq.node_weight((NI::new(4), NI::new(0))), None);
+        assert_eq!(sq.node_weight((NI::new(0), NI::new(2))), Some(&4));
+        assert_eq!(sq.node_weight((NI::new(0), NI::new(3))), None);
+        assert_eq!(
+            sq.edge_weight((NI::new(0), NI::new(2), Direction::Vertical)),
+            Some(&4)
+        );
+        assert_eq!(
+            sq.edge_weight((NI::new(0), NI::new(2), Direction::Horizontal)),
+            None
+        );
+        assert_eq!(
+            sq.edge_weight((NI::new(3), NI::new(0), Direction::Vertical)),
+            None
+        );
+        assert_eq!(
+            sq.edge_weight((NI::new(3), NI::new(0), Direction::Horizontal)),
+            Some(&-3)
+        );
+    }
+
+    #[test]
+    fn node_indices() {
+        let sq = SquareGraph::<_, _, u32>::new_with(
+            5,
+            3,
+            |x, y| x + 2 * y,
+            |x, y, d| (x + 2 * y) as i32 * (if d.is_vertical() { 1 } else { -1 }),
+        );
+        for (i, x) in sq.node_identifiers().enumerate() {
+            let x = x;
+            let x2 = sq.to_index(x);
+            assert_eq!(x2, i);
+            let x3 = sq.from_index(x2);
+            assert_eq!(x, x3);
+        }
     }
 }

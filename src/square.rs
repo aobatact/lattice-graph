@@ -1,24 +1,14 @@
-use core::panic;
 use itertools::*;
-use std::{
-    any::TypeId,
-    collections::btree_map::Range,
-    convert::{TryFrom, TryInto},
-    iter::{Flatten, FusedIterator},
-    marker::PhantomData,
-    ops::{Add, RangeInclusive},
-};
-
 use petgraph::{
     data::{DataMap, DataMapMut},
-    graph::{EdgeIndex, IndexType, NodeIndex},
+    graph::{IndexType, NodeIndex},
     visit::{
-        Data, EdgeRef, GetAdjacencyMatrix, GraphBase, GraphProp, IntoEdgeReferences, IntoEdges,
-        IntoEdgesDirected, IntoNeighbors, IntoNeighborsDirected, IntoNodeIdentifiers,
-        IntoNodeReferences, NodeCount, NodeIndexable,
+        Data, EdgeRef, GraphBase, GraphProp, IntoEdgeReferences, IntoNeighbors,
+        IntoNodeIdentifiers, NodeCompactIndexable, NodeCount, NodeIndexable,
     },
     Undirected,
 };
+use std::{iter::FusedIterator, marker::PhantomData, ops::RangeInclusive};
 
 pub type VerticalIndex<Ix> = NodeIndex<Ix>;
 pub type HorizontalIndex<Ix> = NodeIndex<Ix>;
@@ -44,11 +34,80 @@ impl<N, E, Ix> SquareGraph<N, E, Ix>
 where
     Ix: IndexType,
 {
+    pub fn new_raw(nodes: Vec<Vec<N>>, vertical: Vec<Vec<E>>, horizontal: Vec<Vec<E>>) -> Self {
+        let s = Self {
+            nodes,
+            vertical,
+            horizontal,
+            pd: PhantomData,
+        };
+        debug_assert!(s.check_gen());
+        s
+    }
+
+    pub fn new(v: usize, h: usize) -> Self
+    where
+        N: Default + Clone,
+        E: Default + Clone,
+    {
+        let nodes = vec![vec![N::default(); h]; v];
+        let vertical = vec![vec![E::default(); h]; v - 1];
+        let horizontal = vec![vec![E::default(); h - 1]; v];
+        Self::new_raw(nodes, vertical, horizontal)
+    }
+
+    pub fn new_with<FN, FE>(v: usize, h: usize, mut fnode: FN, mut fedge: FE) -> Self
+    where
+        FN: FnMut(usize, usize) -> N,
+        FE: FnMut(usize, usize, Direction) -> E,
+    {
+        //let vec = (0..=v).map(|vi|(0..=h).map(|hi|fnode(vi,hi)).collect_vec()).collect_vec();
+        let mut nodes = Vec::with_capacity(v);
+        let mut vertical = Vec::with_capacity(v);
+        let mut horizontal = Vec::with_capacity(v - 1);
+
+        for vi in 0..v - 1 {
+            let mut nv = Vec::with_capacity(h);
+            let mut vv = Vec::with_capacity(h - 1);
+            let mut hv = Vec::with_capacity(h);
+            for hi in 0..h - 1 {
+                nv.push(fnode(vi, hi));
+                vv.push(fedge(vi, hi, Direction::Vertical));
+                hv.push(fedge(vi, hi, Direction::Horizontal));
+            }
+            nv.push(fnode(vi, h - 1));
+            vv.push(fedge(vi, h - 1, Direction::Vertical));
+            nodes.push(nv);
+            vertical.push(vv);
+            horizontal.push(hv);
+        }
+        let mut nv = Vec::with_capacity(h);
+        let mut hv = Vec::with_capacity(h - 1);
+        for hi in 0..h - 1 {
+            nv.push(fnode(v - 1, hi));
+            hv.push(fedge(v - 1, hi, Direction::Horizontal));
+        }
+        nv.push(fnode(v - 1, h - 1));
+        nodes.push(nv);
+        horizontal.push(hv);
+        Self::new_raw(nodes, vertical, horizontal)
+    }
+
     pub fn vertical_node_count(&self) -> usize {
         self.nodes.len()
     }
     pub fn horizontal_node_count(&self) -> usize {
-        self.nodes[0].len()
+        self.nodes.get(0).map(|x| x.len()).unwrap_or(0)
+    }
+
+    fn check_gen(&self) -> bool {
+        let v = self.vertical_node_count();
+        let h = self.horizontal_node_count();
+        self.nodes.iter().all(|x| x.len() == h)
+            && self.vertical.len() == v - 1
+            && self.vertical.iter().all(|x| x.len() == h)
+            && self.horizontal.len() == v
+            && self.horizontal.iter().all(|x| x.len() == h - 1)
     }
 }
 
@@ -123,8 +182,7 @@ where
         EdgeReferences::new(&self)
     }
 }
-/*
-*/
+
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct EdgeReference<'a, E, Ix>((VerticalIndex<Ix>, HorizontalIndex<Ix>, Direction), &'a E);
 impl<'a, E: Copy, Ix: IndexType> EdgeRef for EdgeReference<'a, E, Ix> {
@@ -270,20 +328,37 @@ where
         todo!()
     }
 }
-
+*/
 
 impl<'a, N, E, Ix> IntoNeighbors for &'a SquareGraph<N, E, Ix>
 where
     Ix: IndexType,
 {
-    type Neighbors;
+    type Neighbors = std::vec::IntoIter<(VerticalIndex<Ix>, HorizontalIndex<Ix>)>;
 
     fn neighbors(self: Self, a: Self::NodeId) -> Self::Neighbors {
-        todo!()
+        let v = self.vertical_node_count();
+        let h = self.horizontal_node_count();
+        let va = a.0.index();
+        let ha = a.1.index();
+        let mut vec = Vec::new();
+        if va != 0 {
+            vec.push((NodeIndex::new(va - 1), a.1));
+        }
+        if va < v - 1 {
+            vec.push((NodeIndex::new(va + 1), a.1));
+        }
+        if ha != 0 {
+            vec.push((a.0, NodeIndex::new(ha - 1)));
+        }
+        if ha < h - 1 {
+            vec.push((a.0, NodeIndex::new(ha + 1)));
+        }
+        vec.into_iter()
     }
 }
 
-
+/*
 impl<'a, N, E, Ix> IntoNeighborsDirected for  &'a SquareGraph<N, E, Ix>
 where
     Ix: IndexType,
@@ -315,6 +390,7 @@ where
 #[derive(Clone, Debug)]
 pub struct NodeIndices<Ix> {
     p: itertools::Product<RangeInclusive<usize>, RangeInclusive<usize>>,
+    size: usize,
     pd: PhantomData<Ix>,
 }
 
@@ -322,6 +398,7 @@ impl<Ix> NodeIndices<Ix> {
     pub fn new(v: usize, h: usize) -> Self {
         Self {
             p: (0..=v).cartesian_product(0..=h),
+            size: (v + 1) * (h + 1),
             pd: PhantomData,
         }
     }
@@ -334,17 +411,26 @@ where
     type Item = (VerticalIndex<Ix>, HorizontalIndex<Ix>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.p
-            .next()
-            .map(|x| (VerticalIndex::new(x.0), HorizontalIndex::new(x.1)))
+        self.p.next().map(|x| {
+            self.size -= 1;
+            (VerticalIndex::new(x.0), HorizontalIndex::new(x.1))
+        })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.p.size_hint()
+        (self.size, Some(self.size))
     }
 }
 
 impl<Ix: IndexType> FusedIterator for NodeIndices<Ix> where RangeInclusive<Ix>: Iterator<Item = Ix> {}
+impl<Ix: IndexType> ExactSizeIterator for NodeIndices<Ix>
+where
+    RangeInclusive<Ix>: Iterator<Item = Ix>,
+{
+    fn len(&self) -> usize {
+        self.size
+    }
+}
 
 /*
 impl<'a, N: Clone, E, Ix> IntoNodeReferences for &'a SquareGraph<N, E, Ix>
@@ -360,6 +446,8 @@ where
     }
 }
 */
+
+impl<N, E, Ix> NodeCompactIndexable for SquareGraph<N, E, Ix> where Ix: IndexType {}
 
 impl<N, E, Ix> NodeCount for SquareGraph<N, E, Ix>
 where

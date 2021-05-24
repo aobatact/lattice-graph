@@ -25,17 +25,17 @@ where
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Direction {
+pub enum Axis {
     Vertical,
     Horizontal,
 }
 
-impl Direction {
+impl Axis {
     pub fn is_vertical(&self) -> bool {
-        *self == Direction::Vertical
+        *self == Axis::Vertical
     }
     pub fn is_horizontal(&self) -> bool {
-        *self == Direction::Horizontal
+        *self == Axis::Horizontal
     }
 }
 
@@ -65,7 +65,7 @@ where
     pub fn new_with<FN, FE>(v: usize, h: usize, mut fnode: FN, mut fedge: FE) -> Self
     where
         FN: FnMut(usize, usize) -> N,
-        FE: FnMut(usize, usize, Direction) -> E,
+        FE: FnMut(usize, usize, Axis) -> E,
     {
         let mut nodes = Vec::with_capacity(v);
         let mut vertical = Vec::with_capacity(v - 1);
@@ -77,11 +77,11 @@ where
             let mut hv = Vec::with_capacity(h - 1);
             for hi in 0..h - 1 {
                 nv.push(fnode(vi, hi));
-                vv.push(fedge(vi, hi, Direction::Vertical));
-                hv.push(fedge(vi, hi, Direction::Horizontal));
+                vv.push(fedge(vi, hi, Axis::Vertical));
+                hv.push(fedge(vi, hi, Axis::Horizontal));
             }
             nv.push(fnode(vi, h - 1));
-            vv.push(fedge(vi, h - 1, Direction::Vertical));
+            vv.push(fedge(vi, h - 1, Axis::Vertical));
             nodes.push(nv);
             vertical.push(vv);
             horizontal.push(hv);
@@ -90,7 +90,7 @@ where
         let mut hv = Vec::with_capacity(h - 1);
         for hi in 0..h - 1 {
             nv.push(fnode(v - 1, hi));
-            hv.push(fedge(v - 1, hi, Direction::Horizontal));
+            hv.push(fedge(v - 1, hi, Axis::Horizontal));
         }
         nv.push(fnode(v - 1, h - 1));
         nodes.push(nv);
@@ -121,7 +121,7 @@ where
     Ix: IndexType,
 {
     type NodeId = (VerticalIndex<Ix>, HorizontalIndex<Ix>);
-    type EdgeId = (VerticalIndex<Ix>, HorizontalIndex<Ix>, Direction);
+    type EdgeId = (VerticalIndex<Ix>, HorizontalIndex<Ix>, Axis);
 }
 
 impl<N, E, Ix> Data for SquareGraph<N, E, Ix>
@@ -142,8 +142,8 @@ where
 
     fn edge_weight(self: &Self, id: Self::EdgeId) -> Option<&Self::EdgeWeight> {
         match id.2 {
-            Direction::Vertical => &self.vertical,
-            Direction::Horizontal => &self.horizontal,
+            Axis::Vertical => &self.vertical,
+            Axis::Horizontal => &self.horizontal,
         }
         .get(id.0.index())?
         .get(id.1.index())
@@ -160,8 +160,8 @@ where
 
     fn edge_weight_mut(self: &mut Self, id: Self::EdgeId) -> Option<&mut Self::EdgeWeight> {
         match id.2 {
-            Direction::Vertical => &mut self.vertical,
-            Direction::Horizontal => &mut self.horizontal,
+            Axis::Vertical => &mut self.vertical,
+            Axis::Horizontal => &mut self.horizontal,
         }
         .get_mut(id.0.index())?
         .get_mut(id.1.index())
@@ -189,10 +189,10 @@ where
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct EdgeReference<'a, E, Ix>((VerticalIndex<Ix>, HorizontalIndex<Ix>, Direction), &'a E);
+pub struct EdgeReference<'a, E, Ix>((VerticalIndex<Ix>, HorizontalIndex<Ix>, Axis), &'a E);
 impl<'a, E: Copy, Ix: IndexType> EdgeRef for EdgeReference<'a, E, Ix> {
     type NodeId = (VerticalIndex<Ix>, HorizontalIndex<Ix>);
-    type EdgeId = (VerticalIndex<Ix>, HorizontalIndex<Ix>, Direction);
+    type EdgeId = (VerticalIndex<Ix>, HorizontalIndex<Ix>, Axis);
     type Weight = E;
 
     fn source(&self) -> Self::NodeId {
@@ -201,8 +201,8 @@ impl<'a, E: Copy, Ix: IndexType> EdgeRef for EdgeReference<'a, E, Ix> {
 
     fn target(&self) -> Self::NodeId {
         match self.0 .2 {
-            Direction::Vertical => (NodeIndex::new(self.0 .0.index() + 1), self.0 .1),
-            Direction::Horizontal => (self.0 .0, NodeIndex::new(self.0 .1.index() + 1)),
+            Axis::Vertical => (NodeIndex::new(self.0 .0.index() + 1), self.0 .1),
+            Axis::Horizontal => (self.0 .0, NodeIndex::new(self.0 .1.index() + 1)),
         }
     }
 
@@ -219,7 +219,7 @@ pub struct EdgeReferences<'a, E, Ix> {
     vertical: &'a Vec<Vec<E>>,
     horizontal: &'a Vec<Vec<E>>,
     nodes: NodeIndices<Ix>,
-    prv: Option<(VerticalIndex<Ix>, HorizontalIndex<Ix>, Direction)>,
+    prv: Option<(VerticalIndex<Ix>, HorizontalIndex<Ix>, Axis)>,
 }
 
 impl<'a, E, Ix: IndexType> EdgeReferences<'a, E, Ix> {
@@ -243,10 +243,10 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             if let Some(ref mut e) = self.prv {
-                if e.2 == Direction::Vertical {
+                if e.2 == Axis::Vertical {
                     let item = self.horizontal[e.0.index()].get(e.1.index());
                     if let Some(item) = item {
-                        e.2 = Direction::Horizontal;
+                        e.2 = Axis::Horizontal;
                         return Some(EdgeReference(*e, item));
                     }
                 }
@@ -257,7 +257,7 @@ where
                     .get(next.0.index())
                     .map(|x| x.get(next.1.index()))
                     .flatten();
-                let e = (next.0, next.1, Direction::Vertical);
+                let e = (next.0, next.1, Axis::Vertical);
                 self.prv = Some(e);
                 if let Some(item) = item {
                     return Some(EdgeReference(e, item));
@@ -290,45 +290,31 @@ where
         let mut vec = Vec::new();
         if va != 0 {
             vec.push(EdgeReference(
-                (NodeIndex::new(va - 1), a.1, Direction::Vertical),
+                (NodeIndex::new(va - 1), a.1, Axis::Vertical),
                 &self.vertical[va - 1][ha],
             ));
         }
         if va < v - 1 {
             vec.push(EdgeReference(
-                (NodeIndex::new(va + 1), a.1, Direction::Vertical),
+                (NodeIndex::new(va + 1), a.1, Axis::Vertical),
                 &self.vertical[va + 1][ha],
             ));
         }
         if ha != 0 {
             vec.push(EdgeReference(
-                (a.0, NodeIndex::new(ha - 1), Direction::Horizontal),
+                (a.0, NodeIndex::new(ha - 1), Axis::Horizontal),
                 &self.vertical[va - 1][ha],
             ));
         }
         if ha < h - 1 {
             vec.push(EdgeReference(
-                (a.0, NodeIndex::new(ha + 1), Direction::Horizontal),
+                (a.0, NodeIndex::new(ha + 1), Axis::Horizontal),
                 &self.vertical[va + 1][ha],
             ));
         }
         vec.into_iter()
     }
 }
-
-/*
-
-impl<'a, N, E, Ix> IntoEdgesDirected for &'a SquareGraph<N, E, Ix>
-where
-    Ix: IndexType,
-{
-    type EdgesDirected;
-
-    fn edges_directed(self, a: Self::NodeId, dir: petgraph::EdgeDirection) -> Self::EdgesDirected {
-        todo!()
-    }
-}
-*/
 
 impl<'a, N, E, Ix> IntoNeighbors for &'a SquareGraph<N, E, Ix>
 where
@@ -357,23 +343,6 @@ where
         vec.into_iter()
     }
 }
-
-/*
-impl<'a, N, E, Ix> IntoNeighborsDirected for  &'a SquareGraph<N, E, Ix>
-where
-    Ix: IndexType,
-{
-    type NeighborsDirected;
-
-    fn neighbors_directed(
-        self,
-        n: Self::NodeId,
-        d: petgraph::EdgeDirection,
-    ) -> Self::NeighborsDirected {
-        todo!()
-    }
-}
-*/
 
 impl<'a, N, E, Ix> IntoNodeIdentifiers for &'a SquareGraph<N, E, Ix>
 where
@@ -495,19 +464,19 @@ mod tests {
         assert_eq!(sq.node_weight((NI::new(0), NI::new(2))), Some(&4));
         assert_eq!(sq.node_weight((NI::new(0), NI::new(3))), None);
         assert_eq!(
-            sq.edge_weight((NI::new(0), NI::new(2), Direction::Vertical)),
+            sq.edge_weight((NI::new(0), NI::new(2), Axis::Vertical)),
             Some(&4)
         );
         assert_eq!(
-            sq.edge_weight((NI::new(0), NI::new(2), Direction::Horizontal)),
+            sq.edge_weight((NI::new(0), NI::new(2), Axis::Horizontal)),
             None
         );
         assert_eq!(
-            sq.edge_weight((NI::new(3), NI::new(0), Direction::Vertical)),
+            sq.edge_weight((NI::new(3), NI::new(0), Axis::Vertical)),
             None
         );
         assert_eq!(
-            sq.edge_weight((NI::new(3), NI::new(0), Direction::Horizontal)),
+            sq.edge_weight((NI::new(3), NI::new(0), Axis::Horizontal)),
             Some(&-3)
         );
     }
@@ -542,7 +511,7 @@ mod tests {
         let mut x = -1;
         for e in sq
             .edge_references()
-            .filter(|x| x.id().2 == Direction::Vertical)
+            .filter(|x| x.id().2 == Axis::Vertical)
         {
             let y = sq.to_index((e.0 .0, e.0 .1)) as i32;
             assert!(x < y);

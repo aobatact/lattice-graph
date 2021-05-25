@@ -1,10 +1,11 @@
+use fixedbitset::FixedBitSet;
 use itertools::*;
 use petgraph::{
     data::{DataMap, DataMapMut},
     graph::IndexType,
     visit::{
         Data, EdgeRef, GraphBase, GraphProp, IntoEdgeReferences, IntoEdges, IntoNeighbors,
-        IntoNodeIdentifiers, NodeCompactIndexable, NodeCount, NodeIndexable,
+        IntoNodeIdentifiers, NodeCompactIndexable, NodeCount, NodeIndexable, VisitMap, Visitable,
     },
     Undirected,
 };
@@ -448,6 +449,46 @@ where
     fn from_index(self: &Self, i: usize) -> Self::NodeId {
         let h = self.horizontal_node_count();
         (i / h, i % h).into()
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct VisMap {
+    v: Vec<FixedBitSet>,
+}
+
+impl VisMap {
+    pub fn new(v: usize, h: usize) -> Self {
+        let mut vec = Vec::with_capacity(v);
+        for _ in 0..v {
+            vec.push(FixedBitSet::with_capacity(h));
+        }
+        Self { v: vec }
+    }
+}
+
+impl<Ix: IndexType> VisitMap<NodeIndex<Ix>> for VisMap {
+    fn visit(&mut self, a: NodeIndex<Ix>) -> bool {
+        !self.v[a.0.index()].put(a.1.index())
+    }
+
+    fn is_visited(&self, a: &NodeIndex<Ix>) -> bool {
+        self.v[a.0.index()].contains(a.1.index())
+    }
+}
+
+impl<N, E, Ix> Visitable for SquareGraph<N, E, Ix>
+where
+    Ix: IndexType,
+{
+    type Map = VisMap;
+
+    fn visit_map(self: &Self) -> Self::Map {
+        VisMap::new(self.vertical_node_count(), self.horizontal_node_count())
+    }
+
+    fn reset_map(self: &Self, map: &mut Self::Map) {
+        map.v.iter_mut().for_each(|x| x.clear())
     }
 }
 

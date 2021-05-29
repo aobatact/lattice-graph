@@ -5,7 +5,8 @@ use petgraph::{
     graph::IndexType,
     visit::{
         Data, EdgeRef, GraphBase, GraphProp, IntoEdgeReferences, IntoEdges, IntoNeighbors,
-        IntoNodeIdentifiers, NodeCompactIndexable, NodeCount, NodeIndexable, VisitMap, Visitable,
+        IntoNodeIdentifiers, IntoNodeReferences, NodeCompactIndexable, NodeCount, NodeIndexable,
+        VisitMap, Visitable,
     },
     Undirected,
 };
@@ -396,6 +397,16 @@ where
     fn size_hint(&self) -> (usize, Option<usize>) {
         (self.size, Some(self.size))
     }
+
+    fn count(mut self) -> usize
+    where
+        Self: Sized,
+    {
+        let s = self.size;
+        self.size = 0;
+        self.p.last();
+        s
+    }
 }
 
 impl<Ix: IndexType> FusedIterator for NodeIndices<Ix> where Range<Ix>: Iterator<Item = Ix> {}
@@ -408,20 +419,48 @@ where
     }
 }
 
-/*
 impl<'a, N: Clone, E, Ix> IntoNodeReferences for &'a SquareGraph<N, E, Ix>
 where
     Ix: IndexType,
+    Range<Ix>: Iterator<Item = Ix>,
 {
-    type NodeRef;
-
-    type NodeReferences;
+    type NodeRef = (NodeIndex<Ix>, &'a N);
+    type NodeReferences = NodeReferences<'a, N, Ix>;
 
     fn node_references(self) -> Self::NodeReferences {
-        todo!()
+        NodeReferences {
+            indices: self.node_identifiers(),
+            nodes: &self.nodes,
+        }
     }
 }
-*/
+
+pub struct NodeReferences<'a, N, Ix> {
+    indices: NodeIndices<Ix>,
+    nodes: &'a Vec<Vec<N>>,
+}
+
+impl<'a, N, Ix> Iterator for NodeReferences<'a, N, Ix>
+where
+    Ix: IndexType,
+    Range<Ix>: Iterator<Item = Ix>,
+{
+    type Item = (NodeIndex<Ix>, &'a N);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.indices.next().map(|x| {
+            (x, unsafe {
+                self.nodes
+                    .get_unchecked(x.0.index())
+                    .get_unchecked(x.1.index())
+            })
+        })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.indices.size_hint()
+    }
+}
 
 impl<N, E, Ix> NodeCompactIndexable for SquareGraph<N, E, Ix> where Ix: IndexType {}
 

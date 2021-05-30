@@ -266,27 +266,37 @@ where
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct EdgeReference<'a, E, Ix: IndexType>((NodeIndex<Ix>, Axis), &'a E);
+pub struct EdgeReference<'a, E, Ix: IndexType>((NodeIndex<Ix>, Axis), &'a E, bool);
+
+impl<'a, E, Ix: IndexType> EdgeReference<'a, E, Ix> {
+    fn get_node(&self, is_source: bool) -> NodeIndex<Ix> {
+        if is_source {
+            self.0 .0
+        } else {
+            match self.0 .1 {
+                Axis::Vertical => NodeIndex::new(
+                    Ix::new(self.0 .0.vertical.index() + 1),
+                    self.0 .0.horizontal,
+                ),
+                Axis::Horizontal => NodeIndex::new(
+                    self.0 .0.vertical,
+                    Ix::new(self.0 .0.horizontal.index() + 1),
+                ),
+            }
+        }
+    }
+}
 impl<'a, E: Copy, Ix: IndexType> EdgeRef for EdgeReference<'a, E, Ix> {
     type NodeId = NodeIndex<Ix>;
     type EdgeId = (NodeIndex<Ix>, Axis);
     type Weight = E;
 
     fn source(&self) -> Self::NodeId {
-        self.0 .0
+        self.get_node(self.2)
     }
 
     fn target(&self) -> Self::NodeId {
-        match self.0 .1 {
-            Axis::Vertical => NodeIndex::new(
-                Ix::new(self.0 .0.vertical.index() + 1),
-                self.0 .0.horizontal,
-            ),
-            Axis::Horizontal => NodeIndex::new(
-                self.0 .0.vertical,
-                Ix::new(self.0 .0.horizontal.index() + 1),
-            ),
-        }
+        self.get_node(!self.2)
     }
 
     fn weight(&self) -> &Self::Weight {
@@ -330,7 +340,7 @@ where
                     let item = self.horizontal[e.0.vertical.index()].get(e.0.horizontal.index());
                     if let Some(item) = item {
                         e.1 = Axis::Horizontal;
-                        return Some(EdgeReference(*e, item));
+                        return Some(EdgeReference(*e, item, true));
                     }
                 }
             }
@@ -346,7 +356,7 @@ where
                 );
                 self.prv = Some(e);
                 if let Some(item) = item {
-                    return Some(EdgeReference(e, item));
+                    return Some(EdgeReference(e, item, true));
                 }
             } else {
                 return None;
@@ -381,10 +391,15 @@ where
                     Axis::Vertical,
                 ),
                 &self.vertical[va - 1][ha],
+                false,
             ));
         }
         if va < v - 1 {
-            vec.push(EdgeReference((a, Axis::Vertical), &self.vertical[va][ha]));
+            vec.push(EdgeReference(
+                (a, Axis::Vertical),
+                &self.vertical[va][ha],
+                true,
+            ));
         }
         if ha != 0 {
             vec.push(EdgeReference(
@@ -393,12 +408,14 @@ where
                     Axis::Horizontal,
                 ),
                 &self.horizontal[va][ha - 1],
+                false,
             ));
         }
         if ha < h - 1 {
             vec.push(EdgeReference(
                 (a, Axis::Horizontal),
                 &self.horizontal[va][ha],
+                true,
             ));
         }
         vec.into_iter()
@@ -679,6 +696,18 @@ mod tests {
         assert!(x.is_some());
         let (d, p) = x.unwrap();
         assert_eq!(d, 5);
-        assert_eq!(p, [(0, 0), (0, 1), (1, 1), (2, 1)])
+        assert_eq!(p, [(0, 0), (0, 1), (1, 1), (2, 1)]);
+
+        let x = petgraph::algo::astar(
+            &sq,
+            (2, 1).into(),
+            |x| x == (0, 0),
+            |e| *e.weight(),
+            |x| x.distance((0, 0)) as i32,
+        );
+        assert!(x.is_some());
+        let (d, p) = x.unwrap();
+        assert_eq!(d, 5);
+        assert_eq!(p, [(2, 1), (1, 1), (0, 1), (0, 0)])
     }
 }

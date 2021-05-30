@@ -12,17 +12,6 @@ use petgraph::{
 };
 use std::{iter::FusedIterator, marker::PhantomData, ops::Range, usize};
 
-#[derive(Clone, Debug)]
-pub struct SquareGraph<N, E, Ix = usize>
-where
-    Ix: IndexType,
-{
-    nodes: Vec</*horizontal*/ Box<[N]>>,
-    vertical: Vec<Box<[E]>>,   //↓
-    horizontal: Vec<Box<[E]>>, //→
-    pd: PhantomData<Ix>,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Axis {
     Vertical,
@@ -36,6 +25,61 @@ impl Axis {
     pub fn is_horizontal(&self) -> bool {
         *self == Axis::Horizontal
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum SquareDirection {
+    Foward(Axis),
+    Backward(Axis),
+}
+
+impl SquareDirection {
+    /// Foward Vertical
+    pub fn up() -> Self {
+        Self::Foward(Axis::Vertical)
+    }
+    /// Backward Vertical
+    pub fn down() -> Self {
+        Self::Backward(Axis::Vertical)
+    }
+    /// Backward Horizontal
+    pub fn left() -> Self {
+        Self::Backward(Axis::Horizontal)
+    }
+    /// Foward Horizontal
+    pub fn right() -> Self {
+        Self::Foward(Axis::Vertical)
+    }
+}
+
+impl From<(Axis, bool)> for SquareDirection {
+    fn from((axis, dir): (Axis, bool)) -> Self {
+        if dir {
+            SquareDirection::Foward(axis)
+        } else {
+            SquareDirection::Backward(axis)
+        }
+    }
+}
+
+impl From<SquareDirection> for (Axis, bool) {
+    fn from(dir: SquareDirection) -> Self {
+        match dir {
+            SquareDirection::Backward(x) => (x, false),
+            SquareDirection::Foward(x) => (x, true),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct SquareGraph<N, E, Ix = usize>
+where
+    Ix: IndexType,
+{
+    nodes: Vec</*horizontal*/ Box<[N]>>,
+    vertical: Vec<Box<[E]>>,   //↓
+    horizontal: Vec<Box<[E]>>, //→
+    pd: PhantomData<Ix>,
 }
 
 impl<N, E, Ix> SquareGraph<N, E, Ix>
@@ -169,6 +213,20 @@ impl<Ix: IndexType> NodeIndex<Ix> {
         (self.vertical.index() as isize - target.0 as isize).abs() as usize
             + (self.horizontal.index() as isize - target.1 as isize).abs() as usize
     }
+
+    pub fn get_edge_id(&self, dir: SquareDirection) -> (Self, Axis) {
+        match dir {
+            SquareDirection::Foward(x) => (*self, x),
+            SquareDirection::Backward(a @ Axis::Horizontal) => (
+                Self::new(self.vertical, Ix::new(self.horizontal.index() - 1)),
+                a,
+            ),
+            SquareDirection::Backward(a @ Axis::Vertical) => (
+                Self::new(Ix::new(self.vertical.index() - 1), self.horizontal),
+                a,
+            ),
+        }
+    }
 }
 
 impl<Ix: IndexType> PartialEq<(usize, usize)> for NodeIndex<Ix> {
@@ -266,21 +324,25 @@ where
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct EdgeReference<'a, E, Ix: IndexType>((NodeIndex<Ix>, Axis), &'a E, bool);
+pub struct EdgeReference<'a, E, Ix: IndexType> {
+    edge_id: (NodeIndex<Ix>, Axis),
+    edge_weight: &'a E,
+    direction: bool,
+}
 
 impl<'a, E, Ix: IndexType> EdgeReference<'a, E, Ix> {
     fn get_node(&self, is_source: bool) -> NodeIndex<Ix> {
         if is_source {
-            (self.0).0
+            (self.edge_id).0
         } else {
-            match (self.0).1 {
+            match (self.edge_id).1 {
                 Axis::Vertical => NodeIndex::new(
-                    Ix::new((self.0).0.vertical.index() + 1),
-                    (self.0).0.horizontal,
+                    Ix::new((self.edge_id).0.vertical.index() + 1),
+                    (self.edge_id).0.horizontal,
                 ),
                 Axis::Horizontal => NodeIndex::new(
-                    (self.0).0.vertical,
-                    Ix::new((self.0).0.horizontal.index() + 1),
+                    (self.edge_id).0.vertical,
+                    Ix::new((self.edge_id).0.horizontal.index() + 1),
                 ),
             }
         }
@@ -292,19 +354,19 @@ impl<'a, E: Copy, Ix: IndexType> EdgeRef for EdgeReference<'a, E, Ix> {
     type Weight = E;
 
     fn source(&self) -> Self::NodeId {
-        self.get_node(self.2)
+        self.get_node(self.direction)
     }
 
     fn target(&self) -> Self::NodeId {
-        self.get_node(!self.2)
+        self.get_node(!self.direction)
     }
 
     fn weight(&self) -> &Self::Weight {
-        self.1
+        self.edge_weight
     }
 
     fn id(&self) -> Self::EdgeId {
-        self.0
+        self.edge_id
     }
 }
 #[derive(Clone, Debug)]
@@ -340,7 +402,11 @@ where
                     let item = self.horizontal[e.0.vertical.index()].get(e.0.horizontal.index());
                     if let Some(item) = item {
                         e.1 = Axis::Horizontal;
-                        return Some(EdgeReference(*e, item, true));
+                        return Some(EdgeReference {
+                            edge_id: *e,
+                            edge_weight: item,
+                            direction: true,
+                        });
                     }
                 }
             }
@@ -350,13 +416,17 @@ where
                     .get(next.vertical.index())
                     .map(|x| x.get(next.horizontal.index()))
                     .flatten();
-                let e = (
+                let edge_id = (
                     NodeIndex::new(next.vertical, next.horizontal),
                     Axis::Vertical,
                 );
-                self.prv = Some(e);
-                if let Some(item) = item {
-                    return Some(EdgeReference(e, item, true));
+                self.prv = Some(edge_id);
+                if let Some(edge_weight) = item {
+                    return Some(EdgeReference {
+                        edge_id,
+                        edge_weight,
+                        direction: true,
+                    });
                 }
             } else {
                 return None;
@@ -385,38 +455,38 @@ where
         let ha = a.horizontal.index();
         let mut vec = Vec::new();
         if va != 0 {
-            vec.push(EdgeReference(
-                (
+            vec.push(EdgeReference {
+                edge_id: (
                     NodeIndex::new(Ix::new(va - 1), a.horizontal),
                     Axis::Vertical,
                 ),
-                &self.vertical[va - 1][ha],
-                false,
-            ));
+                edge_weight: &self.vertical[va - 1][ha],
+                direction: false,
+            });
         }
         if va < v - 1 {
-            vec.push(EdgeReference(
-                (a, Axis::Vertical),
-                &self.vertical[va][ha],
-                true,
-            ));
+            vec.push(EdgeReference {
+                edge_id: (a, Axis::Vertical),
+                edge_weight: &self.vertical[va][ha],
+                direction: true,
+            });
         }
         if ha != 0 {
-            vec.push(EdgeReference(
-                (
+            vec.push(EdgeReference {
+                edge_id: (
                     NodeIndex::new(a.vertical, Ix::new(ha - 1)),
                     Axis::Horizontal,
                 ),
-                &self.horizontal[va][ha - 1],
-                false,
-            ));
+                edge_weight: &self.horizontal[va][ha - 1],
+                direction: false,
+            });
         }
         if ha < h - 1 {
-            vec.push(EdgeReference(
-                (a, Axis::Horizontal),
-                &self.horizontal[va][ha],
-                true,
-            ));
+            vec.push(EdgeReference {
+                edge_id: (a, Axis::Horizontal),
+                edge_weight: &self.horizontal[va][ha],
+                direction: true,
+            });
         }
         vec.into_iter()
     }
@@ -669,7 +739,7 @@ mod tests {
         let mut i = 0;
         let mut x = -1;
         for e in sq.edge_references().filter(|x| x.id().1 == Axis::Vertical) {
-            let y = sq.to_index(e.0 .0) as i32;
+            let y = sq.to_index(e.edge_id.0) as i32;
             assert!(x < y);
             x = y;
             i += 1;

@@ -10,7 +10,10 @@ use petgraph::{
     },
     Undirected,
 };
+use smallvec::*;
 use std::{iter::FusedIterator, marker::PhantomData, ops::Range, usize};
+
+const BORDER: usize = 64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Axis {
@@ -35,19 +38,19 @@ pub enum SquareDirection {
 
 impl SquareDirection {
     /// Foward Vertical
-    pub fn up() -> Self {
+    pub const fn up() -> Self {
         Self::Foward(Axis::Vertical)
     }
     /// Backward Vertical
-    pub fn down() -> Self {
+    pub const fn down() -> Self {
         Self::Backward(Axis::Vertical)
     }
     /// Backward Horizontal
-    pub fn left() -> Self {
+    pub const fn left() -> Self {
         Self::Backward(Axis::Horizontal)
     }
     /// Foward Horizontal
-    pub fn right() -> Self {
+    pub const fn right() -> Self {
         Self::Foward(Axis::Vertical)
     }
 }
@@ -76,9 +79,10 @@ pub struct SquareGraph<N, E, Ix = usize>
 where
     Ix: IndexType,
 {
-    nodes: Vec</*horizontal*/ Box<[N]>>,
-    vertical: Vec<Box<[E]>>,   //↓
-    horizontal: Vec<Box<[E]>>, //→
+    /// [vertical][horizontal]
+    nodes: SmallVec<[SmallVec<[N; BORDER]>; BORDER]>,
+    vertical: SmallVec<[SmallVec<[E; BORDER]>; BORDER]>, //↓
+    horizontal: SmallVec<[SmallVec<[E; BORDER]>; BORDER]>, //→
     pd: PhantomData<Ix>,
 }
 
@@ -87,9 +91,9 @@ where
     Ix: IndexType,
 {
     pub fn new_raw(
-        nodes: Vec<Box<[N]>>,
-        vertical: Vec<Box<[E]>>,
-        horizontal: Vec<Box<[E]>>,
+        nodes: SmallVec<[SmallVec<[N; BORDER]>; BORDER]>,
+        vertical: SmallVec<[SmallVec<[E; BORDER]>; BORDER]>,
+        horizontal: SmallVec<[SmallVec<[E; BORDER]>; BORDER]>,
     ) -> Self {
         let s = Self {
             nodes,
@@ -114,14 +118,14 @@ where
         FN: FnMut(usize, usize) -> N,
         FE: FnMut(usize, usize, Axis) -> E,
     {
-        let mut nodes = Vec::with_capacity(v);
-        let mut vertical = Vec::with_capacity(v - 1);
-        let mut horizontal = Vec::with_capacity(v);
+        let mut nodes = SmallVec::with_capacity(v);
+        let mut vertical = SmallVec::with_capacity(v - 1);
+        let mut horizontal = SmallVec::with_capacity(v);
 
         for vi in 0..v - 1 {
-            let mut nv = Vec::with_capacity(h);
-            let mut vv = Vec::with_capacity(h);
-            let mut hv = Vec::with_capacity(h - 1);
+            let mut nv = SmallVec::with_capacity(h);
+            let mut vv = SmallVec::with_capacity(h);
+            let mut hv = SmallVec::with_capacity(h - 1);
             for hi in 0..h - 1 {
                 nv.push(fnode(vi, hi));
                 vv.push(fedge(vi, hi, Axis::Vertical));
@@ -129,19 +133,19 @@ where
             }
             nv.push(fnode(vi, h - 1));
             vv.push(fedge(vi, h - 1, Axis::Vertical));
-            nodes.push(nv.into_boxed_slice());
-            vertical.push(vv.into_boxed_slice());
-            horizontal.push(hv.into_boxed_slice());
+            nodes.push(nv);
+            vertical.push(vv);
+            horizontal.push(hv);
         }
-        let mut nv = Vec::with_capacity(h);
-        let mut hv = Vec::with_capacity(h - 1);
+        let mut nv = SmallVec::with_capacity(h);
+        let mut hv = SmallVec::with_capacity(h - 1);
         for hi in 0..h - 1 {
             nv.push(fnode(v - 1, hi));
             hv.push(fedge(v - 1, hi, Axis::Horizontal));
         }
         nv.push(fnode(v - 1, h - 1));
-        nodes.push(nv.into_boxed_slice());
-        horizontal.push(hv.into_boxed_slice());
+        nodes.push(nv);
+        horizontal.push(hv);
         Self::new_raw(nodes, vertical, horizontal)
     }
 
@@ -163,32 +167,32 @@ where
     }
 
     /// Get a reference to the square graph's nodes.
-    pub fn nodes(&self) -> &[Box<[N]>] {
+    pub fn nodes(&self) -> &[SmallVec<[N; BORDER]>] {
         &self.nodes
     }
 
     /// Get a mutable reference to the square graph's vertical.
-    pub fn vertical(&self) -> &[Box<[E]>] {
+    pub fn vertical(&self) -> &[SmallVec<[E; BORDER]>] {
         &self.vertical
     }
 
     /// Get a mutable reference to the square graph's horizontal.
-    pub fn horizontal(&self) -> &[Box<[E]>] {
+    pub fn horizontal(&self) -> &[SmallVec<[E; BORDER]>] {
         &self.horizontal
     }
 
     /// Get a reference to the square graph's nodes.
-    pub fn nodes_mut(&mut self) -> &mut [Box<[N]>] {
+    pub fn nodes_mut(&mut self) -> &mut [SmallVec<[N; BORDER]>] {
         &mut self.nodes
     }
 
     /// Get a mutable reference to the square graph's vertical.
-    pub fn vertical_mut(&mut self) -> &mut [Box<[E]>] {
+    pub fn vertical_mut(&mut self) -> &mut [SmallVec<[E; BORDER]>] {
         &mut self.vertical
     }
 
     /// Get a mutable reference to the square graph's horizontal.
-    pub fn horizontal_mut(&mut self) -> &mut [Box<[E]>] {
+    pub fn horizontal_mut(&mut self) -> &mut [SmallVec<[E; BORDER]>] {
         &mut self.horizontal
     }
 }
@@ -371,8 +375,8 @@ impl<'a, E: Copy, Ix: IndexType> EdgeRef for EdgeReference<'a, E, Ix> {
 }
 #[derive(Clone, Debug)]
 pub struct EdgeReferences<'a, E, Ix: IndexType> {
-    vertical: &'a Vec<Box<[E]>>,
-    horizontal: &'a Vec<Box<[E]>>,
+    vertical: &'a SmallVec<[SmallVec<[E; BORDER]>; BORDER]>,
+    horizontal: &'a SmallVec<[SmallVec<[E; BORDER]>; BORDER]>,
     nodes: NodeIndices<Ix>,
     prv: Option<(NodeIndex<Ix>, Axis)>,
 }
@@ -590,7 +594,7 @@ where
 
 pub struct NodeReferences<'a, N, Ix> {
     indices: NodeIndices<Ix>,
-    nodes: &'a Vec<Box<[N]>>,
+    nodes: &'a SmallVec<[SmallVec<[N; BORDER]>; BORDER]>,
 }
 
 impl<'a, N, Ix> Iterator for NodeReferences<'a, N, Ix>

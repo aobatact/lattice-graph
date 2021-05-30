@@ -271,16 +271,16 @@ pub struct EdgeReference<'a, E, Ix: IndexType>((NodeIndex<Ix>, Axis), &'a E, boo
 impl<'a, E, Ix: IndexType> EdgeReference<'a, E, Ix> {
     fn get_node(&self, is_source: bool) -> NodeIndex<Ix> {
         if is_source {
-            self.0 .0
+            (self.0).0
         } else {
-            match self.0 .1 {
+            match (self.0).1 {
                 Axis::Vertical => NodeIndex::new(
-                    Ix::new(self.0 .0.vertical.index() + 1),
-                    self.0 .0.horizontal,
+                    Ix::new((self.0).0.vertical.index() + 1),
+                    (self.0).0.horizontal,
                 ),
                 Axis::Horizontal => NodeIndex::new(
-                    self.0 .0.vertical,
-                    Ix::new(self.0 .0.horizontal.index() + 1),
+                    (self.0).0.vertical,
+                    Ix::new((self.0).0.horizontal.index() + 1),
                 ),
             }
         }

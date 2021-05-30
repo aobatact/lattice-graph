@@ -450,14 +450,14 @@ where
     E: Copy,
     Range<Ix>: Iterator<Item = Ix>,
 {
-    type Edges = std::vec::IntoIter<EdgeReference<'a, E, Ix>>;
+    type Edges = smallvec::IntoIter<[EdgeReference<'a, E, Ix>; 4]>;
 
     fn edges(self, a: Self::NodeId) -> Self::Edges {
         let v = self.vertical_node_count();
         let h = self.horizontal_node_count();
         let va = a.vertical.index();
         let ha = a.horizontal.index();
-        let mut vec = Vec::new();
+        let mut vec = SmallVec::with_capacity(4);
         if va != 0 {
             vec.push(EdgeReference {
                 edge_id: (

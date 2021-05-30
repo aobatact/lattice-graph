@@ -10,16 +10,16 @@ use petgraph::{
     },
     Undirected,
 };
-use std::{iter::FusedIterator, marker::PhantomData, ops::Range};
+use std::{iter::FusedIterator, marker::PhantomData, ops::Range, usize};
 
 #[derive(Clone, Debug)]
 pub struct SquareGraph<N, E, Ix = usize>
 where
     Ix: IndexType,
 {
-    nodes: Vec</*horizontal*/ Vec<N>>,
-    vertical: Vec<Vec<E>>,   //↓
-    horizontal: Vec<Vec<E>>, //→
+    nodes: Vec</*horizontal*/ Box<[N]>>,
+    vertical: Vec<Box<[E]>>,   //↓
+    horizontal: Vec<Box<[E]>>, //→
     pd: PhantomData<Ix>,
 }
 
@@ -42,7 +42,11 @@ impl<N, E, Ix> SquareGraph<N, E, Ix>
 where
     Ix: IndexType,
 {
-    pub fn new_raw(nodes: Vec<Vec<N>>, vertical: Vec<Vec<E>>, horizontal: Vec<Vec<E>>) -> Self {
+    pub fn new_raw(
+        nodes: Vec<Box<[N]>>,
+        vertical: Vec<Box<[E]>>,
+        horizontal: Vec<Box<[E]>>,
+    ) -> Self {
         let s = Self {
             nodes,
             vertical,
@@ -81,9 +85,9 @@ where
             }
             nv.push(fnode(vi, h - 1));
             vv.push(fedge(vi, h - 1, Axis::Vertical));
-            nodes.push(nv);
-            vertical.push(vv);
-            horizontal.push(hv);
+            nodes.push(nv.into_boxed_slice());
+            vertical.push(vv.into_boxed_slice());
+            horizontal.push(hv.into_boxed_slice());
         }
         let mut nv = Vec::with_capacity(h);
         let mut hv = Vec::with_capacity(h - 1);
@@ -92,8 +96,8 @@ where
             hv.push(fedge(v - 1, hi, Axis::Horizontal));
         }
         nv.push(fnode(v - 1, h - 1));
-        nodes.push(nv);
-        horizontal.push(hv);
+        nodes.push(nv.into_boxed_slice());
+        horizontal.push(hv.into_boxed_slice());
         Self::new_raw(nodes, vertical, horizontal)
     }
 
@@ -113,14 +117,75 @@ where
             && self.horizontal.len() == v
             && self.horizontal.iter().all(|x| x.len() == h - 1)
     }
+
+    /// Get a reference to the square graph's nodes.
+    pub fn nodes(&self) -> &[Box<[N]>] {
+        &self.nodes
+    }
+
+    /// Get a mutable reference to the square graph's vertical.
+    pub fn vertical(&self) -> &[Box<[E]>] {
+        &self.vertical
+    }
+
+    /// Get a mutable reference to the square graph's horizontal.
+    pub fn horizontal(&self) -> &[Box<[E]>] {
+        &self.horizontal
+    }
+
+    /// Get a reference to the square graph's nodes.
+    pub fn nodes_mut(&mut self) -> &mut [Box<[N]>] {
+        &mut self.nodes
+    }
+
+    /// Get a mutable reference to the square graph's vertical.
+    pub fn vertical_mut(&mut self) -> &mut [Box<[E]>] {
+        &mut self.vertical
+    }
+
+    /// Get a mutable reference to the square graph's horizontal.
+    pub fn horizontal_mut(&mut self) -> &mut [Box<[E]>] {
+        &mut self.horizontal
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct NodeIndex<Ix: IndexType>(Ix, Ix);
+pub struct NodeIndex<Ix: IndexType> {
+    pub vertical: Ix,
+    pub horizontal: Ix,
+}
+
+impl<Ix: IndexType> NodeIndex<Ix> {
+    pub fn new(vertical: Ix, horizontal: Ix) -> Self {
+        Self {
+            vertical,
+            horizontal,
+        }
+    }
+
+    /// manhattan distance
+    pub fn distance<T: Into<(usize, usize)>>(&self, target: T) -> usize {
+        let target: (usize, usize) = target.into();
+        (self.vertical.index() as isize - target.0 as isize).abs() as usize
+            + (self.horizontal.index() as isize - target.1 as isize).abs() as usize
+    }
+}
+
+impl<Ix: IndexType> PartialEq<(usize, usize)> for NodeIndex<Ix> {
+    fn eq(&self, value: &(usize, usize)) -> bool {
+        &(self.vertical.index(), self.horizontal.index()) == value
+    }
+}
 
 impl<Ix: IndexType> From<(usize, usize)> for NodeIndex<Ix> {
     fn from(value: (usize, usize)) -> Self {
-        NodeIndex(Ix::new(value.0), Ix::new(value.1))
+        NodeIndex::new(Ix::new(value.0), Ix::new(value.1))
+    }
+}
+
+impl<Ix: IndexType> From<NodeIndex<Ix>> for (usize, usize) {
+    fn from(value: NodeIndex<Ix>) -> Self {
+        (value.vertical.index(), value.horizontal.index())
     }
 }
 
@@ -145,7 +210,9 @@ where
     Ix: IndexType,
 {
     fn node_weight(self: &Self, id: Self::NodeId) -> Option<&Self::NodeWeight> {
-        self.nodes.get(id.0.index())?.get(id.1.index())
+        self.nodes
+            .get(id.vertical.index())?
+            .get(id.horizontal.index())
     }
 
     fn edge_weight(self: &Self, id: Self::EdgeId) -> Option<&Self::EdgeWeight> {
@@ -153,8 +220,8 @@ where
             Axis::Vertical => &self.vertical,
             Axis::Horizontal => &self.horizontal,
         }
-        .get(id.0 .0.index())?
-        .get(id.0 .1.index())
+        .get(id.0.vertical.index())?
+        .get(id.0.horizontal.index())
     }
 }
 
@@ -163,7 +230,9 @@ where
     Ix: IndexType,
 {
     fn node_weight_mut(self: &mut Self, id: Self::NodeId) -> Option<&mut Self::NodeWeight> {
-        self.nodes.get_mut(id.0.index())?.get_mut(id.1.index())
+        self.nodes
+            .get_mut(id.vertical.index())?
+            .get_mut(id.horizontal.index())
     }
 
     fn edge_weight_mut(self: &mut Self, id: Self::EdgeId) -> Option<&mut Self::EdgeWeight> {
@@ -171,8 +240,8 @@ where
             Axis::Vertical => &mut self.vertical,
             Axis::Horizontal => &mut self.horizontal,
         }
-        .get_mut(id.0 .0.index())?
-        .get_mut(id.0 .1.index())
+        .get_mut(id.0.vertical.index())?
+        .get_mut(id.0.horizontal.index())
     }
 }
 
@@ -209,8 +278,14 @@ impl<'a, E: Copy, Ix: IndexType> EdgeRef for EdgeReference<'a, E, Ix> {
 
     fn target(&self) -> Self::NodeId {
         match self.0 .1 {
-            Axis::Vertical => NodeIndex(Ix::new(self.0 .0 .0.index() + 1), self.0 .0 .1),
-            Axis::Horizontal => NodeIndex(self.0 .0 .0, Ix::new(self.0 .0 .1.index() + 1)),
+            Axis::Vertical => NodeIndex::new(
+                Ix::new(self.0 .0.vertical.index() + 1),
+                self.0 .0.horizontal,
+            ),
+            Axis::Horizontal => NodeIndex::new(
+                self.0 .0.vertical,
+                Ix::new(self.0 .0.horizontal.index() + 1),
+            ),
         }
     }
 
@@ -224,8 +299,8 @@ impl<'a, E: Copy, Ix: IndexType> EdgeRef for EdgeReference<'a, E, Ix> {
 }
 #[derive(Clone, Debug)]
 pub struct EdgeReferences<'a, E, Ix: IndexType> {
-    vertical: &'a Vec<Vec<E>>,
-    horizontal: &'a Vec<Vec<E>>,
+    vertical: &'a Vec<Box<[E]>>,
+    horizontal: &'a Vec<Box<[E]>>,
     nodes: NodeIndices<Ix>,
     prv: Option<(NodeIndex<Ix>, Axis)>,
 }
@@ -252,7 +327,7 @@ where
         loop {
             if let Some(ref mut e) = self.prv {
                 if e.1 == Axis::Vertical {
-                    let item = self.horizontal[e.0 .0.index()].get(e.0 .1.index());
+                    let item = self.horizontal[e.0.vertical.index()].get(e.0.horizontal.index());
                     if let Some(item) = item {
                         e.1 = Axis::Horizontal;
                         return Some(EdgeReference(*e, item));
@@ -262,10 +337,13 @@ where
             if let Some(next) = self.nodes.next() {
                 let item = self
                     .vertical
-                    .get(next.0.index())
-                    .map(|x| x.get(next.1.index()))
+                    .get(next.vertical.index())
+                    .map(|x| x.get(next.horizontal.index()))
                     .flatten();
-                let e = (NodeIndex(next.0, next.1), Axis::Vertical);
+                let e = (
+                    NodeIndex::new(next.vertical, next.horizontal),
+                    Axis::Vertical,
+                );
                 self.prv = Some(e);
                 if let Some(item) = item {
                     return Some(EdgeReference(e, item));
@@ -293,31 +371,34 @@ where
     fn edges(self, a: Self::NodeId) -> Self::Edges {
         let v = self.vertical_node_count();
         let h = self.horizontal_node_count();
-        let va = a.0.index();
-        let ha = a.1.index();
+        let va = a.vertical.index();
+        let ha = a.horizontal.index();
         let mut vec = Vec::new();
         if va != 0 {
             vec.push(EdgeReference(
-                (NodeIndex(Ix::new(va - 1), a.1), Axis::Vertical),
+                (
+                    NodeIndex::new(Ix::new(va - 1), a.horizontal),
+                    Axis::Vertical,
+                ),
                 &self.vertical[va - 1][ha],
             ));
         }
         if va < v - 1 {
-            vec.push(EdgeReference(
-                (NodeIndex(Ix::new(va + 1), a.1), Axis::Vertical),
-                &self.vertical[va + 1][ha],
-            ));
+            vec.push(EdgeReference((a, Axis::Vertical), &self.vertical[va][ha]));
         }
         if ha != 0 {
             vec.push(EdgeReference(
-                (NodeIndex(a.0, Ix::new(ha - 1)), Axis::Horizontal),
-                &self.vertical[va - 1][ha],
+                (
+                    NodeIndex::new(a.vertical, Ix::new(ha - 1)),
+                    Axis::Horizontal,
+                ),
+                &self.horizontal[va][ha - 1],
             ));
         }
         if ha < h - 1 {
             vec.push(EdgeReference(
-                (NodeIndex(a.0, Ix::new(ha + 1)), Axis::Horizontal),
-                &self.vertical[va + 1][ha],
+                (a, Axis::Horizontal),
+                &self.horizontal[va][ha],
             ));
         }
         vec.into_iter()
@@ -333,20 +414,20 @@ where
     fn neighbors(self: Self, a: Self::NodeId) -> Self::Neighbors {
         let v = self.vertical_node_count();
         let h = self.horizontal_node_count();
-        let va = a.0.index();
-        let ha = a.1.index();
+        let va = a.vertical.index();
+        let ha = a.horizontal.index();
         let mut vec = Vec::new();
         if va != 0 {
-            vec.push(NodeIndex(Ix::new(va - 1), a.1));
+            vec.push(NodeIndex::new(Ix::new(va - 1), a.horizontal));
         }
         if va < v - 1 {
-            vec.push(NodeIndex(Ix::new(va + 1), a.1));
+            vec.push(NodeIndex::new(Ix::new(va + 1), a.horizontal));
         }
         if ha != 0 {
-            vec.push(NodeIndex(a.0, Ix::new(ha - 1)));
+            vec.push(NodeIndex::new(a.vertical, Ix::new(ha - 1)));
         }
         if ha < h - 1 {
-            vec.push(NodeIndex(a.0, Ix::new(ha + 1)));
+            vec.push(NodeIndex::new(a.vertical, Ix::new(ha + 1)));
         }
         vec.into_iter()
     }
@@ -367,7 +448,6 @@ where
 #[derive(Clone, Debug)]
 pub struct NodeIndices<Ix> {
     p: itertools::Product<Range<usize>, Range<usize>>,
-    size: usize,
     pd: PhantomData<Ix>,
 }
 
@@ -375,7 +455,6 @@ impl<Ix> NodeIndices<Ix> {
     fn new(v: usize, h: usize) -> Self {
         Self {
             p: (0..v).cartesian_product(0..h),
-            size: v * h,
             pd: PhantomData,
         }
     }
@@ -388,36 +467,23 @@ where
     type Item = NodeIndex<Ix>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.p.next().map(|x| {
-            self.size -= 1;
-            (x.0, x.1).into()
-        })
+        self.p.next().map(|x| (x.0, x.1).into())
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.size, Some(self.size))
+        self.p.size_hint()
     }
 
-    fn count(mut self) -> usize
+    fn fold<B, F>(self, init: B, mut f: F) -> B
     where
         Self: Sized,
+        F: FnMut(B, Self::Item) -> B,
     {
-        let s = self.size;
-        self.size = 0;
-        self.p.last();
-        s
+        self.p.fold(init, |x, item| (&mut f)(x, item.into()))
     }
 }
 
 impl<Ix: IndexType> FusedIterator for NodeIndices<Ix> where Range<Ix>: Iterator<Item = Ix> {}
-impl<Ix: IndexType> ExactSizeIterator for NodeIndices<Ix>
-where
-    Range<Ix>: Iterator<Item = Ix>,
-{
-    fn len(&self) -> usize {
-        self.size
-    }
-}
 
 impl<'a, N: Clone, E, Ix> IntoNodeReferences for &'a SquareGraph<N, E, Ix>
 where
@@ -437,7 +503,7 @@ where
 
 pub struct NodeReferences<'a, N, Ix> {
     indices: NodeIndices<Ix>,
-    nodes: &'a Vec<Vec<N>>,
+    nodes: &'a Vec<Box<[N]>>,
 }
 
 impl<'a, N, Ix> Iterator for NodeReferences<'a, N, Ix>
@@ -451,8 +517,8 @@ where
         self.indices.next().map(|x| {
             (x, unsafe {
                 self.nodes
-                    .get_unchecked(x.0.index())
-                    .get_unchecked(x.1.index())
+                    .get_unchecked(x.vertical.index())
+                    .get_unchecked(x.horizontal.index())
             })
         })
     }
@@ -482,7 +548,7 @@ where
     }
 
     fn to_index(self: &Self, a: Self::NodeId) -> usize {
-        a.0.index() * self.horizontal_node_count() + a.1.index()
+        a.vertical.index() * self.horizontal_node_count() + a.horizontal.index()
     }
 
     fn from_index(self: &Self, i: usize) -> Self::NodeId {
@@ -508,11 +574,11 @@ impl VisMap {
 
 impl<Ix: IndexType> VisitMap<NodeIndex<Ix>> for VisMap {
     fn visit(&mut self, a: NodeIndex<Ix>) -> bool {
-        !self.v[a.0.index()].put(a.1.index())
+        !self.v[a.vertical.index()].put(a.horizontal.index())
     }
 
     fn is_visited(&self, a: &NodeIndex<Ix>) -> bool {
-        self.v[a.0.index()].contains(a.1.index())
+        self.v[a.vertical.index()].contains(a.horizontal.index())
     }
 }
 
@@ -543,6 +609,8 @@ mod tests {
             |x, y| x + 2 * y,
             |x, y, d| (x + 2 * y) as i32 * (if d.is_vertical() { 1 } else { -1 }),
         );
+        assert_eq!(sq.vertical_node_count(), 4);
+        assert_eq!(sq.horizontal_node_count(), 3);
         assert_eq!(sq.node_weight((0, 0).into()), Some(&0));
         assert_eq!(sq.node_weight((3, 0).into()), Some(&3));
         assert_eq!(sq.node_weight((4, 0).into()), None);
@@ -590,5 +658,27 @@ mod tests {
             i += 1;
         }
         assert_eq!(i, 12);
+    }
+
+    #[test]
+    fn astar() {
+        let sq = SquareGraph::<_, _, u32>::new_with(
+            4,
+            3,
+            |_, _| (),
+            |x, y, d| (x + 2 * y) as i32 * (if d.is_vertical() { 1 } else { 3 }),
+        );
+
+        let x = petgraph::algo::astar(
+            &sq,
+            (0, 0).into(),
+            |x| x == (2, 1),
+            |e| *e.weight(),
+            |x| x.distance((2, 1)) as i32,
+        );
+        assert!(x.is_some());
+        let (d, p) = x.unwrap();
+        assert_eq!(d, 5);
+        assert_eq!(p, [(0, 0), (0, 1), (1, 1), (2, 1)])
     }
 }

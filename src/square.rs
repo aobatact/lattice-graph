@@ -185,27 +185,27 @@ where
             && self.vertical.iter().all(|x| x.len() == h - 1)
     }
 
-    /// Get a reference to the nodes.
+    /// Get a reference to the nodes. `[horizontal][vertical]`
     pub fn nodes(&self) -> &[SmallVec<[N; BORDER]>] {
         &self.nodes
     }
 
-    /// Get a reference to the horizontal edges.
+    /// Get a reference to the horizontal edges. `[horizontal][vertical]`
     pub fn horizontal(&self) -> &[SmallVec<[E; BORDER]>] {
         &self.horizontal
     }
 
-    /// Get a reference to the vertical edges.
+    /// Get a reference to the vertical edges. `[horizontal][vertical]`
     pub fn vertical(&self) -> &[SmallVec<[E; BORDER]>] {
         &self.vertical
     }
 
-    /// Get a mutable reference to the nodes.
+    /// Get a mutable reference to the nodes. `[horizontal][vertical]`
     pub fn nodes_mut(&mut self) -> &mut [SmallVec<[N; BORDER]>] {
         &mut self.nodes
     }
 
-    /// Get a mutable reference to the horizontal edges.
+    /// Get a mutable reference to the horizontal edges. `[horizontal][vertical]`
     pub fn horizontal_mut(&mut self) -> &mut [SmallVec<[E; BORDER]>] {
         &mut self.horizontal
     }
@@ -365,6 +365,7 @@ where
 {
     type EdgeType = Undirected;
 }
+
 impl<'a, N, E, Ix> IntoEdgeReferences for &'a SquareGraph<N, E, Ix>
 where
     Ix: IndexType,
@@ -379,6 +380,7 @@ where
     }
 }
 
+/// Reference of Edge data (EdgeIndex, EdgeWeight, direction) in [`SquareGraph`].
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct EdgeReference<'a, E, Ix: IndexType> {
     edge_id: EdgeIndex<Ix>,
@@ -404,6 +406,7 @@ impl<'a, E, Ix: IndexType> EdgeReference<'a, E, Ix> {
         }
     }
 }
+
 impl<'a, E: Copy, Ix: IndexType> EdgeRef for EdgeReference<'a, E, Ix> {
     type NodeId = NodeIndex<Ix>;
     type EdgeId = EdgeIndex<Ix>;
@@ -425,6 +428,8 @@ impl<'a, E: Copy, Ix: IndexType> EdgeRef for EdgeReference<'a, E, Ix> {
         self.edge_id
     }
 }
+
+/// Iterator for all edges of [`SquareGraph`].
 #[derive(Clone, Debug)]
 pub struct EdgeReferences<'a, E, Ix: IndexType> {
     horizontal: &'a SmallVec<[SmallVec<[E; BORDER]>; BORDER]>,
@@ -588,6 +593,7 @@ where
     }
 }
 
+/// Iterate all index of [`SquareGraph`].
 #[derive(Clone, Debug)]
 pub struct NodeIndices<Ix> {
     p: itertools::Product<Range<usize>, Range<usize>>,
@@ -644,6 +650,7 @@ where
     }
 }
 
+/// Iterate all nodes of [`SquareGraph`].
 pub struct NodeReferences<'a, N, Ix> {
     indices: NodeIndices<Ix>,
     nodes: &'a SmallVec<[SmallVec<[N; BORDER]>; BORDER]>,
@@ -700,6 +707,7 @@ where
     }
 }
 
+/// [`VisitMap`] of [`SquareGraph`].
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct VisMap {
     v: Vec<FixedBitSet>,

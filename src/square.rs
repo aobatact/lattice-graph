@@ -15,6 +15,7 @@ use std::{iter::FusedIterator, marker::PhantomData, ops::Range, usize};
 
 const BORDER: usize = 64;
 
+/// Axis of the Square grid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Axis {
     Vertical,
@@ -22,9 +23,11 @@ pub enum Axis {
 }
 
 impl Axis {
+    /// Check whether axis is vertical.
     pub fn is_vertical(&self) -> bool {
         *self == Axis::Vertical
     }
+    /// Check whether axis is horizontal.
     pub fn is_horizontal(&self) -> bool {
         *self == Axis::Horizontal
     }
@@ -74,12 +77,20 @@ impl From<SquareDirection> for (Axis, bool) {
     }
 }
 
+/// Square Grid Graph.
+/// ```text
+/// Node(i+1,j) - Edge(i+1,j,Horizontal) - Node(i+1,j+1)
+///   |                                     |
+/// Edge(i,j,Vertical)                     Edge(i,j+1,Vertical)
+///   |                                     |
+/// Node(i,j)   - Edge(i,j,Horizontal)   - Node(i,j+1)
+/// ```
 #[derive(Clone, Debug)]
 pub struct SquareGraph<N, E, Ix = usize>
 where
     Ix: IndexType,
 {
-    /// [vertical][horizontal]
+    /// `[vertical][horizontal]`
     nodes: SmallVec<[SmallVec<[N; BORDER]>; BORDER]>,
     vertical: SmallVec<[SmallVec<[E; BORDER]>; BORDER]>, //↓
     horizontal: SmallVec<[SmallVec<[E; BORDER]>; BORDER]>, //→
@@ -90,7 +101,9 @@ impl<N, E, Ix> SquareGraph<N, E, Ix>
 where
     Ix: IndexType,
 {
-    pub fn new_raw(
+    /// Create a `SquareGraph` from raw data.
+    /// It only check whether the size of nodes and edges in `debug_assertion`.
+    pub unsafe fn new_raw(
         nodes: SmallVec<[SmallVec<[N; BORDER]>; BORDER]>,
         vertical: SmallVec<[SmallVec<[E; BORDER]>; BORDER]>,
         horizontal: SmallVec<[SmallVec<[E; BORDER]>; BORDER]>,
@@ -105,6 +118,7 @@ where
         s
     }
 
+    /// Create a `SquareGraph` with the nodes and edges initialized with default.
     pub fn new(v: usize, h: usize) -> Self
     where
         N: Default,
@@ -113,6 +127,7 @@ where
         Self::new_with(v, h, |_, _| N::default(), |_, _, _| E::default())
     }
 
+    /// Creates a `SquareGraph` with initializing nodes and edges from position.
     pub fn new_with<FN, FE>(v: usize, h: usize, mut fnode: FN, mut fedge: FE) -> Self
     where
         FN: FnMut(usize, usize) -> N,
@@ -146,16 +161,20 @@ where
         nv.push(fnode(v - 1, h - 1));
         nodes.push(nv);
         horizontal.push(hv);
-        Self::new_raw(nodes, vertical, horizontal)
+        unsafe { Self::new_raw(nodes, vertical, horizontal) }
     }
 
+    /// Returns the Node count in the vertical direction.
     pub fn vertical_node_count(&self) -> usize {
         self.nodes.len()
     }
+
+    /// Returns the Node count in the horizontal direction.
     pub fn horizontal_node_count(&self) -> usize {
         self.nodes.get(0).map(|x| x.len()).unwrap_or(0)
     }
 
+    /// Check the size of nodes and edges.
     fn check_gen(&self) -> bool {
         let v = self.vertical_node_count();
         let h = self.horizontal_node_count();
@@ -166,37 +185,51 @@ where
             && self.horizontal.iter().all(|x| x.len() == h - 1)
     }
 
-    /// Get a reference to the square graph's nodes.
+    /// Get a reference to the nodes.
     pub fn nodes(&self) -> &[SmallVec<[N; BORDER]>] {
         &self.nodes
     }
 
-    /// Get a mutable reference to the square graph's vertical.
+    /// Get a reference to the vertical edges.
     pub fn vertical(&self) -> &[SmallVec<[E; BORDER]>] {
         &self.vertical
     }
 
-    /// Get a mutable reference to the square graph's horizontal.
+    /// Get a reference to the horizontal edges.
     pub fn horizontal(&self) -> &[SmallVec<[E; BORDER]>] {
         &self.horizontal
     }
 
-    /// Get a reference to the square graph's nodes.
+    /// Get a mutable reference to the nodes.
     pub fn nodes_mut(&mut self) -> &mut [SmallVec<[N; BORDER]>] {
         &mut self.nodes
     }
 
-    /// Get a mutable reference to the square graph's vertical.
+    /// Get a mutable reference to the vertical edges.
     pub fn vertical_mut(&mut self) -> &mut [SmallVec<[E; BORDER]>] {
         &mut self.vertical
     }
 
-    /// Get a mutable reference to the square graph's horizontal.
+    /// Get a mutable reference to the horizontal edges.
     pub fn horizontal_mut(&mut self) -> &mut [SmallVec<[E; BORDER]>] {
         &mut self.horizontal
     }
 }
 
+impl<E, Ix> SquareGraph<(), E, Ix>
+where
+    Ix: IndexType,
+{
+    /// Create a `SquareGraph` with the edges initialized from position.
+    pub fn new_edge_graph<FE>(v: usize, h: usize, fedge: FE) -> Self
+    where
+        FE: FnMut(usize, usize, Axis) -> E,
+    {
+        Self::new_with(v, h, |_, _| (), fedge)
+    }
+}
+
+/// Node index for [`SquareGraph`]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NodeIndex<Ix: IndexType> {
     pub vertical: Ix,
@@ -204,6 +237,7 @@ pub struct NodeIndex<Ix: IndexType> {
 }
 
 impl<Ix: IndexType> NodeIndex<Ix> {
+    /// Create a Index from vertical and horizontal.
     pub fn new(vertical: Ix, horizontal: Ix) -> Self {
         Self {
             vertical,
@@ -211,14 +245,15 @@ impl<Ix: IndexType> NodeIndex<Ix> {
         }
     }
 
-    /// manhattan distance
+    /// Returns the manhattan distance
     pub fn distance<T: Into<(usize, usize)>>(&self, target: T) -> usize {
         let target: (usize, usize) = target.into();
         (self.vertical.index() as isize - target.0 as isize).abs() as usize
             + (self.horizontal.index() as isize - target.1 as isize).abs() as usize
     }
 
-    pub fn get_edge_id(&self, dir: SquareDirection) -> (Self, Axis) {
+    /// Get the edge from this node. This does not check whether the node is valid in graph.
+    pub fn get_edge_id(&self, dir: SquareDirection) -> EdgeIndex<Ix> {
         match dir {
             SquareDirection::Foward(x) => (*self, x),
             SquareDirection::Backward(a @ Axis::Horizontal) => (
@@ -230,6 +265,7 @@ impl<Ix: IndexType> NodeIndex<Ix> {
                 a,
             ),
         }
+        .into()
     }
 }
 
@@ -251,12 +287,28 @@ impl<Ix: IndexType> From<NodeIndex<Ix>> for (usize, usize) {
     }
 }
 
+/// Edge Index of [`SquareGraph`]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct EdgeIndex<Ix: IndexType>(pub NodeIndex<Ix>, pub Axis);
+
+impl<Ix: IndexType> From<(NodeIndex<Ix>, Axis)> for EdgeIndex<Ix> {
+    fn from((n, a): (NodeIndex<Ix>, Axis)) -> Self {
+        Self(n, a)
+    }
+}
+
+impl<Ix: IndexType> From<(NodeIndex<Ix>, SquareDirection)> for EdgeIndex<Ix> {
+    fn from((n, a): (NodeIndex<Ix>, SquareDirection)) -> Self {
+        n.get_edge_id(a)
+    }
+}
+
 impl<N, E, Ix> GraphBase for SquareGraph<N, E, Ix>
 where
     Ix: IndexType,
 {
     type NodeId = NodeIndex<Ix>;
-    type EdgeId = (NodeIndex<Ix>, Axis);
+    type EdgeId = EdgeIndex<Ix>;
 }
 
 impl<N, E, Ix> Data for SquareGraph<N, E, Ix>
@@ -329,7 +381,7 @@ where
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct EdgeReference<'a, E, Ix: IndexType> {
-    edge_id: (NodeIndex<Ix>, Axis),
+    edge_id: EdgeIndex<Ix>,
     edge_weight: &'a E,
     direction: bool,
 }
@@ -354,7 +406,7 @@ impl<'a, E, Ix: IndexType> EdgeReference<'a, E, Ix> {
 }
 impl<'a, E: Copy, Ix: IndexType> EdgeRef for EdgeReference<'a, E, Ix> {
     type NodeId = NodeIndex<Ix>;
-    type EdgeId = (NodeIndex<Ix>, Axis);
+    type EdgeId = EdgeIndex<Ix>;
     type Weight = E;
 
     fn source(&self) -> Self::NodeId {
@@ -378,7 +430,7 @@ pub struct EdgeReferences<'a, E, Ix: IndexType> {
     vertical: &'a SmallVec<[SmallVec<[E; BORDER]>; BORDER]>,
     horizontal: &'a SmallVec<[SmallVec<[E; BORDER]>; BORDER]>,
     nodes: NodeIndices<Ix>,
-    prv: Option<(NodeIndex<Ix>, Axis)>,
+    prv: Option<EdgeIndex<Ix>>,
 }
 
 impl<'a, E, Ix: IndexType> EdgeReferences<'a, E, Ix> {
@@ -420,7 +472,7 @@ where
                     .get(next.vertical.index())
                     .map(|x| x.get(next.horizontal.index()))
                     .flatten();
-                let edge_id = (
+                let edge_id = EdgeIndex(
                     NodeIndex::new(next.vertical, next.horizontal),
                     Axis::Vertical,
                 );
@@ -460,7 +512,7 @@ where
         let mut vec = SmallVec::with_capacity(4);
         if va != 0 {
             vec.push(EdgeReference {
-                edge_id: (
+                edge_id: EdgeIndex(
                     NodeIndex::new(Ix::new(va - 1), a.horizontal),
                     Axis::Vertical,
                 ),
@@ -470,14 +522,14 @@ where
         }
         if va < v - 1 {
             vec.push(EdgeReference {
-                edge_id: (a, Axis::Vertical),
+                edge_id: EdgeIndex(a, Axis::Vertical),
                 edge_weight: &self.vertical[va][ha],
                 direction: true,
             });
         }
         if ha != 0 {
             vec.push(EdgeReference {
-                edge_id: (
+                edge_id: EdgeIndex(
                     NodeIndex::new(a.vertical, Ix::new(ha - 1)),
                     Axis::Horizontal,
                 ),
@@ -487,7 +539,7 @@ where
         }
         if ha < h - 1 {
             vec.push(EdgeReference {
-                edge_id: (a, Axis::Horizontal),
+                edge_id: EdgeIndex(a, Axis::Horizontal),
                 edge_weight: &self.horizontal[va][ha],
                 direction: true,
             });
@@ -707,11 +759,23 @@ mod tests {
         assert_eq!(sq.node_weight((4, 0).into()), None);
         assert_eq!(sq.node_weight((0, 2).into()), Some(&4));
         assert_eq!(sq.node_weight((0, 3).into()), None);
-        assert_eq!(sq.edge_weight(((0, 0).into(), Axis::Vertical)), Some(&0));
-        assert_eq!(sq.edge_weight(((0, 2).into(), Axis::Vertical)), Some(&4));
-        assert_eq!(sq.edge_weight(((0, 2).into(), Axis::Horizontal)), None);
-        assert_eq!(sq.edge_weight(((3, 0).into(), Axis::Vertical)), None);
-        assert_eq!(sq.edge_weight(((3, 0).into(), Axis::Horizontal)), Some(&-3));
+        assert_eq!(
+            sq.edge_weight(((0, 0).into(), Axis::Vertical).into()),
+            Some(&0)
+        );
+        assert_eq!(
+            sq.edge_weight(((0, 2).into(), Axis::Vertical).into()),
+            Some(&4)
+        );
+        assert_eq!(
+            sq.edge_weight(((0, 2).into(), Axis::Horizontal).into()),
+            None
+        );
+        assert_eq!(sq.edge_weight(((3, 0).into(), Axis::Vertical).into()), None);
+        assert_eq!(
+            sq.edge_weight(((3, 0).into(), Axis::Horizontal).into()),
+            Some(&-3)
+        );
     }
 
     #[test]

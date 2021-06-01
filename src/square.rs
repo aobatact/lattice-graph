@@ -10,9 +10,7 @@ use petgraph::{
     },
     Undirected,
 };
-use std::{
-    iter::FusedIterator, marker::PhantomData, mem::MaybeUninit, ops::Range, slice::Iter, usize,
-};
+use std::{iter::FusedIterator, marker::PhantomData, ops::Range, slice::Iter, usize};
 
 use crate::array2d::Array2D;
 
@@ -511,37 +509,89 @@ where
     }
 }
 
-pub struct Edges<'a, E, Ix: IndexType> {
-    e: [EdgeReference<'a, E, Ix>; 4],
-    pos: usize,
+pub struct Edges<'a, N, E, Ix: IndexType> {
+    g: &'a SquareGraph<N, E, Ix>,
+    node: NodeIndex<Ix>,
+    state: usize,
 }
 
-impl<'a, E, Ix> Iterator for Edges<'a, E, Ix>
+impl<'a, N, E, Ix> Iterator for Edges<'a, N, E, Ix>
 where
     Ix: IndexType,
 {
     type Item = EdgeReference<'a, E, Ix>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.pos > 0 {
-            self.pos -= 1;
-            Some(self.e[self.pos])
-        } else {
-            None
+        let g = self.g;
+        let n = self.node;
+        loop {
+            'inner: loop {
+                let er = match self.state {
+                    0 => {
+                        if n.horizontal.index() == 0 {
+                            break 'inner;
+                        }
+                        EdgeReference {
+                            edge_id: EdgeIndex(
+                                NodeIndex::new(Ix::new(n.horizontal.index() - 1), n.vertical),
+                                Axis::Horizontal,
+                            ),
+                            edge_weight: &g.horizontal.ref_2d()[n.horizontal.index() - 1]
+                                [n.vertical.index()],
+                            direction: false,
+                        }
+                    }
+                    1 => {
+                        if n.horizontal.index() + 1 >= g.horizontal_node_count() {
+                            break 'inner;
+                        }
+                        EdgeReference {
+                            edge_id: EdgeIndex(n, Axis::Horizontal),
+                            edge_weight: &g.horizontal.ref_2d()[n.horizontal.index()]
+                                [n.vertical.index()],
+                            direction: true,
+                        }
+                    }
+                    2 => {
+                        if n.vertical.index() == 0 {
+                            break 'inner;
+                        }
+                        EdgeReference {
+                            edge_id: EdgeIndex(
+                                NodeIndex::new(n.horizontal, Ix::new(n.vertical.index() - 1)),
+                                Axis::Vertical,
+                            ),
+                            edge_weight: &g.vertical.ref_2d()[n.horizontal.index()]
+                                [n.vertical.index() - 1],
+                            direction: false,
+                        }
+                    }
+                    3 => {
+                        if n.vertical.index() + 1 >= g.vertical_node_count() {
+                            break 'inner;
+                        }
+                        EdgeReference {
+                            edge_id: EdgeIndex(n, Axis::Vertical),
+                            edge_weight: &g.vertical.ref_2d()[n.horizontal.index()]
+                                [n.vertical.index()],
+                            direction: true,
+                        }
+                    }
+                    _ => return None,
+                };
+                self.state += 1;
+                return Some(er);
+            }
+            self.state += 1;
         }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.pos, Some(self.pos))
-    }
-
-    fn count(self) -> usize {
-        self.pos
+        (0, Some(4 - self.state))
     }
 }
 
-impl<'a, E, Ix> FusedIterator for Edges<'a, E, Ix> where Ix: IndexType {}
-impl<'a, E, Ix> ExactSizeIterator for Edges<'a, E, Ix> where Ix: IndexType {}
+impl<'a, N, E, Ix> FusedIterator for Edges<'a, N, E, Ix> where Ix: IndexType {}
 
 impl<'a, N, E, Ix> IntoEdges for &'a SquareGraph<N, E, Ix>
 where
@@ -549,55 +599,14 @@ where
     E: Copy,
     Range<Ix>: Iterator<Item = Ix>,
 {
-    type Edges = Edges<'a, E, Ix>;
+    type Edges = Edges<'a, N, E, Ix>;
 
     fn edges(self, a: Self::NodeId) -> Self::Edges {
-        let v = self.horizontal_node_count();
-        let h = self.vertical_node_count();
-        let va = a.horizontal.index();
-        let ha = a.vertical.index();
-        let mut vec: [EdgeReference<'a, E, Ix>; 4] = unsafe { MaybeUninit::uninit().assume_init() };
-        let mut pos = 0;
-        if va != 0 {
-            vec[pos] = EdgeReference {
-                edge_id: EdgeIndex(
-                    NodeIndex::new(Ix::new(va - 1), a.vertical),
-                    Axis::Horizontal,
-                ),
-                edge_weight: &self.horizontal.ref_2d()[va - 1][ha],
-                direction: false,
-            };
-            pos += 1;
+        Edges {
+            g: &self,
+            node: a,
+            state: 0,
         }
-        if va < v - 1 {
-            vec[pos] = EdgeReference {
-                edge_id: EdgeIndex(a, Axis::Horizontal),
-                edge_weight: &self.horizontal.ref_2d()[va][ha],
-                direction: true,
-            };
-            pos += 1;
-        }
-        if ha != 0 {
-            vec[pos] = EdgeReference {
-                edge_id: EdgeIndex(
-                    NodeIndex::new(a.horizontal, Ix::new(ha - 1)),
-                    Axis::Vertical,
-                ),
-                edge_weight: &self.vertical.ref_2d()[va][ha - 1],
-                direction: false,
-            };
-            pos += 1;
-        }
-        if ha < h - 1 {
-            vec[pos] = EdgeReference {
-                edge_id: EdgeIndex(a, Axis::Vertical),
-                edge_weight: &self.vertical.ref_2d()[va][ha],
-                direction: true,
-            };
-            pos += 1;
-        }
-
-        Edges { e: vec, pos }
     }
 }
 

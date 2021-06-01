@@ -2,7 +2,10 @@ use criterion::{
     black_box, criterion_group, criterion_main, measurement::Measurement, AxisScale,
     BenchmarkGroup, BenchmarkId, Criterion, PlotConfiguration,
 };
-use lattice_graph::SquareGraph;
+use lattice_graph::{
+    array2d::{self, Array2D},
+    SquareGraph,
+};
 use petgraph::{algo, graph::*, visit::EdgeRef};
 use rand::{prelude::StdRng, Rng, SeedableRng};
 
@@ -89,5 +92,49 @@ fn graph_search_small(c: &mut Criterion) {
     graph_search_inner(c, 4, 3, 12345, "astar_small")
 }
 
-criterion_group!(bench_graph, graph_build, graph_search_small);
-criterion_main!(bench_graph);
+fn graph_search_large(c: &mut Criterion) {
+    graph_search_inner(c, 2000, 2000, 12345, "astar_large")
+}
+fn array2d(c: &mut Criterion) {
+    let mut g = c.benchmark_group("array2d");
+    g.bench_function("jag", |b| {
+        b.iter_with_setup(
+            || vec![vec![3; 10]; 8],
+            |v| {
+                for i in 0..8 {
+                    for j in 0..10 {
+                        black_box(&v[i][j]);
+                    }
+                }
+            },
+        )
+    });
+    g.bench_function("array2d", |b| {
+        b.iter_with_setup(
+            || Array2D::new(10, 8, |_, _| 3),
+            |v| {
+                for i in 0..10 {
+                    for j in 0..8 {
+                        black_box(&v.ref_2d()[i][j]);
+                    }
+                }
+            },
+        )
+    });
+    g.bench_function("array2d_tr", |b| {
+        b.iter_with_setup(
+            || Array2D::new(8, 10, |_, _| 3),
+            |v| {
+                for i in 0..8 {
+                    for j in 0..10 {
+                        black_box(&v.ref_2d()[i][j]);
+                    }
+                }
+            },
+        )
+    });
+}
+
+criterion_group!(bench_graph, graph_build, graph_search_small, graph_search_large);
+criterion_group!(array2ds, array2d);
+criterion_main!(bench_graph, array2ds);

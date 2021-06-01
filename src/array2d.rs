@@ -6,12 +6,12 @@ use std::{
     ptr::NonNull,
 };
 
-pub struct Array2<T> {
+pub struct Array2D<T> {
     heads: NonNull<*mut [T]>,
     hsize: usize,
 }
 
-impl<T> Array2<T> {
+impl<T> Array2D<T> {
     pub fn from_raw(h: usize, v: usize, vec: Vec<T>) -> Self {
         assert_eq!(h * v, vec.len());
         unsafe { Self::from_raw_unchecked(h, v, vec) }
@@ -118,7 +118,7 @@ impl<T> Array2<T> {
     }
 }
 
-impl<T: Clone> Clone for Array2<T> {
+impl<T: Clone> Clone for Array2D<T> {
     fn clone(&self) -> Self {
         unsafe {
             let vec = self.into_raw_inner(false);
@@ -129,45 +129,45 @@ impl<T: Clone> Clone for Array2<T> {
     }
 }
 
-impl<T: Debug> Debug for Array2<T> {
+impl<T: Debug> Debug for Array2D<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.ref_2d().fmt(f)
     }
 }
 
-impl<T: PartialEq> PartialEq for Array2<T> {
+impl<T: PartialEq> PartialEq for Array2D<T> {
     fn eq(&self, other: &Self) -> bool {
         self.h_size() == other.h_size() && self.ref_1d() == other.ref_1d()
     }
 }
 
-impl<T: PartialEq> Eq for Array2<T> {}
+impl<T: PartialEq> Eq for Array2D<T> {}
 
-impl<'a, T> AsRef<[&'a [T]]> for Array2<T> {
+impl<'a, T> AsRef<[&'a [T]]> for Array2D<T> {
     fn as_ref(&self) -> &[&'a [T]] {
         self.ref_2d()
     }
 }
 
-impl<'a, T> AsMut<[&'a mut [T]]> for Array2<T> {
+impl<'a, T> AsMut<[&'a mut [T]]> for Array2D<T> {
     fn as_mut(&mut self) -> &mut [&'a mut [T]] {
         self.mut_2d()
     }
 }
 
-impl<T> AsRef<[T]> for Array2<T> {
+impl<T> AsRef<[T]> for Array2D<T> {
     fn as_ref(&self) -> &[T] {
         self.ref_1d()
     }
 }
 
-impl<T> AsMut<[T]> for Array2<T> {
+impl<T> AsMut<[T]> for Array2D<T> {
     fn as_mut(&mut self) -> &mut [T] {
         self.mut_1d()
     }
 }
 
-impl<T> Drop for Array2<T> {
+impl<T> Drop for Array2D<T> {
     fn drop(&mut self) {
         drop(unsafe { self.into_raw_inner(true) })
     }
@@ -175,11 +175,11 @@ impl<T> Drop for Array2<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::Array2;
+    use super::Array2D;
 
     #[test]
     fn gen() {
-        let x = Array2::new(5, 2, |h, v| (h, v));
+        let x = Array2D::new(5, 2, |h, v| (h, v));
         for i in 0..5 {
             for j in 0..2 {
                 assert_eq!(x.ref_2d()[i][j], (i, j));
@@ -189,7 +189,7 @@ mod tests {
 
     #[test]
     fn ref_1d() {
-        let x = Array2::new(5, 2, |h, v| (h, v));
+        let x = Array2D::new(5, 2, |h, v| (h, v));
         for i in 0..5 {
             for j in 0..2 {
                 assert_eq!(x.ref_1d()[j + i * 2], (i, j));
@@ -199,7 +199,7 @@ mod tests {
 
     #[test]
     fn gen_zst() {
-        let x = Array2::new(5, 2, |_h, _v| ());
+        let x = Array2D::new(5, 2, |_h, _v| ());
         for i in 0..5 {
             for j in 0..2 {
                 assert_eq!(x.ref_2d()[i][j], ());

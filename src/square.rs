@@ -210,11 +210,11 @@ where
     Ix: IndexType,
 {
     /// Create a `SquareGraph` with the edges initialized from position.
-    pub fn new_edge_graph<FE>(v: usize, h: usize, fedge: FE) -> Self
+    pub fn new_edge_graph<FE>(h: usize, v: usize, fedge: FE) -> Self
     where
         FE: FnMut(usize, usize, Axis) -> E,
     {
-        Self::new_with(v, h, |_, _| (), fedge)
+        Self::new_with(h, v, |_, _| (), fedge)
     }
 }
 

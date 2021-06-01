@@ -77,7 +77,7 @@ impl From<SquareDirection> for (Axis, bool) {
     }
 }
 
-/// Square Grid Graph.
+/// Undirected Square Grid Graph.
 /// ```text
 /// Node(i,j+1) - Edge(i,j+1,Horizontal) - Node(i+1,j+1)
 ///   |                                     |
@@ -102,7 +102,7 @@ where
     Ix: IndexType,
 {
     /// Create a `SquareGraph` from raw data.
-    /// It only check whether the size of nodes and edges in `debug_assertion`.
+    /// It only check whether the size of nodes and edges are correct in `debug_assertion`.
     pub unsafe fn new_raw(
         nodes: SmallVec<[SmallVec<[N; BORDER]>; BORDER]>,
         horizontal: SmallVec<[SmallVec<[E; BORDER]>; BORDER]>,
@@ -133,30 +133,30 @@ where
         FN: FnMut(usize, usize) -> N,
         FE: FnMut(usize, usize, Axis) -> E,
     {
-        let mut nodes = SmallVec::with_capacity(v);
-        let mut horizontal = SmallVec::with_capacity(v - 1);
-        let mut vertical = SmallVec::with_capacity(v);
+        let mut nodes = SmallVec::with_capacity(h);
+        let mut horizontal = SmallVec::with_capacity(h - 1);
+        let mut vertical = SmallVec::with_capacity(h);
 
-        for vi in 0..v - 1 {
-            let mut nv = SmallVec::with_capacity(h);
-            let mut vv = SmallVec::with_capacity(h);
-            let mut hv = SmallVec::with_capacity(h - 1);
-            for hi in 0..h - 1 {
+        for vi in 0..h - 1 {
+            let mut nv = SmallVec::with_capacity(v);
+            let mut vv = SmallVec::with_capacity(v);
+            let mut hv = SmallVec::with_capacity(v - 1);
+            for hi in 0..v - 1 {
                 nv.push(fnode(vi, hi));
                 vv.push(fedge(vi, hi, Axis::Horizontal));
                 hv.push(fedge(vi, hi, Axis::Vertical));
             }
-            nv.push(fnode(vi, h - 1));
-            vv.push(fedge(vi, h - 1, Axis::Horizontal));
+            nv.push(fnode(vi, v - 1));
+            vv.push(fedge(vi, v - 1, Axis::Horizontal));
             nodes.push(nv);
             horizontal.push(vv);
             vertical.push(hv);
         }
         let mut nv = SmallVec::with_capacity(h);
         let mut hv = SmallVec::with_capacity(h - 1);
-        for hi in 0..h - 1 {
-            nv.push(fnode(v - 1, hi));
-            hv.push(fedge(v - 1, hi, Axis::Vertical));
+        for hi in 0..v - 1 {
+            nv.push(fnode(h - 1, hi));
+            hv.push(fedge(h - 1, hi, Axis::Vertical));
         }
         nv.push(fnode(v - 1, h - 1));
         nodes.push(nv);
@@ -755,8 +755,8 @@ mod tests {
     #[test]
     fn gen() {
         let sq = SquareGraph::<_, _, u32>::new_with(
-            3,
             4,
+            3,
             |x, y| x + 2 * y,
             |x, y, d| (x + 2 * y) as i32 * (if d.is_horizontal() { 1 } else { -1 }),
         );
@@ -823,7 +823,7 @@ mod tests {
             x = y;
             i += 1;
         }
-        assert_eq!(i, 12);
+        assert_eq!(i, 10);
     }
 
     #[test]

@@ -2,16 +2,16 @@ use core::slice;
 use std::{
     fmt::Debug,
     mem::{self, ManuallyDrop},
-    ops::{Deref, DerefMut},
+    //ops::{Deref, DerefMut},
     ptr::NonNull,
 };
 
-pub struct Array2<'a, T> {
-    heads: NonNull<&'a mut [T]>,
+pub struct Array2<T> {
+    heads: NonNull<*mut [T]>,
     hsize: usize,
 }
 
-impl<'a, T> Array2<'a, T> {
+impl<T> Array2<T> {
     pub fn from_raw(h: usize, v: usize, vec: Vec<T>) -> Self {
         assert_eq!(h * v, vec.len());
         unsafe { Self::from_raw_unchecked(h, v, vec) }
@@ -33,7 +33,7 @@ impl<'a, T> Array2<'a, T> {
         hvec.shrink_to_fit();
         debug_assert!(mem::size_of::<T>() == 0 || h == hvec.capacity());
         Self {
-            heads: NonNull::new_unchecked(hvec.as_mut_ptr()),
+            heads: NonNull::new_unchecked(hvec.as_mut_ptr()).cast(),
             hsize: h,
         }
     }
@@ -47,9 +47,10 @@ impl<'a, T> Array2<'a, T> {
 
     pub fn new<F: FnMut(usize, usize) -> T>(h: usize, v: usize, mut f: F) -> Self {
         let mut ar = unsafe { Self::new_uninit(h, v) };
+        let s2d = ar.mut_2d();
         for i in 0..h {
             for j in 0..v {
-                ar[i][j] = (&mut f)(i, j);
+                s2d[i][j] = (&mut f)(i, j);
             }
         }
         ar
@@ -60,7 +61,7 @@ impl<'a, T> Array2<'a, T> {
     }
 
     pub fn v_size(&self) -> usize {
-        unsafe { self.heads.as_ref() }.len()
+        unsafe { self.head_mut() }.len()
     }
 
     pub fn size(&self) -> usize {
@@ -69,26 +70,26 @@ impl<'a, T> Array2<'a, T> {
 
     pub fn ref_1d(&self) -> &[T] {
         unsafe {
-            let x = self.heads.as_ref();
+            let x = self.head_mut();
             let vlen = x.len();
             slice::from_raw_parts(x.get_unchecked(0), self.hsize * vlen)
         }
     }
 
-    pub fn ref_2d(&self) -> &[&'a [T]] {
+    pub fn ref_2d<'a>(&self) -> &[&'a [T]] {
         unsafe { slice::from_raw_parts(self.heads.cast().as_ptr(), self.hsize) }
     }
 
     pub fn mut_1d(&mut self) -> &mut [T] {
         unsafe {
-            let x = self.heads.as_mut();
+            let x = self.head_mut();
             let vlen = x.len();
             slice::from_raw_parts_mut(x.get_unchecked_mut(0), self.hsize * vlen)
         }
     }
 
-    pub fn mut_2d(&mut self) -> &mut [&'a mut [T]] {
-        unsafe { slice::from_raw_parts_mut(self.heads.as_ptr(), self.hsize) }
+    pub fn mut_2d<'a>(&mut self) -> &mut [&'a mut [T]] {
+        unsafe { slice::from_raw_parts_mut(self.heads.cast().as_mut(), self.hsize) }
     }
 
     pub fn into_raw(self) -> Vec<T> {
@@ -96,22 +97,28 @@ impl<'a, T> Array2<'a, T> {
     }
 
     unsafe fn into_raw_inner(&self, drop_heads: bool) -> Vec<T> {
-        let mut head = self.heads;
         let hlen = self.hsize;
-        let x = head.as_mut();
+        let x = self.head_mut();
         let vlen = x.len();
         let ptr = x.get_unchecked_mut(0);
         let len = hlen * vlen;
         let v_val = Vec::from_raw_parts(ptr, len, len);
         if drop_heads {
-            let v_head = Vec::from_raw_parts(head.as_ptr(), 0, hlen);
+            let v_head = Vec::from_raw_parts(self.heads.as_ptr(), 0, hlen);
             drop(v_head);
         }
         v_val
     }
+
+    unsafe fn head_mut(&self) -> &mut [T] {
+        self.heads
+            .as_ref()
+            .as_mut()
+            .unwrap_or_else(|| std::hint::unreachable_unchecked())
+    }
 }
 
-impl<'a, T: Clone> Clone for Array2<'a, T> {
+impl<T: Clone> Clone for Array2<T> {
     fn clone(&self) -> Self {
         unsafe {
             let vec = self.into_raw_inner(false);
@@ -122,58 +129,45 @@ impl<'a, T: Clone> Clone for Array2<'a, T> {
     }
 }
 
-impl<'a, T: Debug> Debug for Array2<'a, T> {
+impl<T: Debug> Debug for Array2<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.ref_2d().fmt(f)
     }
 }
 
-impl<'a, T: PartialEq> PartialEq for Array2<'a, T> {
+impl<T: PartialEq> PartialEq for Array2<T> {
     fn eq(&self, other: &Self) -> bool {
         self.h_size() == other.h_size() && self.ref_1d() == other.ref_1d()
     }
 }
 
-impl<'a, T: PartialEq> Eq for Array2<'a, T> {}
+impl<T: PartialEq> Eq for Array2<T> {}
 
-impl<'a, T> AsRef<[&'a [T]]> for Array2<'a, T> {
+impl<'a, T> AsRef<[&'a [T]]> for Array2<T> {
     fn as_ref(&self) -> &[&'a [T]] {
         self.ref_2d()
     }
 }
 
-impl<'a, T> AsMut<[&'a mut [T]]> for Array2<'a, T> {
+impl<'a, T> AsMut<[&'a mut [T]]> for Array2<T> {
     fn as_mut(&mut self) -> &mut [&'a mut [T]] {
         self.mut_2d()
     }
 }
 
-impl<'a, T> Deref for Array2<'a, T> {
-    type Target = [&'a mut [T]];
-    fn deref(&self) -> &Self::Target {
-        unsafe { slice::from_raw_parts(self.heads.as_ptr(), self.hsize) }
-    }
-}
-
-impl<'a, T> DerefMut for Array2<'a, T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.as_mut()
-    }
-}
-
-impl<'a, T> AsRef<[T]> for Array2<'a, T> {
+impl<T> AsRef<[T]> for Array2<T> {
     fn as_ref(&self) -> &[T] {
         self.ref_1d()
     }
 }
 
-impl<'a, T> AsMut<[T]> for Array2<'a, T> {
+impl<T> AsMut<[T]> for Array2<T> {
     fn as_mut(&mut self) -> &mut [T] {
         self.mut_1d()
     }
 }
 
-impl<'a, T> Drop for Array2<'a, T> {
+impl<T> Drop for Array2<T> {
     fn drop(&mut self) {
         drop(unsafe { self.into_raw_inner(true) })
     }
@@ -188,7 +182,7 @@ mod tests {
         let x = Array2::new(5, 2, |h, v| (h, v));
         for i in 0..5 {
             for j in 0..2 {
-                assert_eq!(x[i][j], (i, j));
+                assert_eq!(x.ref_2d()[i][j], (i, j));
             }
         }
     }
@@ -208,7 +202,7 @@ mod tests {
         let x = Array2::new(5, 2, |_h, _v| ());
         for i in 0..5 {
             for j in 0..2 {
-                assert_eq!(x[i][j], ());
+                assert_eq!(x.ref_2d()[i][j], ());
             }
         }
     }

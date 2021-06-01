@@ -56,18 +56,22 @@ impl<T> Array2D<T> {
         ar
     }
 
+    #[inline]
     pub fn h_size(&self) -> usize {
         self.hsize
     }
 
+    #[inline]
     pub fn v_size(&self) -> usize {
         unsafe { self.head_mut() }.len()
     }
 
+    #[inline]
     pub fn size(&self) -> usize {
         self.h_size() * self.v_size()
     }
 
+    #[inline]
     pub fn ref_1d(&self) -> &[T] {
         unsafe {
             let x = self.head_mut();
@@ -76,10 +80,12 @@ impl<T> Array2D<T> {
         }
     }
 
+    #[inline]
     pub fn ref_2d<'a>(&self) -> &[&'a [T]] {
         unsafe { slice::from_raw_parts(self.heads.cast().as_ptr(), self.hsize) }
     }
 
+    #[inline]
     pub fn mut_1d(&mut self) -> &mut [T] {
         unsafe {
             let x = self.head_mut();
@@ -88,6 +94,7 @@ impl<T> Array2D<T> {
         }
     }
 
+    #[inline]
     pub fn mut_2d<'a>(&mut self) -> &mut [&'a mut [T]] {
         unsafe { slice::from_raw_parts_mut(self.heads.cast().as_mut(), self.hsize) }
     }
@@ -110,6 +117,7 @@ impl<T> Array2D<T> {
         v_val
     }
 
+    #[inline]
     unsafe fn head_mut(&self) -> &mut [T] {
         self.heads
             .as_ref()

@@ -10,8 +10,9 @@ use petgraph::{
     },
     Undirected,
 };
-use smallvec::*;
-use std::{iter::FusedIterator, marker::PhantomData, ops::Range, slice::Iter, usize};
+use std::{
+    iter::FusedIterator, marker::PhantomData, mem::MaybeUninit, ops::Range, slice::Iter, usize,
+};
 
 use crate::array2d::Array2D;
 
@@ -373,12 +374,24 @@ where
 }
 
 /// Reference of Edge data (EdgeIndex, EdgeWeight, direction) in [`SquareGraph`].
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct EdgeReference<'a, E, Ix: IndexType> {
     edge_id: EdgeIndex<Ix>,
     edge_weight: &'a E,
     direction: bool,
 }
+
+impl<'a, E, Ix: IndexType> Clone for EdgeReference<'a, E, Ix> {
+    fn clone(&self) -> Self {
+        Self {
+            edge_id: self.edge_id,
+            edge_weight: self.edge_weight,
+            direction: self.direction,
+        }
+    }
+}
+
+impl<'a, E, Ix: IndexType> Copy for EdgeReference<'a, E, Ix> {}
 
 impl<'a, E, Ix: IndexType> EdgeReference<'a, E, Ix> {
     fn get_node(&self, is_source: bool) -> NodeIndex<Ix> {
@@ -498,55 +511,93 @@ where
     }
 }
 
+pub struct Edges<'a, E, Ix: IndexType> {
+    e: [EdgeReference<'a, E, Ix>; 4],
+    pos: usize,
+}
+
+impl<'a, E, Ix> Iterator for Edges<'a, E, Ix>
+where
+    Ix: IndexType,
+{
+    type Item = EdgeReference<'a, E, Ix>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.pos > 0 {
+            self.pos -= 1;
+            Some(self.e[self.pos])
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.pos, Some(self.pos))
+    }
+
+    fn count(self) -> usize {
+        self.pos
+    }
+}
+
+impl<'a, E, Ix> FusedIterator for Edges<'a, E, Ix> where Ix: IndexType {}
+impl<'a, E, Ix> ExactSizeIterator for Edges<'a, E, Ix> where Ix: IndexType {}
+
 impl<'a, N, E, Ix> IntoEdges for &'a SquareGraph<N, E, Ix>
 where
     Ix: IndexType,
     E: Copy,
     Range<Ix>: Iterator<Item = Ix>,
 {
-    type Edges = smallvec::IntoIter<[EdgeReference<'a, E, Ix>; 4]>;
+    type Edges = Edges<'a, E, Ix>;
 
     fn edges(self, a: Self::NodeId) -> Self::Edges {
         let v = self.horizontal_node_count();
         let h = self.vertical_node_count();
         let va = a.horizontal.index();
         let ha = a.vertical.index();
-        let mut vec = SmallVec::with_capacity(4);
+        let mut vec: [EdgeReference<'a, E, Ix>; 4] = unsafe { MaybeUninit::uninit().assume_init() };
+        let mut pos = 0;
         if va != 0 {
-            vec.push(EdgeReference {
+            vec[pos] = EdgeReference {
                 edge_id: EdgeIndex(
                     NodeIndex::new(Ix::new(va - 1), a.vertical),
                     Axis::Horizontal,
                 ),
                 edge_weight: &self.horizontal.ref_2d()[va - 1][ha],
                 direction: false,
-            });
+            };
+            pos += 1;
         }
         if va < v - 1 {
-            vec.push(EdgeReference {
+            vec[pos] = EdgeReference {
                 edge_id: EdgeIndex(a, Axis::Horizontal),
                 edge_weight: &self.horizontal.ref_2d()[va][ha],
                 direction: true,
-            });
+            };
+            pos += 1;
         }
         if ha != 0 {
-            vec.push(EdgeReference {
+            vec[pos] = EdgeReference {
                 edge_id: EdgeIndex(
                     NodeIndex::new(a.horizontal, Ix::new(ha - 1)),
                     Axis::Vertical,
                 ),
                 edge_weight: &self.vertical.ref_2d()[va][ha - 1],
                 direction: false,
-            });
+            };
+            pos += 1;
         }
         if ha < h - 1 {
-            vec.push(EdgeReference {
+            vec[pos] = EdgeReference {
                 edge_id: EdgeIndex(a, Axis::Vertical),
                 edge_weight: &self.vertical.ref_2d()[va][ha],
                 direction: true,
-            });
+            };
+            pos += 1;
         }
-        vec.into_iter()
+
+        Edges { e: vec, pos }
     }
 }
 

@@ -9,5 +9,4 @@ edition = "2018"
 [dependencies]
 petgraph = "0.5"
 itertools = "0.10"
-fixedbitset = "0.4"
-smallvec = {version = "1.6", features=["union"]}
+fixedbitset = "0.2"

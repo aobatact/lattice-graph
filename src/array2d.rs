@@ -2,7 +2,7 @@ use core::slice;
 use std::{
     fmt::Debug,
     mem::{self, ManuallyDrop},
-    //ops::{Deref, DerefMut},
+    ops::{Index, IndexMut},
     ptr::NonNull,
 };
 
@@ -181,6 +181,20 @@ impl<T> Drop for Array2D<T> {
     }
 }
 
+impl<T> Index<(usize, usize)> for Array2D<T> {
+    type Output = T;
+
+    fn index(&self, index: (usize, usize)) -> &Self::Output {
+        &self.ref_2d()[index.0][index.1]
+    }
+}
+
+impl<T> IndexMut<(usize, usize)> for Array2D<T> {
+    fn index_mut(&mut self, index: (usize, usize)) -> &mut Self::Output {
+        &mut self.mut_2d()[index.0][index.1]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Array2D;
@@ -211,6 +225,26 @@ mod tests {
         for i in 0..5 {
             for j in 0..2 {
                 assert_eq!(x.ref_2d()[i][j], ());
+            }
+        }
+    }
+
+    #[test]
+    fn clone() {
+        let x = Array2D::new(5, 2, |h, v| (h, v));
+        let mut y = x.clone();
+        for i in 0..5 {
+            for j in 0..2 {
+                let yv = &mut y.mut_2d()[i][j];
+                assert_eq!(x.ref_2d()[i][j], *yv);
+                *yv = (yv.0 + 1, yv.1);
+                assert_ne!(x.ref_2d()[i][j], y.mut_2d()[i][j]);
+            }
+        }
+        drop(x);
+        for i in 0..5 {
+            for j in 0..2 {
+                assert_eq!(y.ref_2d()[i][j], (i + 1, j));
             }
         }
     }

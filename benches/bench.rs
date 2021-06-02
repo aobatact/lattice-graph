@@ -135,6 +135,11 @@ fn array2d(c: &mut Criterion) {
     });
 }
 
-criterion_group!(bench_graph, graph_build, graph_search_small, graph_search_large);
+criterion_group!(
+    bench_graph,
+    graph_build,
+    graph_search_small,
+    graph_search_large
+);
 criterion_group!(array2ds, array2d);
 criterion_main!(bench_graph, array2ds);

@@ -103,13 +103,13 @@ impl<T> Array2D<T> {
         unsafe { self.into_raw_inner(true) }
     }
 
+    ///Dropping the returned vec will drop the values in [`Array2D`].
+    ///Be careful not to accidentaly drops the inner values.
     unsafe fn into_raw_inner(&self, drop_heads: bool) -> Vec<T> {
         let hlen = self.hsize;
         let x = self.head_mut();
-        let vlen = x.len();
-        let ptr = x.get_unchecked_mut(0);
-        let len = hlen * vlen;
-        let v_val = Vec::from_raw_parts(ptr, len, len);
+        let len = hlen * x.len();
+        let v_val = Vec::from_raw_parts(x.get_unchecked_mut(0), len, len);
         if drop_heads {
             let v_head = Vec::from_raw_parts(self.heads.as_ptr(), 0, hlen);
             drop(v_head);

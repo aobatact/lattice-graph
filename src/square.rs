@@ -658,9 +658,9 @@ pub struct NodeIndices<Ix> {
 }
 
 impl<Ix> NodeIndices<Ix> {
-    fn new(v: usize, h: usize) -> Self {
+    fn new(h: usize, v: usize) -> Self {
         Self {
-            p: (0..v).cartesian_product(0..h),
+            p: (0..h).cartesian_product(0..v),
             pd: PhantomData,
         }
     }

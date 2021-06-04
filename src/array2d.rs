@@ -2,53 +2,54 @@ use core::slice;
 use std::{
     fmt::Debug,
     mem::{self, ManuallyDrop},
+    num::NonZeroUsize,
     ops::{Index, IndexMut},
     ptr::NonNull,
 };
 
 pub struct Array2D<T> {
     heads: NonNull<*mut [T]>,
-    hsize: usize,
+    hsize: NonZeroUsize,
 }
 
 impl<T> Array2D<T> {
-    pub fn from_raw(h: usize, v: usize, vec: Vec<T>) -> Self {
-        assert_eq!(h * v, vec.len());
+    pub fn from_raw(h: NonZeroUsize, v: usize, vec: Vec<T>) -> Self {
+        assert_eq!(h.get() * v, vec.len());
         unsafe { Self::from_raw_unchecked(h, v, vec) }
     }
 
-    unsafe fn from_raw_unchecked(h: usize, v: usize, vec: Vec<T>) -> Self {
+    unsafe fn from_raw_unchecked(h: NonZeroUsize, v: usize, vec: Vec<T>) -> Self {
         let mut vec = ManuallyDrop::new(vec);
         if mem::size_of::<T>() != 0 {
             vec.shrink_to_fit();
             debug_assert_eq!(vec.len(), vec.capacity());
         }
         let ptr = vec.as_mut_ptr();
-        let mut hvec = ManuallyDrop::new(Vec::with_capacity(h));
+        let mut hvec = ManuallyDrop::new(Vec::with_capacity(h.get()));
         let mut pos = 0;
-        for _ in 0..h {
+        for _ in 0..h.get() {
             hvec.push(slice::from_raw_parts_mut(ptr.add(pos), v));
             pos += v;
         }
         hvec.shrink_to_fit();
-        debug_assert!(mem::size_of::<T>() == 0 || h == hvec.capacity());
+        debug_assert!(mem::size_of::<T>() == 0 || h.get() == hvec.capacity());
         Self {
             heads: NonNull::new_unchecked(hvec.as_mut_ptr()).cast(),
             hsize: h,
         }
     }
 
-    pub unsafe fn new_uninit(h: usize, v: usize) -> Self {
-        let len = h * v;
+    pub unsafe fn new_uninit(h: NonZeroUsize, v: usize) -> Self {
+        let len = h.get() * v;
         let mut vec = Vec::<T>::with_capacity(len);
         vec.set_len(len);
         Self::from_raw_unchecked(h, v, vec)
     }
 
-    pub fn new<F: FnMut(usize, usize) -> T>(h: usize, v: usize, mut f: F) -> Self {
+    pub fn new<F: FnMut(usize, usize) -> T>(h: NonZeroUsize, v: usize, mut f: F) -> Self {
         let mut ar = unsafe { Self::new_uninit(h, v) };
         let s2d = ar.mut_2d();
-        for i in 0..h {
+        for i in 0..h.get() {
             for j in 0..v {
                 s2d[i][j] = (&mut f)(i, j);
             }
@@ -58,7 +59,7 @@ impl<T> Array2D<T> {
 
     #[inline]
     pub fn h_size(&self) -> usize {
-        self.hsize
+        self.hsize.get()
     }
 
     #[inline]
@@ -76,13 +77,13 @@ impl<T> Array2D<T> {
         unsafe {
             let x = self.head_mut();
             let vlen = x.len();
-            slice::from_raw_parts(x.get_unchecked(0), self.hsize * vlen)
+            slice::from_raw_parts(x.get_unchecked(0), self.h_size() * vlen)
         }
     }
 
     #[inline]
     pub fn ref_2d<'a>(&self) -> &[&'a [T]] {
-        unsafe { slice::from_raw_parts(self.heads.cast().as_ptr(), self.hsize) }
+        unsafe { slice::from_raw_parts(self.heads.cast().as_ptr(), self.h_size()) }
     }
 
     #[inline]
@@ -90,13 +91,13 @@ impl<T> Array2D<T> {
         unsafe {
             let x = self.head_mut();
             let vlen = x.len();
-            slice::from_raw_parts_mut(x.get_unchecked_mut(0), self.hsize * vlen)
+            slice::from_raw_parts_mut(x.get_unchecked_mut(0), self.h_size() * vlen)
         }
     }
 
     #[inline]
     pub fn mut_2d<'a>(&mut self) -> &mut [&'a mut [T]] {
-        unsafe { slice::from_raw_parts_mut(self.heads.cast().as_mut(), self.hsize) }
+        unsafe { slice::from_raw_parts_mut(self.heads.cast().as_mut(), self.h_size()) }
     }
 
     pub fn into_raw(self) -> Vec<T> {
@@ -106,7 +107,7 @@ impl<T> Array2D<T> {
     ///Dropping the returned vec will drop the values in [`Array2D`].
     ///Be careful not to accidentaly drops the inner values.
     unsafe fn into_raw_inner(&self, drop_heads: bool) -> Vec<T> {
-        let hlen = self.hsize;
+        let hlen = self.h_size();
         let x = self.head_mut();
         let len = hlen * x.len();
         let v_val = Vec::from_raw_parts(x.get_unchecked_mut(0), len, len);
@@ -132,7 +133,7 @@ impl<T: Clone> Clone for Array2D<T> {
             let vec = self.into_raw_inner(false);
             let vec = ManuallyDrop::new(vec);
             let vec_c = ManuallyDrop::into_inner(vec.clone());
-            Self::from_raw_unchecked(self.h_size(), self.v_size(), vec_c)
+            Self::from_raw_unchecked(self.hsize, self.v_size(), vec_c)
         }
     }
 }
@@ -197,11 +198,23 @@ impl<T> IndexMut<(usize, usize)> for Array2D<T> {
 
 #[cfg(test)]
 mod tests {
+    use std::num::NonZeroUsize;
+    type nz = NonZeroUsize;
     use super::Array2D;
 
     #[test]
+    fn gen_0() {
+        let x = Array2D::new(nz::new(5).unwrap(), 0, |h, v| (h, v));
+        let ar2d = x.ref_2d();
+        assert_eq!(ar2d.len(), 5);
+        assert_eq!(ar2d.get(0).map(|x| x.len()), Some(0));
+        let ar1d = x.ref_1d();
+        assert_eq!(ar1d.len(), 0);
+    }
+
+    #[test]
     fn gen() {
-        let x = Array2D::new(5, 2, |h, v| (h, v));
+        let x = Array2D::new(nz::new(5).unwrap(), 2, |h, v| (h, v));
         for i in 0..5 {
             for j in 0..2 {
                 assert_eq!(x.ref_2d()[i][j], (i, j));
@@ -211,7 +224,7 @@ mod tests {
 
     #[test]
     fn ref_1d() {
-        let x = Array2D::new(5, 2, |h, v| (h, v));
+        let x = Array2D::new(nz::new(5).unwrap(), 2, |h, v| (h, v));
         for i in 0..5 {
             for j in 0..2 {
                 assert_eq!(x.ref_1d()[j + i * 2], (i, j));
@@ -221,7 +234,7 @@ mod tests {
 
     #[test]
     fn gen_zst() {
-        let x = Array2D::new(5, 2, |_h, _v| ());
+        let x = Array2D::new(nz::new(5).unwrap(), 2, |_h, _v| ());
         for i in 0..5 {
             for j in 0..2 {
                 assert_eq!(x.ref_2d()[i][j], ());
@@ -231,7 +244,7 @@ mod tests {
 
     #[test]
     fn clone() {
-        let x = Array2D::new(5, 2, |h, v| (h, v));
+        let x = Array2D::new(nz::new(5).unwrap(), 2, |h, v| (h, v));
         let mut y = x.clone();
         for i in 0..5 {
             for j in 0..2 {

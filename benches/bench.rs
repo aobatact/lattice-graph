@@ -1,11 +1,5 @@
-use criterion::{
-    black_box, criterion_group, criterion_main, measurement::Measurement, AxisScale,
-    BenchmarkGroup, BenchmarkId, Criterion, PlotConfiguration,
-};
-use lattice_graph::{
-    array2d::{self, Array2D},
-    SquareGraph,
-};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use lattice_graph::{array2d::Array2D, SquareGraph};
 use petgraph::{algo, graph::*, visit::EdgeRef};
 use rand::{prelude::StdRng, Rng, SeedableRng};
 

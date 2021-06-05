@@ -130,8 +130,7 @@ where
         FN: FnMut(usize, usize) -> N,
         FE: FnMut(usize, usize, Axis) -> E,
     {
-        assert!(h != 0);
-        let nzh = unsafe { NonZeroUsize::new_unchecked(h) };
+        let nzh =  NonZeroUsize::new(h).expect("h must be non zero");
         let mut nodes = unsafe { Array2D::new_uninit(nzh, v) };
         let nodesref = nodes.mut_2d();
         let mut horizontal = unsafe { Array2D::new_uninit(NonZeroUsize::new_unchecked(h - 1), v) };

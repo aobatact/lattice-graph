@@ -10,7 +10,9 @@ use petgraph::{
     },
     Undirected,
 };
-use std::{iter::FusedIterator, marker::PhantomData, ops::Range, slice::Iter, usize};
+use std::{
+    iter::FusedIterator, marker::PhantomData, num::NonZeroUsize, ops::Range, slice::Iter, usize,
+};
 
 use crate::array2d::Array2D;
 
@@ -128,11 +130,12 @@ where
         FN: FnMut(usize, usize) -> N,
         FE: FnMut(usize, usize, Axis) -> E,
     {
-        let mut nodes = unsafe { Array2D::new_uninit(h, v) };
+        let nzh =  NonZeroUsize::new(h).expect("h must be non zero");
+        let mut nodes = unsafe { Array2D::new_uninit(nzh, v) };
         let nodesref = nodes.mut_2d();
-        let mut horizontal = unsafe { Array2D::new_uninit(h - 1, v) };
+        let mut horizontal = unsafe { Array2D::new_uninit(NonZeroUsize::new_unchecked(h - 1), v) };
         let href = horizontal.mut_2d();
-        let mut vertical = unsafe { Array2D::new_uninit(h, v - 1) };
+        let mut vertical = unsafe { Array2D::new_uninit(nzh, v - 1) };
         let vref = vertical.mut_2d();
 
         for hi in 0..h - 1 {
@@ -536,8 +539,12 @@ where
                                 NodeIndex::new(Ix::new(n.horizontal.index() - 1), n.vertical),
                                 Axis::Horizontal,
                             ),
-                            edge_weight: &g.horizontal.ref_2d()[n.horizontal.index() - 1]
-                                [n.vertical.index()],
+                            edge_weight: unsafe {
+                                g.horizontal
+                                    .ref_2d()
+                                    .get_unchecked(n.horizontal.index() - 1)
+                                    .get_unchecked(n.vertical.index())
+                            },
                             direction: false,
                         }
                     }
@@ -547,8 +554,12 @@ where
                         }
                         EdgeReference {
                             edge_id: EdgeIndex(n, Axis::Horizontal),
-                            edge_weight: &g.horizontal.ref_2d()[n.horizontal.index()]
-                                [n.vertical.index()],
+                            edge_weight: unsafe {
+                                g.horizontal
+                                    .ref_2d()
+                                    .get_unchecked(n.horizontal.index())
+                                    .get_unchecked(n.vertical.index())
+                            },
                             direction: true,
                         }
                     }
@@ -561,8 +572,12 @@ where
                                 NodeIndex::new(n.horizontal, Ix::new(n.vertical.index() - 1)),
                                 Axis::Vertical,
                             ),
-                            edge_weight: &g.vertical.ref_2d()[n.horizontal.index()]
-                                [n.vertical.index() - 1],
+                            edge_weight: unsafe {
+                                g.vertical
+                                    .ref_2d()
+                                    .get_unchecked(n.horizontal.index())
+                                    .get_unchecked(n.vertical.index() - 1)
+                            },
                             direction: false,
                         }
                     }
@@ -572,8 +587,12 @@ where
                         }
                         EdgeReference {
                             edge_id: EdgeIndex(n, Axis::Vertical),
-                            edge_weight: &g.vertical.ref_2d()[n.horizontal.index()]
-                                [n.vertical.index()],
+                            edge_weight: unsafe {
+                                g.vertical
+                                    .ref_2d()
+                                    .get_unchecked(n.horizontal.index())
+                                    .get_unchecked(n.vertical.index())
+                            },
                             direction: true,
                         }
                     }
@@ -883,6 +902,15 @@ mod tests {
             i += 1;
         }
         assert_eq!(i, 10);
+        x = -1;
+        i = 0;
+        for e in sq.edge_references().filter(|x| x.id().1 == Axis::Vertical) {
+            let y = sq.to_index(e.edge_id.0) as i32;
+            assert!(x < y);
+            x = y;
+            i += 1;
+        }
+        assert_eq!(i, 12);
     }
 
     #[test]

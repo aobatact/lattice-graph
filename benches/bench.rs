@@ -1,11 +1,7 @@
-use criterion::{
-    black_box, criterion_group, criterion_main, measurement::Measurement, AxisScale,
-    BenchmarkGroup, BenchmarkId, Criterion, PlotConfiguration,
-};
-use lattice_graph::{
-    array2d::{self, Array2D},
-    SquareGraph,
-};
+use std::num::NonZeroUsize;
+
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use lattice_graph::{array2d::Array2D, SquareGraph};
 use petgraph::{algo, graph::*, visit::EdgeRef};
 use rand::{prelude::StdRng, Rng, SeedableRng};
 
@@ -111,7 +107,7 @@ fn array2d(c: &mut Criterion) {
     });
     g.bench_function("array2d", |b| {
         b.iter_with_setup(
-            || Array2D::new(10, 8, |_, _| 3),
+            || Array2D::new(NonZeroUsize::new(10).unwrap(), 8, |_, _| 3),
             |v| {
                 for i in 0..10 {
                     for j in 0..8 {
@@ -123,7 +119,7 @@ fn array2d(c: &mut Criterion) {
     });
     g.bench_function("array2d_tr", |b| {
         b.iter_with_setup(
-            || Array2D::new(8, 10, |_, _| 3),
+            || Array2D::new(NonZeroUsize::new(8).unwrap(), 10, |_, _| 3),
             |v| {
                 for i in 0..8 {
                     for j in 0..10 {

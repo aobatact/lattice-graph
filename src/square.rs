@@ -10,10 +10,11 @@ use petgraph::{
     },
     Undirected,
 };
-use smallvec::*;
-use std::{iter::FusedIterator, marker::PhantomData, ops::Range, usize};
+use std::{
+    iter::FusedIterator, marker::PhantomData, num::NonZeroUsize, ops::Range, slice::Iter, usize,
+};
 
-const BORDER: usize = 64;
+use crate::array2d::Array2D;
 
 /// Axis of the Square grid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -77,7 +78,7 @@ impl From<SquareDirection> for (Axis, bool) {
     }
 }
 
-/// Square Grid Graph.
+/// Undirected Square Grid Graph.
 /// ```text
 /// Node(i,j+1) - Edge(i,j+1,Horizontal) - Node(i+1,j+1)
 ///   |                                     |
@@ -91,9 +92,9 @@ where
     Ix: IndexType,
 {
     /// `[horizontal][vertical]`
-    nodes: SmallVec<[SmallVec<[N; BORDER]>; BORDER]>,
-    horizontal: SmallVec<[SmallVec<[E; BORDER]>; BORDER]>, //↓
-    vertical: SmallVec<[SmallVec<[E; BORDER]>; BORDER]>,   //→
+    nodes: Array2D<N>,
+    horizontal: Array2D<E>, //→
+    vertical: Array2D<E>,   //↑
     pd: PhantomData<Ix>,
 }
 
@@ -102,12 +103,8 @@ where
     Ix: IndexType,
 {
     /// Create a `SquareGraph` from raw data.
-    /// It only check whether the size of nodes and edges in `debug_assertion`.
-    pub unsafe fn new_raw(
-        nodes: SmallVec<[SmallVec<[N; BORDER]>; BORDER]>,
-        horizontal: SmallVec<[SmallVec<[E; BORDER]>; BORDER]>,
-        vertical: SmallVec<[SmallVec<[E; BORDER]>; BORDER]>,
-    ) -> Self {
+    /// It only check whether the size of nodes and edges are correct in `debug_assertion`.
+    pub unsafe fn new_raw(nodes: Array2D<N>, horizontal: Array2D<E>, vertical: Array2D<E>) -> Self {
         let s = Self {
             nodes,
             horizontal,
@@ -133,86 +130,88 @@ where
         FN: FnMut(usize, usize) -> N,
         FE: FnMut(usize, usize, Axis) -> E,
     {
-        let mut nodes = SmallVec::with_capacity(v);
-        let mut horizontal = SmallVec::with_capacity(v - 1);
-        let mut vertical = SmallVec::with_capacity(v);
+        let nzh = NonZeroUsize::new(h).expect("h must be non zero");
+        let mut nodes = unsafe { Array2D::new_uninit(nzh, v) };
+        let nodesref = nodes.mut_2d();
+        let mut horizontal = unsafe { Array2D::new_uninit(NonZeroUsize::new_unchecked(h - 1), v) };
+        let href = horizontal.mut_2d();
+        let mut vertical = unsafe { Array2D::new_uninit(nzh, v - 1) };
+        let vref = vertical.mut_2d();
 
-        for vi in 0..v - 1 {
-            let mut nv = SmallVec::with_capacity(h);
-            let mut vv = SmallVec::with_capacity(h);
-            let mut hv = SmallVec::with_capacity(h - 1);
-            for hi in 0..h - 1 {
-                nv.push(fnode(vi, hi));
-                vv.push(fedge(vi, hi, Axis::Horizontal));
-                hv.push(fedge(vi, hi, Axis::Vertical));
-            }
-            nv.push(fnode(vi, h - 1));
-            vv.push(fedge(vi, h - 1, Axis::Horizontal));
-            nodes.push(nv);
-            horizontal.push(vv);
-            vertical.push(hv);
-        }
-        let mut nv = SmallVec::with_capacity(h);
-        let mut hv = SmallVec::with_capacity(h - 1);
         for hi in 0..h - 1 {
-            nv.push(fnode(v - 1, hi));
-            hv.push(fedge(v - 1, hi, Axis::Vertical));
+            let nv = &mut nodesref[hi];
+            let hv = &mut href[hi];
+            let vv = &mut vref[hi];
+            for vi in 0..v - 1 {
+                unsafe {
+                    *nv.get_unchecked_mut(vi) = fnode(hi, vi);
+                    *hv.get_unchecked_mut(vi) = fedge(hi, vi, Axis::Horizontal);
+                    *vv.get_unchecked_mut(vi) = fedge(hi, vi, Axis::Vertical);
+                }
+            }
+            unsafe {
+                *nv.get_unchecked_mut(v - 1) = fnode(hi, v - 1);
+                *hv.get_unchecked_mut(v - 1) = fedge(hi, v - 1, Axis::Horizontal);
+            }
         }
-        nv.push(fnode(v - 1, h - 1));
-        nodes.push(nv);
-        vertical.push(hv);
+        let nv = &mut nodesref[h - 1];
+        let vv = &mut vref[h - 1];
+        for hi in 0..v - 1 {
+            unsafe {
+                *nv.get_unchecked_mut(hi) = fnode(h - 1, hi);
+                *vv.get_unchecked_mut(hi) = fedge(h - 1, hi, Axis::Vertical);
+            }
+        }
+        nv[v - 1] = fnode(h - 1, v - 1);
         unsafe { Self::new_raw(nodes, horizontal, vertical) }
     }
 
     /// Returns the Node count in the horizontal direction.
     pub fn horizontal_node_count(&self) -> usize {
-        self.nodes.len()
+        self.nodes.h_size()
     }
 
     /// Returns the Node count in the vertical direction.
     pub fn vertical_node_count(&self) -> usize {
-        self.nodes.get(0).map(|x| x.len()).unwrap_or(0)
+        self.nodes.v_size()
     }
 
     /// Check the size of nodes and edges.
     fn check_gen(&self) -> bool {
-        let v = self.horizontal_node_count();
-        let h = self.vertical_node_count();
-        self.nodes.iter().all(|x| x.len() == h)
-            && self.horizontal.len() == v - 1
-            && self.horizontal.iter().all(|x| x.len() == h)
-            && self.vertical.len() == v
-            && self.vertical.iter().all(|x| x.len() == h - 1)
+        self.nodes.h_size() == self.horizontal.h_size() + 1
+            && self.nodes.v_size() == self.horizontal.v_size()
+            && self.nodes.h_size() == self.vertical.h_size()
+            && self.nodes.v_size() == self.vertical.v_size() + 1
     }
 
     /// Get a reference to the nodes. `[horizontal][vertical]`
-    pub fn nodes(&self) -> &[SmallVec<[N; BORDER]>] {
-        &self.nodes
+    pub fn nodes(&self) -> &[&[N]] {
+        self.nodes.as_ref()
     }
 
     /// Get a reference to the horizontal edges. `[horizontal][vertical]`
-    pub fn horizontal(&self) -> &[SmallVec<[E; BORDER]>] {
-        &self.horizontal
+    pub fn horizontal(&self) -> &[&[E]] {
+        self.horizontal.as_ref()
     }
 
     /// Get a reference to the vertical edges. `[horizontal][vertical]`
-    pub fn vertical(&self) -> &[SmallVec<[E; BORDER]>] {
-        &self.vertical
+    pub fn vertical(&self) -> &[&[E]] {
+        self.vertical.as_ref()
     }
 
     /// Get a mutable reference to the nodes. `[horizontal][vertical]`
-    pub fn nodes_mut(&mut self) -> &mut [SmallVec<[N; BORDER]>] {
-        &mut self.nodes
+    pub fn nodes_mut(&mut self) -> &mut [&mut [N]] {
+        self.nodes.as_mut()
     }
 
     /// Get a mutable reference to the horizontal edges. `[horizontal][vertical]`
-    pub fn horizontal_mut(&mut self) -> &mut [SmallVec<[E; BORDER]>] {
-        &mut self.horizontal
+    pub fn horizontal_mut(&mut self) -> &[&mut [E]] {
+        self.horizontal.as_mut()
     }
 
     /// Get a mutable reference to the vertical edges.
-    pub fn vertical_mut(&mut self) -> &mut [SmallVec<[E; BORDER]>] {
-        &mut self.vertical
+    pub fn vertical_mut(&mut self) -> &[&mut [E]] {
+        self.vertical.as_mut()
     }
 }
 
@@ -221,11 +220,11 @@ where
     Ix: IndexType,
 {
     /// Create a `SquareGraph` with the edges initialized from position.
-    pub fn new_edge_graph<FE>(v: usize, h: usize, fedge: FE) -> Self
+    pub fn new_edge_graph<FE>(h: usize, v: usize, fedge: FE) -> Self
     where
         FE: FnMut(usize, usize, Axis) -> E,
     {
-        Self::new_with(v, h, |_, _| (), fedge)
+        Self::new_with(h, v, |_, _| (), fedge)
     }
 }
 
@@ -325,6 +324,7 @@ where
 {
     fn node_weight(self: &Self, id: Self::NodeId) -> Option<&Self::NodeWeight> {
         self.nodes
+            .ref_2d()
             .get(id.horizontal.index())?
             .get(id.vertical.index())
     }
@@ -334,6 +334,7 @@ where
             Axis::Horizontal => &self.horizontal,
             Axis::Vertical => &self.vertical,
         }
+        .ref_2d()
         .get(id.0.horizontal.index())?
         .get(id.0.vertical.index())
     }
@@ -345,6 +346,7 @@ where
 {
     fn node_weight_mut(self: &mut Self, id: Self::NodeId) -> Option<&mut Self::NodeWeight> {
         self.nodes
+            .mut_2d()
             .get_mut(id.horizontal.index())?
             .get_mut(id.vertical.index())
     }
@@ -354,6 +356,7 @@ where
             Axis::Horizontal => &mut self.horizontal,
             Axis::Vertical => &mut self.vertical,
         }
+        .mut_2d()
         .get_mut(id.0.horizontal.index())?
         .get_mut(id.0.vertical.index())
     }
@@ -381,12 +384,24 @@ where
 }
 
 /// Reference of Edge data (EdgeIndex, EdgeWeight, direction) in [`SquareGraph`].
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct EdgeReference<'a, E, Ix: IndexType> {
     edge_id: EdgeIndex<Ix>,
     edge_weight: &'a E,
     direction: bool,
 }
+
+impl<'a, E, Ix: IndexType> Clone for EdgeReference<'a, E, Ix> {
+    fn clone(&self) -> Self {
+        Self {
+            edge_id: self.edge_id,
+            edge_weight: self.edge_weight,
+            direction: self.direction,
+        }
+    }
+}
+
+impl<'a, E, Ix: IndexType> Copy for EdgeReference<'a, E, Ix> {}
 
 impl<'a, E, Ix: IndexType> EdgeReference<'a, E, Ix> {
     fn get_node(&self, is_source: bool) -> NodeIndex<Ix> {
@@ -432,8 +447,8 @@ impl<'a, E: Copy, Ix: IndexType> EdgeRef for EdgeReference<'a, E, Ix> {
 /// Iterator for all edges of [`SquareGraph`].
 #[derive(Clone, Debug)]
 pub struct EdgeReferences<'a, E, Ix: IndexType> {
-    horizontal: &'a SmallVec<[SmallVec<[E; BORDER]>; BORDER]>,
-    vertical: &'a SmallVec<[SmallVec<[E; BORDER]>; BORDER]>,
+    horizontal: &'a Array2D<E>,
+    vertical: &'a Array2D<E>,
     nodes: NodeIndices<Ix>,
     prv: Option<EdgeIndex<Ix>>,
 }
@@ -460,7 +475,8 @@ where
         loop {
             if let Some(ref mut e) = self.prv {
                 if e.1 == Axis::Horizontal {
-                    let item = self.vertical[e.0.horizontal.index()].get(e.0.vertical.index());
+                    let item =
+                        self.vertical.ref_2d()[e.0.horizontal.index()].get(e.0.vertical.index());
                     if let Some(item) = item {
                         e.1 = Axis::Vertical;
                         return Some(EdgeReference {
@@ -474,6 +490,7 @@ where
             if let Some(next) = self.nodes.next() {
                 let item = self
                     .horizontal
+                    .ref_2d()
                     .get(next.horizontal.index())
                     .map(|x| x.get(next.vertical.index()))
                     .flatten();
@@ -497,9 +514,112 @@ where
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         let (lo, hi) = self.nodes.size_hint();
-        (lo - self.horizontal.len() - self.vertical.len(), hi)
+        (
+            lo.saturating_sub(self.horizontal.size() + self.vertical.size()),
+            hi.map(|x| x * 2),
+        )
     }
 }
+
+pub struct Edges<'a, N, E, Ix: IndexType> {
+    g: &'a SquareGraph<N, E, Ix>,
+    node: NodeIndex<Ix>,
+    state: usize,
+}
+
+impl<'a, N, E, Ix> Iterator for Edges<'a, N, E, Ix>
+where
+    Ix: IndexType,
+{
+    type Item = EdgeReference<'a, E, Ix>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let g = self.g;
+        let n = self.node;
+        loop {
+            'inner: loop {
+                let er = match self.state {
+                    0 => {
+                        if n.horizontal.index() == 0 {
+                            break 'inner;
+                        }
+                        EdgeReference {
+                            edge_id: EdgeIndex(
+                                NodeIndex::new(Ix::new(n.horizontal.index() - 1), n.vertical),
+                                Axis::Horizontal,
+                            ),
+                            edge_weight: unsafe {
+                                g.horizontal
+                                    .ref_2d()
+                                    .get_unchecked(n.horizontal.index() - 1)
+                                    .get_unchecked(n.vertical.index())
+                            },
+                            direction: false,
+                        }
+                    }
+                    1 => {
+                        if n.horizontal.index() + 1 >= g.horizontal_node_count() {
+                            break 'inner;
+                        }
+                        EdgeReference {
+                            edge_id: EdgeIndex(n, Axis::Horizontal),
+                            edge_weight: unsafe {
+                                g.horizontal
+                                    .ref_2d()
+                                    .get_unchecked(n.horizontal.index())
+                                    .get_unchecked(n.vertical.index())
+                            },
+                            direction: true,
+                        }
+                    }
+                    2 => {
+                        if n.vertical.index() == 0 {
+                            break 'inner;
+                        }
+                        EdgeReference {
+                            edge_id: EdgeIndex(
+                                NodeIndex::new(n.horizontal, Ix::new(n.vertical.index() - 1)),
+                                Axis::Vertical,
+                            ),
+                            edge_weight: unsafe {
+                                g.vertical
+                                    .ref_2d()
+                                    .get_unchecked(n.horizontal.index())
+                                    .get_unchecked(n.vertical.index() - 1)
+                            },
+                            direction: false,
+                        }
+                    }
+                    3 => {
+                        if n.vertical.index() + 1 >= g.vertical_node_count() {
+                            break 'inner;
+                        }
+                        EdgeReference {
+                            edge_id: EdgeIndex(n, Axis::Vertical),
+                            edge_weight: unsafe {
+                                g.vertical
+                                    .ref_2d()
+                                    .get_unchecked(n.horizontal.index())
+                                    .get_unchecked(n.vertical.index())
+                            },
+                            direction: true,
+                        }
+                    }
+                    _ => return None,
+                };
+                self.state += 1;
+                return Some(er);
+            }
+            self.state += 1;
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, Some(4 - self.state))
+    }
+}
+
+impl<'a, N, E, Ix> FusedIterator for Edges<'a, N, E, Ix> where Ix: IndexType {}
 
 impl<'a, N, E, Ix> IntoEdges for &'a SquareGraph<N, E, Ix>
 where
@@ -507,77 +627,81 @@ where
     E: Copy,
     Range<Ix>: Iterator<Item = Ix>,
 {
-    type Edges = smallvec::IntoIter<[EdgeReference<'a, E, Ix>; 4]>;
+    type Edges = Edges<'a, N, E, Ix>;
 
     fn edges(self, a: Self::NodeId) -> Self::Edges {
-        let v = self.horizontal_node_count();
-        let h = self.vertical_node_count();
-        let va = a.horizontal.index();
-        let ha = a.vertical.index();
-        let mut vec = SmallVec::with_capacity(4);
-        if va != 0 {
-            vec.push(EdgeReference {
-                edge_id: EdgeIndex(
-                    NodeIndex::new(Ix::new(va - 1), a.vertical),
-                    Axis::Horizontal,
-                ),
-                edge_weight: &self.horizontal[va - 1][ha],
-                direction: false,
-            });
+        Edges {
+            g: &self,
+            node: a,
+            state: 0,
         }
-        if va < v - 1 {
-            vec.push(EdgeReference {
-                edge_id: EdgeIndex(a, Axis::Horizontal),
-                edge_weight: &self.horizontal[va][ha],
-                direction: true,
-            });
-        }
-        if ha != 0 {
-            vec.push(EdgeReference {
-                edge_id: EdgeIndex(
-                    NodeIndex::new(a.horizontal, Ix::new(ha - 1)),
-                    Axis::Vertical,
-                ),
-                edge_weight: &self.vertical[va][ha - 1],
-                direction: false,
-            });
-        }
-        if ha < h - 1 {
-            vec.push(EdgeReference {
-                edge_id: EdgeIndex(a, Axis::Vertical),
-                edge_weight: &self.vertical[va][ha],
-                direction: true,
-            });
-        }
-        vec.into_iter()
     }
 }
+
+pub struct Neighbors<Ix: IndexType> {
+    node: NodeIndex<Ix>,
+    state: usize,
+    h: usize,
+    v: usize,
+}
+
+impl<Ix> Iterator for Neighbors<Ix>
+where
+    Ix: IndexType,
+{
+    type Item = NodeIndex<Ix>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let n = self.node;
+            let x = match self.state {
+                0 if n.horizontal.index() != 0 => Some(NodeIndex::new(
+                    Ix::new(n.horizontal.index() - 1),
+                    n.vertical,
+                )),
+                1 if n.horizontal.index() + 1 < self.h => Some(NodeIndex::new(
+                    Ix::new(n.horizontal.index() + 1),
+                    n.vertical,
+                )),
+                2 if n.vertical.index() != 0 => Some(NodeIndex::new(
+                    n.horizontal,
+                    Ix::new(n.vertical.index() - 1),
+                )),
+                3 if n.vertical.index() + 1 < self.v => Some(NodeIndex::new(
+                    n.horizontal,
+                    Ix::new(n.vertical.index() + 1),
+                )),
+                4..=usize::MAX => None,
+                _ => {
+                    self.state += 1;
+                    continue;
+                }
+            };
+            self.state += 1;
+            return x;
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, Some(4 - self.state))
+    }
+}
+
+impl<Ix> FusedIterator for Neighbors<Ix> where Ix: IndexType {}
 
 impl<'a, N, E, Ix> IntoNeighbors for &'a SquareGraph<N, E, Ix>
 where
     Ix: IndexType,
 {
-    type Neighbors = std::vec::IntoIter<NodeIndex<Ix>>;
+    type Neighbors = Neighbors<Ix>;
 
     fn neighbors(self: Self, a: Self::NodeId) -> Self::Neighbors {
-        let v = self.horizontal_node_count();
-        let h = self.vertical_node_count();
-        let va = a.horizontal.index();
-        let ha = a.vertical.index();
-        let mut vec = Vec::new();
-        if va != 0 {
-            vec.push(NodeIndex::new(Ix::new(va - 1), a.vertical));
+        Neighbors {
+            node: a,
+            state: 0,
+            h: self.horizontal_node_count(),
+            v: self.vertical_node_count(),
         }
-        if va < v - 1 {
-            vec.push(NodeIndex::new(Ix::new(va + 1), a.vertical));
-        }
-        if ha != 0 {
-            vec.push(NodeIndex::new(a.horizontal, Ix::new(ha - 1)));
-        }
-        if ha < h - 1 {
-            vec.push(NodeIndex::new(a.horizontal, Ix::new(ha + 1)));
-        }
-        vec.into_iter()
     }
 }
 
@@ -601,9 +725,9 @@ pub struct NodeIndices<Ix> {
 }
 
 impl<Ix> NodeIndices<Ix> {
-    fn new(v: usize, h: usize) -> Self {
+    fn new(h: usize, v: usize) -> Self {
         Self {
-            p: (0..v).cartesian_product(0..h),
+            p: (0..h).cartesian_product(0..v),
             pd: PhantomData,
         }
     }
@@ -645,7 +769,7 @@ where
     fn node_references(self) -> Self::NodeReferences {
         NodeReferences {
             indices: self.node_identifiers(),
-            nodes: &self.nodes,
+            nodes: self.nodes.ref_1d().iter(),
         }
     }
 }
@@ -653,7 +777,7 @@ where
 /// Iterate all nodes of [`SquareGraph`].
 pub struct NodeReferences<'a, N, Ix> {
     indices: NodeIndices<Ix>,
-    nodes: &'a SmallVec<[SmallVec<[N; BORDER]>; BORDER]>,
+    nodes: Iter<'a, N>,
 }
 
 impl<'a, N, Ix> Iterator for NodeReferences<'a, N, Ix>
@@ -664,17 +788,19 @@ where
     type Item = (NodeIndex<Ix>, &'a N);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.indices.next().map(|x| {
-            (x, unsafe {
-                self.nodes
-                    .get_unchecked(x.horizontal.index())
-                    .get_unchecked(x.vertical.index())
-            })
-        })
+        let n = self.nodes.next()?;
+        Some((self.indices.next()?, n))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.indices.size_hint()
+        self.nodes.size_hint()
+    }
+
+    fn count(self) -> usize
+    where
+        Self: Sized,
+    {
+        self.nodes.count()
     }
 }
 
@@ -685,7 +811,7 @@ where
     Ix: IndexType,
 {
     fn node_count(self: &Self) -> usize {
-        self.horizontal_node_count() * self.vertical_node_count()
+        self.nodes.size()
     }
 }
 
@@ -694,7 +820,7 @@ where
     Ix: IndexType,
 {
     fn node_bound(self: &Self) -> usize {
-        self.vertical_node_count() * self.horizontal_node_count()
+        self.nodes.size()
     }
 
     fn to_index(self: &Self, a: Self::NodeId) -> usize {
@@ -755,8 +881,8 @@ mod tests {
     #[test]
     fn gen() {
         let sq = SquareGraph::<_, _, u32>::new_with(
-            3,
             4,
+            3,
             |x, y| x + 2 * y,
             |x, y, d| (x + 2 * y) as i32 * (if d.is_horizontal() { 1 } else { -1 }),
         );
@@ -818,6 +944,15 @@ mod tests {
             .edge_references()
             .filter(|x| x.id().1 == Axis::Horizontal)
         {
+            let y = sq.to_index(e.edge_id.0) as i32;
+            assert!(x < y);
+            x = y;
+            i += 1;
+        }
+        assert_eq!(i, 10);
+        x = -1;
+        i = 0;
+        for e in sq.edge_references().filter(|x| x.id().1 == Axis::Vertical) {
             let y = sq.to_index(e.edge_id.0) as i32;
             assert!(x < y);
             x = y;

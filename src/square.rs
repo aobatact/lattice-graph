@@ -104,7 +104,11 @@ where
 {
     /// Create a `SquareGraph` from raw data.
     /// It only check whether the size of nodes and edges are correct in `debug_assertion`.
-    pub unsafe fn new_raw(nodes: FixedVec2D<N>, horizontal: FixedVec2D<E>, vertical: FixedVec2D<E>) -> Self {
+    pub unsafe fn new_raw(
+        nodes: FixedVec2D<N>,
+        horizontal: FixedVec2D<E>,
+        vertical: FixedVec2D<E>,
+    ) -> Self {
         let s = Self {
             nodes,
             horizontal,
@@ -133,7 +137,8 @@ where
         let nzh = NonZeroUsize::new(h).expect("h must be non zero");
         let mut nodes = unsafe { FixedVec2D::new_uninit(nzh, v) };
         let nodesref = nodes.mut_2d();
-        let mut horizontal = unsafe { FixedVec2D::new_uninit(NonZeroUsize::new_unchecked(h - 1), v) };
+        let mut horizontal =
+            unsafe { FixedVec2D::new_uninit(NonZeroUsize::new_unchecked(h - 1), v) };
         let href = horizontal.mut_2d();
         let mut vertical = unsafe { FixedVec2D::new_uninit(nzh, v - 1) };
         let vref = vertical.mut_2d();

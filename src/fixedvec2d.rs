@@ -7,6 +7,63 @@ use std::{
     ptr::NonNull,
 };
 
+// pub trait AsRef2D<T> {
+//     type TSlice<'a>: 'a + AsRef<[T]>;
+//     fn as_ref_2d(&'a self) -> &'a [Self::TSlice];
+// }
+
+// impl<T> AsRef2D< T> for FixedVec2D<T> {
+//     type TSlice =  &'a [T];
+//     fn as_ref_2d(& self) -> & [& [T]] {
+//         self.ref_2d()
+//     }
+// }
+
+// impl<'a, T: 'a, const H: usize, const V: usize> AsRef2D<'a, T> for [[T; V]; H] {
+//     type TSlice = [T; V];
+//     fn as_ref_2d(&'a self) -> &'a [[T; V]] {
+//         self
+//     }
+// }
+
+// pub trait AsRef2D<'a, T: 'a> {
+//     type TSlice: 'a + AsRef<[T]>;
+//     fn as_ref_2d(&'a self) -> &'a [Self::TSlice];
+// }
+
+// impl<'a, T: 'a> AsRef2D<'a, T> for FixedVec2D<T> {
+//     type TSlice = &'a [T];
+//     fn as_ref_2d(&'a self) -> &'a [&'a [T]] {
+//         self.ref_2d()
+//     }
+// }
+
+// impl<'a, T: 'a, const H: usize, const V: usize> AsRef2D<'a, T> for [[T; V]; H] {
+//     type TSlice = [T; V];
+//     fn as_ref_2d(&'a self) -> &'a [[T; V]] {
+//         self
+//     }
+// }
+
+pub trait AsMut2D<'a, T: 'a> {
+    type TSlice: 'a + AsMut<[T]>;
+    fn as_mut_2d(&'a mut self) -> &'a mut [Self::TSlice];
+}
+
+impl<'a, T: 'a> AsMut2D<'a, T> for FixedVec2D<T> {
+    type TSlice = &'a mut [T];
+    fn as_mut_2d(&'a mut self) -> &'a mut [&'a mut [T]] {
+        self.mut_2d()
+    }
+}
+
+impl<'a, T: 'a, const H: usize, const V: usize> AsMut2D<'a, T> for [[T; V]; H] {
+    type TSlice = [T; V];
+    fn as_mut_2d(&'a mut self) -> &'a mut [[T; V]] {
+        self
+    }
+}
+
 /// Raw fixed 2d vector. It has two axis, horizontal and vertical. Data is stored on one [`Vec`].
 /// Horizontal size must not be 0.
 pub struct FixedVec2D<T> {
@@ -60,7 +117,7 @@ impl<T> FixedVec2D<T> {
     Creates a FixedVec2D with initializing from the function.
     ```
     # use std::num::NonZeroUsize;
-    # use lattice_graph::array2d::FixedVec2D;
+    # use lattice_graph::fixedvec2d::FixedVec2D;
     let array = FixedVec2D::new(NonZeroUsize::new(5).unwrap(), 2, |h, v| (h, v));
     for i in 0..5 {
         for j in 0..2 {
@@ -164,7 +221,7 @@ impl<T> FixedVec2D<MaybeUninit<T>> {
     ```
     # use std::mem::MaybeUninit;
     # use std::num::NonZeroUsize;
-    # use lattice_graph::array2d::FixedVec2D;
+    # use lattice_graph::fixedvec2d::FixedVec2D;
     let mut array = unsafe { FixedVec2D::<MaybeUninit<i32>>::new_uninit(NonZeroUsize::new(6).unwrap(),3) };
     for i in 0..6{
         for j in 0..3{
@@ -321,7 +378,8 @@ mod tests {
 
     #[test]
     fn uninit() {
-        let mut array = unsafe { FixedVec2D::<MaybeUninit<i32>>::new_uninit(Nz::new(6).unwrap(), 3) };
+        let mut array =
+            unsafe { FixedVec2D::<MaybeUninit<i32>>::new_uninit(Nz::new(6).unwrap(), 3) };
         for i in 0..6 {
             for j in 0..3 {
                 array.mut_2d()[i][j] = MaybeUninit::new((i + j) as i32);

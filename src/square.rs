@@ -130,7 +130,7 @@ where
         FN: FnMut(usize, usize) -> N,
         FE: FnMut(usize, usize, Axis) -> E,
     {
-        let nzh =  NonZeroUsize::new(h).expect("h must be non zero");
+        let nzh = NonZeroUsize::new(h).expect("h must be non zero");
         let mut nodes = unsafe { Array2D::new_uninit(nzh, v) };
         let nodesref = nodes.mut_2d();
         let mut horizontal = unsafe { Array2D::new_uninit(NonZeroUsize::new_unchecked(h - 1), v) };
@@ -143,18 +143,24 @@ where
             let hv = &mut href[hi];
             let vv = &mut vref[hi];
             for vi in 0..v - 1 {
-                nv[vi] = fnode(hi, vi);
-                hv[vi] = fedge(hi, vi, Axis::Horizontal);
-                vv[vi] = fedge(hi, vi, Axis::Vertical);
+                unsafe {
+                    *nv.get_unchecked_mut(vi) = fnode(hi, vi);
+                    *hv.get_unchecked_mut(vi) = fedge(hi, vi, Axis::Horizontal);
+                    *vv.get_unchecked_mut(vi) = fedge(hi, vi, Axis::Vertical);
+                }
             }
-            nv[v - 1] = fnode(hi, v - 1);
-            hv[v - 1] = fedge(hi, v - 1, Axis::Horizontal);
+            unsafe {
+                *nv.get_unchecked_mut(v - 1) = fnode(hi, v - 1);
+                *hv.get_unchecked_mut(v - 1) = fedge(hi, v - 1, Axis::Horizontal);
+            }
         }
         let nv = &mut nodesref[h - 1];
         let vv = &mut vref[h - 1];
         for hi in 0..v - 1 {
-            nv[hi] = fnode(h - 1, hi);
-            vv[hi] = fedge(h - 1, hi, Axis::Vertical);
+            unsafe {
+                *nv.get_unchecked_mut(hi) = fnode(h - 1, hi);
+                *vv.get_unchecked_mut(hi) = fedge(h - 1, hi, Axis::Vertical);
+            }
         }
         nv[v - 1] = fnode(h - 1, v - 1);
         unsafe { Self::new_raw(nodes, horizontal, vertical) }
@@ -172,7 +178,10 @@ where
 
     /// Check the size of nodes and edges.
     fn check_gen(&self) -> bool {
-        true
+        self.nodes.h_size() == self.horizontal.h_size() + 1
+            && self.nodes.v_size() == self.horizontal.v_size()
+            && self.nodes.h_size() == self.vertical.h_size()
+            && self.nodes.v_size() == self.vertical.v_size() + 1
     }
 
     /// Get a reference to the nodes. `[horizontal][vertical]`
@@ -629,31 +638,70 @@ where
     }
 }
 
+pub struct Neighbors<Ix: IndexType> {
+    node: NodeIndex<Ix>,
+    state: usize,
+    h: usize,
+    v: usize,
+}
+
+impl<Ix> Iterator for Neighbors<Ix>
+where
+    Ix: IndexType,
+{
+    type Item = NodeIndex<Ix>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let n = self.node;
+            let x = match self.state {
+                0 if n.horizontal.index() != 0 => Some(NodeIndex::new(
+                    Ix::new(n.horizontal.index() - 1),
+                    n.vertical,
+                )),
+                1 if n.horizontal.index() + 1 < self.h => Some(NodeIndex::new(
+                    Ix::new(n.horizontal.index() + 1),
+                    n.vertical,
+                )),
+                2 if n.vertical.index() != 0 => Some(NodeIndex::new(
+                    n.horizontal,
+                    Ix::new(n.vertical.index() - 1),
+                )),
+                3 if n.vertical.index() + 1 < self.v => Some(NodeIndex::new(
+                    n.horizontal,
+                    Ix::new(n.vertical.index() + 1),
+                )),
+                4..=usize::MAX => None,
+                _ => {
+                    self.state += 1;
+                    continue;
+                }
+            };
+            self.state += 1;
+            return x;
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, Some(4 - self.state))
+    }
+}
+
+impl<Ix> FusedIterator for Neighbors<Ix> where Ix: IndexType {}
+
 impl<'a, N, E, Ix> IntoNeighbors for &'a SquareGraph<N, E, Ix>
 where
     Ix: IndexType,
 {
-    type Neighbors = std::vec::IntoIter<NodeIndex<Ix>>;
+    type Neighbors = Neighbors<Ix>;
 
     fn neighbors(self: Self, a: Self::NodeId) -> Self::Neighbors {
-        let v = self.horizontal_node_count();
-        let h = self.vertical_node_count();
-        let va = a.horizontal.index();
-        let ha = a.vertical.index();
-        let mut vec = Vec::new();
-        if va != 0 {
-            vec.push(NodeIndex::new(Ix::new(va - 1), a.vertical));
+        Neighbors {
+            node: a,
+            state: 0,
+            h: self.horizontal_node_count(),
+            v: self.vertical_node_count(),
         }
-        if va < v - 1 {
-            vec.push(NodeIndex::new(Ix::new(va + 1), a.vertical));
-        }
-        if ha != 0 {
-            vec.push(NodeIndex::new(a.horizontal, Ix::new(ha - 1)));
-        }
-        if ha < h - 1 {
-            vec.push(NodeIndex::new(a.horizontal, Ix::new(ha + 1)));
-        }
-        vec.into_iter()
     }
 }
 

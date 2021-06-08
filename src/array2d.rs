@@ -77,7 +77,7 @@ impl<T> Array2D<T> {
         unsafe {
             let x = self.head_mut();
             let vlen = x.len();
-            slice::from_raw_parts(x.get_unchecked(0), self.h_size() * vlen)
+            slice::from_raw_parts(x.as_ptr(), self.h_size() * vlen)
         }
     }
 
@@ -91,7 +91,7 @@ impl<T> Array2D<T> {
         unsafe {
             let x = self.head_mut();
             let vlen = x.len();
-            slice::from_raw_parts_mut(x.get_unchecked_mut(0), self.h_size() * vlen)
+            slice::from_raw_parts_mut(x.as_mut_ptr(), self.h_size() * vlen)
         }
     }
 
@@ -110,7 +110,7 @@ impl<T> Array2D<T> {
         let hlen = self.h_size();
         let x = self.head_mut();
         let len = hlen * x.len();
-        let v_val = Vec::from_raw_parts(x.get_unchecked_mut(0), len, len);
+        let v_val = Vec::from_raw_parts(x.as_mut_ptr(), len, len);
         if drop_heads {
             let v_head = Vec::from_raw_parts(self.heads.as_ptr(), 0, hlen);
             drop(v_head);
@@ -198,13 +198,12 @@ impl<T> IndexMut<(usize, usize)> for Array2D<T> {
 
 #[cfg(test)]
 mod tests {
-    use std::num::NonZeroUsize;
-    type nz = NonZeroUsize;
+    type Nz = std::num::NonZeroUsize;
     use super::Array2D;
 
     #[test]
     fn gen_0() {
-        let x = Array2D::new(nz::new(5).unwrap(), 0, |h, v| (h, v));
+        let x = Array2D::new(Nz::new(5).unwrap(), 0, |h, v| (h, v));
         let ar2d = x.ref_2d();
         assert_eq!(ar2d.len(), 5);
         assert_eq!(ar2d.get(0).map(|x| x.len()), Some(0));
@@ -214,7 +213,7 @@ mod tests {
 
     #[test]
     fn gen() {
-        let x = Array2D::new(nz::new(5).unwrap(), 2, |h, v| (h, v));
+        let x = Array2D::new(Nz::new(5).unwrap(), 2, |h, v| (h, v));
         for i in 0..5 {
             for j in 0..2 {
                 assert_eq!(x.ref_2d()[i][j], (i, j));
@@ -224,7 +223,7 @@ mod tests {
 
     #[test]
     fn ref_1d() {
-        let x = Array2D::new(nz::new(5).unwrap(), 2, |h, v| (h, v));
+        let x = Array2D::new(Nz::new(5).unwrap(), 2, |h, v| (h, v));
         for i in 0..5 {
             for j in 0..2 {
                 assert_eq!(x.ref_1d()[j + i * 2], (i, j));
@@ -234,7 +233,7 @@ mod tests {
 
     #[test]
     fn gen_zst() {
-        let x = Array2D::new(nz::new(5).unwrap(), 2, |_h, _v| ());
+        let x = Array2D::new(Nz::new(5).unwrap(), 2, |_h, _v| ());
         for i in 0..5 {
             for j in 0..2 {
                 assert_eq!(x.ref_2d()[i][j], ());
@@ -244,7 +243,7 @@ mod tests {
 
     #[test]
     fn clone() {
-        let x = Array2D::new(nz::new(5).unwrap(), 2, |h, v| (h, v));
+        let x = Array2D::new(Nz::new(5).unwrap(), 2, |h, v| (h, v));
         let mut y = x.clone();
         for i in 0..5 {
             for j in 0..2 {

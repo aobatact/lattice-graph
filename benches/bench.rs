@@ -1,7 +1,7 @@
 use std::num::NonZeroUsize;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use lattice_graph::{array2d::FixedVec2D, SquareGraph};
+use lattice_graph::{fixedvec2d::FixedVec2D, SquareGraph};
 use petgraph::{algo, graph::*, visit::EdgeRef};
 use rand::{prelude::StdRng, Rng, SeedableRng};
 

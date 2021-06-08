@@ -14,7 +14,7 @@ use std::{
     iter::FusedIterator, marker::PhantomData, num::NonZeroUsize, ops::Range, slice::Iter, usize,
 };
 
-use crate::array2d::FixedVec2D;
+use crate::fixedvec2d::FixedVec2D;
 
 /// Axis of the Square grid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]

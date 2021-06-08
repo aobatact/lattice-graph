@@ -1,21 +1,28 @@
 use core::slice;
 use std::{
     fmt::Debug,
-    mem::{self, ManuallyDrop},
+    mem::{self, ManuallyDrop, MaybeUninit},
     num::NonZeroUsize,
     ops::{Index, IndexMut},
     ptr::NonNull,
 };
 
+/// Raw fixed 2d vector. It has two axis, horizontal and vertical. Data is stored on one [`Vec`].
+/// Horizontal size must not be 0.
 pub struct Array2D<T> {
     heads: NonNull<*mut [T]>,
     hsize: NonZeroUsize,
 }
 
 impl<T> Array2D<T> {
-    pub fn from_raw(h: NonZeroUsize, v: usize, vec: Vec<T>) -> Self {
-        assert_eq!(h.get() * v, vec.len());
-        unsafe { Self::from_raw_unchecked(h, v, vec) }
+    /// Creates a array2d with a vec.
+    /// Returns [`None`] if `h * v != vec.len()`
+    pub fn from_raw(h: NonZeroUsize, v: usize, vec: Vec<T>) -> Option<Self> {
+        if h.get() * v != vec.len() {
+            None
+        } else {
+            Some(unsafe { Self::from_raw_unchecked(h, v, vec) })
+        }
     }
 
     unsafe fn from_raw_unchecked(h: NonZeroUsize, v: usize, vec: Vec<T>) -> Self {
@@ -39,6 +46,9 @@ impl<T> Array2D<T> {
         }
     }
 
+    /// Creates a Array2D without initializing.
+    /// It is very unsafe to use it so I recomend to use with [`MaybeUninit`] or just use [`new`](`Self::new`).
+    /// See [`assume_init`](`Self::assume_init`).
     pub unsafe fn new_uninit(h: NonZeroUsize, v: usize) -> Self {
         let len = h.get() * v;
         let mut vec = Vec::<T>::with_capacity(len);
@@ -46,6 +56,19 @@ impl<T> Array2D<T> {
         Self::from_raw_unchecked(h, v, vec)
     }
 
+    /**
+    Creates a Array2D with initializing from the function.
+    ```
+    # use std::num::NonZeroUsize;
+    # use lattice_graph::array2d::Array2D;
+    let array = Array2D::new(NonZeroUsize::new(5).unwrap(), 2, |h, v| (h, v));
+    for i in 0..5 {
+        for j in 0..2 {
+            assert_eq!(array.ref_2d()[i][j], (i, j));
+        }
+    }
+    ```
+    */
     pub fn new<F: FnMut(usize, usize) -> T>(h: NonZeroUsize, v: usize, mut f: F) -> Self {
         let mut ar = unsafe { Self::new_uninit(h, v) };
         let s2d = ar.mut_2d();
@@ -57,21 +80,25 @@ impl<T> Array2D<T> {
         ar
     }
 
+    /// Returns the horizontal size.
     #[inline]
     pub fn h_size(&self) -> usize {
         self.hsize.get()
     }
 
+    /// Returns the vertical size.
     #[inline]
     pub fn v_size(&self) -> usize {
         unsafe { self.head_mut() }.len()
     }
 
+    /// Returns the length of underlying [`Vec`].
     #[inline]
     pub fn size(&self) -> usize {
         self.h_size() * self.v_size()
     }
 
+    /// Returns the slice of all values in the array.
     #[inline]
     pub fn ref_1d(&self) -> &[T] {
         unsafe {
@@ -81,11 +108,13 @@ impl<T> Array2D<T> {
         }
     }
 
+    /// Returns the reference of this array.
     #[inline]
     pub fn ref_2d<'a>(&self) -> &[&'a [T]] {
         unsafe { slice::from_raw_parts(self.heads.cast().as_ptr(), self.h_size()) }
     }
 
+    /// Returns the mutable slice of all values in the array.
     #[inline]
     pub fn mut_1d(&mut self) -> &mut [T] {
         unsafe {
@@ -95,11 +124,13 @@ impl<T> Array2D<T> {
         }
     }
 
+    /// Returns the mutable reference of this array.
     #[inline]
     pub fn mut_2d<'a>(&mut self) -> &mut [&'a mut [T]] {
         unsafe { slice::from_raw_parts_mut(self.heads.cast().as_mut(), self.h_size()) }
     }
 
+    /// Returns the underlying [`Vec`] consuming this [`Array2D`]
     pub fn into_raw(self) -> Vec<T> {
         unsafe { self.into_raw_inner(true) }
     }
@@ -120,10 +151,35 @@ impl<T> Array2D<T> {
 
     #[inline]
     unsafe fn head_mut(&self) -> &mut [T] {
-        self.heads
-            .as_ref()
-            .as_mut()
-            .unwrap_or_else(|| std::hint::unreachable_unchecked())
+        self.heads.as_ref().as_mut().unwrap_or_else(|| {
+            debug_assert!(false, "heads should not be empty");
+            std::hint::unreachable_unchecked()
+        })
+    }
+}
+
+impl<T> Array2D<MaybeUninit<T>> {
+    /**
+    Assume init. Use this with [`new_uninit`](`Self::new_uninit`).
+    ```
+    # use std::mem::MaybeUninit;
+    # use std::num::NonZeroUsize;
+    # use lattice_graph::array2d::Array2D;
+    let mut array = unsafe { Array2D::<MaybeUninit<i32>>::new_uninit(NonZeroUsize::new(6).unwrap(),3) };
+    for i in 0..6{
+        for j in 0..3{
+            array.mut_2d()[i][j] = MaybeUninit::new((i + j) as i32);
+        }
+    }
+    let array_init = unsafe { array.assume_init() };
+    ```
+    */
+    pub unsafe fn assume_init(self) -> Array2D<T> {
+        let m = ManuallyDrop::new(self);
+        Array2D {
+            heads: m.heads.cast(),
+            hsize: m.hsize,
+        }
     }
 }
 
@@ -199,6 +255,8 @@ impl<T> IndexMut<(usize, usize)> for Array2D<T> {
 #[cfg(test)]
 mod tests {
     type Nz = std::num::NonZeroUsize;
+    use std::mem::MaybeUninit;
+
     use super::Array2D;
 
     #[test]
@@ -257,6 +315,22 @@ mod tests {
         for i in 0..5 {
             for j in 0..2 {
                 assert_eq!(y.ref_2d()[i][j], (i + 1, j));
+            }
+        }
+    }
+
+    #[test]
+    fn uninit() {
+        let mut array = unsafe { Array2D::<MaybeUninit<i32>>::new_uninit(Nz::new(6).unwrap(), 3) };
+        for i in 0..6 {
+            for j in 0..3 {
+                array.mut_2d()[i][j] = MaybeUninit::new((i + j) as i32);
+            }
+        }
+        let array_init = unsafe { array.assume_init() };
+        for i in 0..6 {
+            for j in 0..3 {
+                assert_eq!(array_init.ref_2d()[i][j], (i + j) as i32);
             }
         }
     }

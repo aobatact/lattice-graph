@@ -14,7 +14,7 @@ use std::{
     iter::FusedIterator, marker::PhantomData, num::NonZeroUsize, ops::Range, slice::Iter, usize,
 };
 
-use crate::array2d::Array2D;
+use crate::fixedvec2d::FixedVec2D;
 
 /// Axis of the Square grid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -92,9 +92,9 @@ where
     Ix: IndexType,
 {
     /// `[horizontal][vertical]`
-    nodes: Array2D<N>,
-    horizontal: Array2D<E>, //→
-    vertical: Array2D<E>,   //↑
+    nodes: FixedVec2D<N>,
+    horizontal: FixedVec2D<E>, //→
+    vertical: FixedVec2D<E>,   //↑
     pd: PhantomData<Ix>,
 }
 
@@ -104,7 +104,7 @@ where
 {
     /// Create a `SquareGraph` from raw data.
     /// It only check whether the size of nodes and edges are correct in `debug_assertion`.
-    pub unsafe fn new_raw(nodes: Array2D<N>, horizontal: Array2D<E>, vertical: Array2D<E>) -> Self {
+    pub unsafe fn new_raw(nodes: FixedVec2D<N>, horizontal: FixedVec2D<E>, vertical: FixedVec2D<E>) -> Self {
         let s = Self {
             nodes,
             horizontal,
@@ -131,11 +131,11 @@ where
         FE: FnMut(usize, usize, Axis) -> E,
     {
         let nzh = NonZeroUsize::new(h).expect("h must be non zero");
-        let mut nodes = unsafe { Array2D::new_uninit(nzh, v) };
+        let mut nodes = unsafe { FixedVec2D::new_uninit(nzh, v) };
         let nodesref = nodes.mut_2d();
-        let mut horizontal = unsafe { Array2D::new_uninit(NonZeroUsize::new_unchecked(h - 1), v) };
+        let mut horizontal = unsafe { FixedVec2D::new_uninit(NonZeroUsize::new_unchecked(h - 1), v) };
         let href = horizontal.mut_2d();
-        let mut vertical = unsafe { Array2D::new_uninit(nzh, v - 1) };
+        let mut vertical = unsafe { FixedVec2D::new_uninit(nzh, v - 1) };
         let vref = vertical.mut_2d();
 
         for hi in 0..h - 1 {
@@ -447,8 +447,8 @@ impl<'a, E: Copy, Ix: IndexType> EdgeRef for EdgeReference<'a, E, Ix> {
 /// Iterator for all edges of [`SquareGraph`].
 #[derive(Clone, Debug)]
 pub struct EdgeReferences<'a, E, Ix: IndexType> {
-    horizontal: &'a Array2D<E>,
-    vertical: &'a Array2D<E>,
+    horizontal: &'a FixedVec2D<E>,
+    vertical: &'a FixedVec2D<E>,
     nodes: NodeIndices<Ix>,
     prv: Option<EdgeIndex<Ix>>,
 }

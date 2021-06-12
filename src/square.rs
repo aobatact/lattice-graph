@@ -104,7 +104,11 @@ where
 {
     /// Create a `SquareGraph` from raw data.
     /// It only check whether the size of nodes and edges are correct in `debug_assertion`.
-    pub unsafe fn new_raw(nodes: FixedVec2D<N>, horizontal: FixedVec2D<E>, vertical: FixedVec2D<E>) -> Self {
+    pub unsafe fn new_raw(
+        nodes: FixedVec2D<N>,
+        horizontal: FixedVec2D<E>,
+        vertical: FixedVec2D<E>,
+    ) -> Self {
         let s = Self {
             nodes,
             horizontal,
@@ -133,7 +137,8 @@ where
         let nzh = NonZeroUsize::new(h).expect("h must be non zero");
         let mut nodes = unsafe { FixedVec2D::new_uninit(nzh, v) };
         let nodesref = nodes.mut_2d();
-        let mut horizontal = unsafe { FixedVec2D::new_uninit(NonZeroUsize::new_unchecked(h - 1), v) };
+        let mut horizontal =
+            unsafe { FixedVec2D::new_uninit(NonZeroUsize::new_unchecked(h - 1), v) };
         let href = horizontal.mut_2d();
         let mut vertical = unsafe { FixedVec2D::new_uninit(nzh, v - 1) };
         let vref = vertical.mut_2d();
@@ -213,6 +218,107 @@ where
     pub fn vertical_mut(&mut self) -> &[&mut [E]] {
         self.vertical.as_mut()
     }
+
+    #[inline]
+    /// Get the edge from node.
+    pub fn get_edge_id(&self, node: NodeIndex<Ix>, dir: SquareDirection) -> Option<EdgeIndex<Ix>> {
+        Some(
+            match dir {
+                SquareDirection::Foward(a @ Axis::Vertical)
+                    if node.vertical.index() + 1 < self.vertical_node_count() =>
+                {
+                    (node, a)
+                }
+                SquareDirection::Foward(a @ Axis::Horizontal)
+                    if node.horizontal.index() + 1 < self.horizontal_node_count() =>
+                {
+                    (node, a)
+                }
+                SquareDirection::Backward(a @ Axis::Vertical) if node.vertical.index() != 0 => {
+                    (node.down(), a)
+                }
+                SquareDirection::Backward(a @ Axis::Horizontal) if node.horizontal.index() != 0 => {
+                    (node.left(), a)
+                }
+                _ => return None,
+            }
+            .into(),
+        )
+    }
+
+    #[inline]
+    /// Get the edge reference form node.
+    pub fn get_edge_reference<'a>(
+        &'a self,
+        n: NodeIndex<Ix>,
+        dir: SquareDirection,
+    ) -> Option<EdgeReference<'a, E, Ix>> {
+        Some(match dir {
+            SquareDirection::Foward(Axis::Vertical)
+                if n.vertical.index() + 1 < self.vertical_node_count() =>
+            {
+                EdgeReference {
+                    edge_id: EdgeIndex {
+                        node: n,
+                        axis: Axis::Vertical,
+                    },
+                    edge_weight: unsafe {
+                        self.vertical
+                            .ref_2d()
+                            .get_unchecked(n.horizontal.index())
+                            .get_unchecked(n.vertical.index())
+                    },
+                    direction: true,
+                }
+            }
+            SquareDirection::Foward(Axis::Horizontal)
+                if n.horizontal.index() + 1 < self.horizontal_node_count() =>
+            {
+                EdgeReference {
+                    edge_id: EdgeIndex {
+                        node: n,
+                        axis: Axis::Horizontal,
+                    },
+                    edge_weight: unsafe {
+                        self.horizontal
+                            .ref_2d()
+                            .get_unchecked(n.horizontal.index())
+                            .get_unchecked(n.vertical.index())
+                    },
+                    direction: true,
+                }
+            }
+            SquareDirection::Backward(Axis::Vertical) if n.vertical.index() != 0 => EdgeReference {
+                edge_id: EdgeIndex {
+                    node: n.down(),
+                    axis: Axis::Vertical,
+                },
+                edge_weight: unsafe {
+                    self.vertical
+                        .ref_2d()
+                        .get_unchecked(n.horizontal.index())
+                        .get_unchecked(n.vertical.index() - 1)
+                },
+                direction: false,
+            },
+            SquareDirection::Backward(Axis::Horizontal) if n.horizontal.index() != 0 => {
+                EdgeReference {
+                    edge_id: EdgeIndex {
+                        node: n.left(),
+                        axis: Axis::Horizontal,
+                    },
+                    edge_weight: unsafe {
+                        self.horizontal
+                            .ref_2d()
+                            .get_unchecked(n.horizontal.index() - 1)
+                            .get_unchecked(n.vertical.index())
+                    },
+                    direction: false,
+                }
+            }
+            _ => return None,
+        })
+    }
 }
 
 impl<E, Ix> SquareGraph<(), E, Ix>
@@ -252,7 +358,7 @@ impl<Ix: IndexType> NodeIndex<Ix> {
     }
 
     /// Get the edge from this node. This does not check whether the node is valid in graph.
-    pub fn get_edge_id(&self, dir: SquareDirection) -> EdgeIndex<Ix> {
+    pub unsafe fn get_edge_id_unchecked(&self, dir: SquareDirection) -> EdgeIndex<Ix> {
         match dir {
             SquareDirection::Foward(x) => (*self, x),
             SquareDirection::Backward(a @ Axis::Vertical) => (
@@ -265,6 +371,38 @@ impl<Ix: IndexType> NodeIndex<Ix> {
             ),
         }
         .into()
+    }
+
+    #[inline]
+    pub fn up(self) -> Self {
+        Self {
+            vertical: Ix::new(self.vertical.index() + 1),
+            ..self
+        }
+    }
+
+    #[inline]
+    pub fn down(self) -> Self {
+        Self {
+            vertical: Ix::new(self.vertical.index() - 1),
+            ..self
+        }
+    }
+
+    #[inline]
+    pub fn right(self) -> Self {
+        Self {
+            horizontal: Ix::new(self.horizontal.index() + 1),
+            ..self
+        }
+    }
+
+    #[inline]
+    pub fn left(self) -> Self {
+        Self {
+            horizontal: Ix::new(self.horizontal.index() - 1),
+            ..self
+        }
     }
 }
 
@@ -288,17 +426,20 @@ impl<Ix: IndexType> From<NodeIndex<Ix>> for (usize, usize) {
 
 /// Edge Index of [`SquareGraph`]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct EdgeIndex<Ix: IndexType>(pub NodeIndex<Ix>, pub Axis);
+pub struct EdgeIndex<Ix: IndexType> {
+    pub node: NodeIndex<Ix>,
+    pub axis: Axis,
+}
 
 impl<Ix: IndexType> From<(NodeIndex<Ix>, Axis)> for EdgeIndex<Ix> {
     fn from((n, a): (NodeIndex<Ix>, Axis)) -> Self {
-        Self(n, a)
+        Self { node: n, axis: a }
     }
 }
 
 impl<Ix: IndexType> From<(NodeIndex<Ix>, SquareDirection)> for EdgeIndex<Ix> {
     fn from((n, a): (NodeIndex<Ix>, SquareDirection)) -> Self {
-        n.get_edge_id(a)
+        unsafe { n.get_edge_id_unchecked(a) }
     }
 }
 
@@ -330,13 +471,13 @@ where
     }
 
     fn edge_weight(self: &Self, id: Self::EdgeId) -> Option<&Self::EdgeWeight> {
-        match id.1 {
+        match id.axis {
             Axis::Horizontal => &self.horizontal,
             Axis::Vertical => &self.vertical,
         }
         .ref_2d()
-        .get(id.0.horizontal.index())?
-        .get(id.0.vertical.index())
+        .get(id.node.horizontal.index())?
+        .get(id.node.vertical.index())
     }
 }
 
@@ -352,13 +493,13 @@ where
     }
 
     fn edge_weight_mut(self: &mut Self, id: Self::EdgeId) -> Option<&mut Self::EdgeWeight> {
-        match id.1 {
+        match id.axis {
             Axis::Horizontal => &mut self.horizontal,
             Axis::Vertical => &mut self.vertical,
         }
         .mut_2d()
-        .get_mut(id.0.horizontal.index())?
-        .get_mut(id.0.vertical.index())
+        .get_mut(id.node.horizontal.index())?
+        .get_mut(id.node.vertical.index())
     }
 }
 
@@ -404,19 +545,14 @@ impl<'a, E, Ix: IndexType> Clone for EdgeReference<'a, E, Ix> {
 impl<'a, E, Ix: IndexType> Copy for EdgeReference<'a, E, Ix> {}
 
 impl<'a, E, Ix: IndexType> EdgeReference<'a, E, Ix> {
+    #[inline]
     fn get_node(&self, is_source: bool) -> NodeIndex<Ix> {
         if is_source {
-            (self.edge_id).0
+            (self.edge_id).node
         } else {
-            match (self.edge_id).1 {
-                Axis::Horizontal => NodeIndex::new(
-                    Ix::new((self.edge_id).0.horizontal.index() + 1),
-                    (self.edge_id).0.vertical,
-                ),
-                Axis::Vertical => NodeIndex::new(
-                    (self.edge_id).0.horizontal,
-                    Ix::new((self.edge_id).0.vertical.index() + 1),
-                ),
+            match (self.edge_id).axis {
+                Axis::Horizontal => (self.edge_id).node.right(),
+                Axis::Vertical => (self.edge_id).node.up(),
             }
         }
     }
@@ -427,10 +563,12 @@ impl<'a, E: Copy, Ix: IndexType> EdgeRef for EdgeReference<'a, E, Ix> {
     type EdgeId = EdgeIndex<Ix>;
     type Weight = E;
 
+    #[inline]
     fn source(&self) -> Self::NodeId {
         self.get_node(self.direction)
     }
 
+    #[inline]
     fn target(&self) -> Self::NodeId {
         self.get_node(!self.direction)
     }
@@ -474,11 +612,11 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             if let Some(ref mut e) = self.prv {
-                if e.1 == Axis::Horizontal {
-                    let item =
-                        self.vertical.ref_2d()[e.0.horizontal.index()].get(e.0.vertical.index());
+                if e.axis == Axis::Horizontal {
+                    let item = self.vertical.ref_2d()[e.node.horizontal.index()]
+                        .get(e.node.vertical.index());
                     if let Some(item) = item {
-                        e.1 = Axis::Vertical;
+                        e.axis = Axis::Vertical;
                         return Some(EdgeReference {
                             edge_id: *e,
                             edge_weight: item,
@@ -494,10 +632,10 @@ where
                     .get(next.horizontal.index())
                     .map(|x| x.get(next.vertical.index()))
                     .flatten();
-                let edge_id = EdgeIndex(
-                    NodeIndex::new(next.horizontal, next.vertical),
-                    Axis::Horizontal,
-                );
+                let edge_id = EdgeIndex {
+                    node: next,
+                    axis: Axis::Horizontal,
+                };
                 self.prv = Some(edge_id);
                 if let Some(edge_weight) = item {
                     return Some(EdgeReference {
@@ -544,10 +682,10 @@ where
                             break 'inner;
                         }
                         EdgeReference {
-                            edge_id: EdgeIndex(
-                                NodeIndex::new(Ix::new(n.horizontal.index() - 1), n.vertical),
-                                Axis::Horizontal,
-                            ),
+                            edge_id: EdgeIndex {
+                                node: n.left(),
+                                axis: Axis::Horizontal,
+                            },
                             edge_weight: unsafe {
                                 g.horizontal
                                     .ref_2d()
@@ -562,7 +700,10 @@ where
                             break 'inner;
                         }
                         EdgeReference {
-                            edge_id: EdgeIndex(n, Axis::Horizontal),
+                            edge_id: EdgeIndex {
+                                node: n,
+                                axis: Axis::Horizontal,
+                            },
                             edge_weight: unsafe {
                                 g.horizontal
                                     .ref_2d()
@@ -577,10 +718,10 @@ where
                             break 'inner;
                         }
                         EdgeReference {
-                            edge_id: EdgeIndex(
-                                NodeIndex::new(n.horizontal, Ix::new(n.vertical.index() - 1)),
-                                Axis::Vertical,
-                            ),
+                            edge_id: EdgeIndex {
+                                node: n.down(),
+                                axis: Axis::Vertical,
+                            },
                             edge_weight: unsafe {
                                 g.vertical
                                     .ref_2d()
@@ -595,7 +736,10 @@ where
                             break 'inner;
                         }
                         EdgeReference {
-                            edge_id: EdgeIndex(n, Axis::Vertical),
+                            edge_id: EdgeIndex {
+                                node: n,
+                                axis: Axis::Vertical,
+                            },
                             edge_weight: unsafe {
                                 g.vertical
                                     .ref_2d()
@@ -655,30 +799,18 @@ where
         loop {
             let n = self.node;
             let x = match self.state {
-                0 if n.horizontal.index() != 0 => Some(NodeIndex::new(
-                    Ix::new(n.horizontal.index() - 1),
-                    n.vertical,
-                )),
-                1 if n.horizontal.index() + 1 < self.h => Some(NodeIndex::new(
-                    Ix::new(n.horizontal.index() + 1),
-                    n.vertical,
-                )),
-                2 if n.vertical.index() != 0 => Some(NodeIndex::new(
-                    n.horizontal,
-                    Ix::new(n.vertical.index() - 1),
-                )),
-                3 if n.vertical.index() + 1 < self.v => Some(NodeIndex::new(
-                    n.horizontal,
-                    Ix::new(n.vertical.index() + 1),
-                )),
-                4..=usize::MAX => None,
+                0 if n.horizontal.index() != 0 => n.left(),
+                1 if n.horizontal.index() + 1 < self.h => n.right(),
+                2 if n.vertical.index() != 0 => n.down(),
+                3 if n.vertical.index() + 1 < self.v => n.up(),
+                4..=usize::MAX => return None,
                 _ => {
                     self.state += 1;
                     continue;
                 }
             };
             self.state += 1;
-            return x;
+            return Some(x);
         }
     }
 
@@ -876,6 +1008,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::array::IntoIter;
+
     use super::*;
 
     #[test]
@@ -930,6 +1064,57 @@ mod tests {
     }
 
     #[test]
+    fn neighbors() {
+        let sq = SquareGraph::<_, _, u32>::new_with(
+            3,
+            5,
+            |x, y| x + 2 * y,
+            |x, y, d| (x + 2 * y) as i32 * (if d.is_horizontal() { 1 } else { -1 }),
+        );
+
+        let v00 = sq.neighbors((0, 0).into());
+        debug_assert!(v00.eq(IntoIter::new([(1, 0), (0, 1)])));
+
+        let v04 = sq.neighbors((0, 4).into());
+        debug_assert!(v04.eq(IntoIter::new([(1, 4), (0, 3)])));
+
+        let v20 = sq.neighbors((2, 0).into());
+        debug_assert!(v20.eq(IntoIter::new([(1, 0), (2, 1)])));
+
+        let v24 = sq.neighbors((2, 4).into());
+        debug_assert!(v24.eq(IntoIter::new([(1, 4), (2, 3)])));
+
+        let v12 = sq.neighbors((1, 2).into());
+        debug_assert!(v12.eq(IntoIter::new([(0, 2), (2, 2), (1, 1), (1, 3)])));
+    }
+
+    #[test]
+    fn edges() {
+        let sq = SquareGraph::<_, _, u32>::new_with(
+            3,
+            5,
+            |x, y| x + 2 * y,
+            |x, y, d| (x + 2 * y) as i32 * (if d.is_horizontal() { 1 } else { -1 }),
+        );
+
+        debug_assert!(sq
+            .edges((0, 0).into())
+            .map(|e| e.target())
+            .eq(IntoIter::new([(1, 0), (0, 1)])));
+
+        debug_assert!(sq.edges((0, 0).into()).map(|e| e.edge_weight).eq(&[0, 0]));
+        debug_assert!(sq
+            .edges((1, 1).into())
+            .map(|e| e.edge_weight)
+            .eq(&[2, 3, -1, -3]));
+
+        debug_assert!(sq
+            .edges((1, 2).into())
+            .map(|e| e.target())
+            .eq(IntoIter::new([(0, 2), (2, 2), (1, 1), (1, 3)])));
+    }
+
+    #[test]
     fn edge_references() {
         let sq = SquareGraph::<_, _, u32>::new_with(
             3,
@@ -942,9 +1127,9 @@ mod tests {
         let mut x = -1;
         for e in sq
             .edge_references()
-            .filter(|x| x.id().1 == Axis::Horizontal)
+            .filter(|x| x.id().axis == Axis::Horizontal)
         {
-            let y = sq.to_index(e.edge_id.0) as i32;
+            let y = sq.to_index(e.edge_id.node) as i32;
             assert!(x < y);
             x = y;
             i += 1;
@@ -952,8 +1137,11 @@ mod tests {
         assert_eq!(i, 10);
         x = -1;
         i = 0;
-        for e in sq.edge_references().filter(|x| x.id().1 == Axis::Vertical) {
-            let y = sq.to_index(e.edge_id.0) as i32;
+        for e in sq
+            .edge_references()
+            .filter(|x| x.id().axis == Axis::Vertical)
+        {
+            let y = sq.to_index(e.edge_id.node) as i32;
             assert!(x < y);
             x = y;
             i += 1;

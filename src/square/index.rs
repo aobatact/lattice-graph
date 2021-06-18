@@ -9,12 +9,12 @@ pub enum Axis {
 
 impl Axis {
     /// Check whether axis is horizontal.
-    pub fn is_horizontal(&self) -> bool {
-        *self == Axis::Horizontal
+    pub const fn is_horizontal(&self) -> bool {
+        matches!(self, Axis::Horizontal)
     }
     /// Check whether axis is vertical.
-    pub fn is_vertical(&self) -> bool {
-        *self == Axis::Vertical
+    pub const fn is_vertical(&self) -> bool {
+        matches!(self, Axis::Vertical)
     }
 }
 
@@ -40,6 +40,16 @@ impl SquareDirection {
     /// Foward Vertical
     pub const fn right() -> Self {
         Self::Foward(Axis::Horizontal)
+    }
+    pub const fn is_horizontal(&self) -> bool {
+        match self {
+            SquareDirection::Foward(x) | SquareDirection::Backward(x) => x.is_horizontal(),
+        }
+    }
+    pub const fn is_vertical(&self) -> bool {
+        match self {
+            SquareDirection::Foward(x) | SquareDirection::Backward(x) => x.is_vertical(),
+        }
     }
 }
 

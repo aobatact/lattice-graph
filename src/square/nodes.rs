@@ -5,7 +5,7 @@ use petgraph::{
 
 use super::*;
 
-impl<'a, N, E, Ix> IntoNodeIdentifiers for &'a SquareGraph<N, E, Ix>
+impl<'a, N, E, Ix, S> IntoNodeIdentifiers for &'a SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
     Range<Ix>: Iterator<Item = Ix>,
@@ -104,9 +104,9 @@ where
     }
 }
 
-impl<N, E, Ix> NodeCompactIndexable for SquareGraph<N, E, Ix> where Ix: IndexType {}
+impl<N, E, Ix, S> NodeCompactIndexable for SquareGraph<N, E, Ix, S> where Ix: IndexType {}
 
-impl<N, E, Ix> NodeCount for SquareGraph<N, E, Ix>
+impl<N, E, Ix, S> NodeCount for SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
 {
@@ -115,7 +115,7 @@ where
     }
 }
 
-impl<N, E, Ix> NodeIndexable for SquareGraph<N, E, Ix>
+impl<N, E, Ix, S> NodeIndexable for SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
 {

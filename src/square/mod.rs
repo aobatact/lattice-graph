@@ -68,7 +68,7 @@ where
     nodes: FixedVec2D<N>,
     horizontal: FixedVec2D<E>, //→
     vertical: FixedVec2D<E>,   //↑
-    s: S,
+    s: PhantomData<S>,
     pd: PhantomData<Ix>,
 }
 
@@ -83,13 +83,12 @@ where
         nodes: FixedVec2D<N>,
         horizontal: FixedVec2D<E>,
         vertical: FixedVec2D<E>,
-        s: S,
     ) -> Self {
         let s = Self {
             nodes,
             horizontal,
             vertical,
-            s,
+            s: PhantomData,
             pd: PhantomData,
         };
         debug_assert!(s.check_gen());
@@ -101,7 +100,6 @@ where
     where
         N: Default,
         E: Default,
-        S: Default,
     {
         Self::new_with(h, v, |_, _| N::default(), |_, _, _| E::default())
     }
@@ -111,7 +109,6 @@ where
     where
         FN: FnMut(usize, usize) -> N,
         FE: FnMut(usize, usize, Axis) -> E,
-        S: Default,
     {
         let nzh = NonZeroUsize::new(h).expect("h must be non zero");
         let mut nodes = unsafe { FixedVec2D::new_uninit(nzh, v) };
@@ -158,7 +155,7 @@ where
                 nv[v - 1] = fnode(h - 1, v - 1);
             }
         }
-        unsafe { Self::new_raw(nodes, horizontal, vertical, Default::default()) }
+        unsafe { Self::new_raw(nodes, horizontal, vertical) }
     }
 
     /// Check the size of nodes and edges.
@@ -271,73 +268,6 @@ where
             },
             direction: fo,
         })
-        /*
-        Some(match dir {
-            SquareDirection::Foward(Axis::Vertical)
-                if n.vertical.index() + 1 < self.vertical_node_count() =>
-            {
-                EdgeReference {
-                    edge_id: EdgeIndex {
-                        node: n,
-                        axis: Axis::Vertical,
-                    },
-                    edge_weight: unsafe {
-                        self.vertical
-                            .ref_2d()
-                            .get_unchecked(n.horizontal.index())
-                            .get_unchecked(n.vertical.index())
-                    },
-                    direction: true,
-                }
-            }
-            SquareDirection::Foward(Axis::Horizontal)
-                if n.horizontal.index() + 1 < self.horizontal_node_count() =>
-            {
-                EdgeReference {
-                    edge_id: EdgeIndex {
-                        node: n,
-                        axis: Axis::Horizontal,
-                    },
-                    edge_weight: unsafe {
-                        self.horizontal
-                            .ref_2d()
-                            .get_unchecked(n.horizontal.index())
-                            .get_unchecked(n.vertical.index())
-                    },
-                    direction: true,
-                }
-            }
-            SquareDirection::Backward(Axis::Vertical) if n.vertical.index() != 0 => EdgeReference {
-                edge_id: EdgeIndex {
-                    node: n.down(),
-                    axis: Axis::Vertical,
-                },
-                edge_weight: unsafe {
-                    self.vertical
-                        .ref_2d()
-                        .get_unchecked(n.horizontal.index())
-                        .get_unchecked(n.vertical.index() - 1)
-                },
-                direction: false,
-            },
-            SquareDirection::Backward(Axis::Horizontal) if n.horizontal.index() != 0 => {
-                EdgeReference {
-                    edge_id: EdgeIndex {
-                        node: n.left(),
-                        axis: Axis::Horizontal,
-                    },
-                    edge_weight: unsafe {
-                        self.horizontal
-                            .ref_2d()
-                            .get_unchecked(n.horizontal.index() - 1)
-                            .get_unchecked(n.vertical.index())
-                    },
-                    direction: false,
-                }
-            }
-            _ => return None,
-        })
-        */
     }
 }
 

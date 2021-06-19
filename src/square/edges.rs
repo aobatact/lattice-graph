@@ -53,15 +53,16 @@ impl<'a, E, Ix: IndexType, S: Shape> EdgeReference<'a, E, Ix, S> {
         } else {
             match self.edge_id.axis {
                 Axis::Horizontal => {
-                    if S::LOOP_HORIZONTAL && node.horizontal.index() == 0 {
-                        NodeIndex::new(Ix::new(self.s.horizontal_size() - 1), node.vertical)
+                    if S::LOOP_HORIZONTAL && node.horizontal.index() + 1 == self.s.horizontal_size()
+                    {
+                        NodeIndex::new(Ix::new(0), node.vertical)
                     } else {
                         node.right()
                     }
                 }
                 Axis::Vertical => {
-                    if S::LOOP_VERTICAL && node.vertical.index() == 0 {
-                        NodeIndex::new(node.horizontal, Ix::new(self.s.vertical_size() - 1))
+                    if S::LOOP_VERTICAL && node.vertical.index() + 1 == self.s.vertical_size() {
+                        NodeIndex::new(node.horizontal, Ix::new(0))
                     } else {
                         node.up()
                     }
@@ -126,8 +127,8 @@ where
     type Item = EdgeReference<'a, E, Ix, S>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        let s = S::get_sizeshape(self.nodes.h_max, self.nodes.v_max);
         loop {
-            let s = S::get_sizeshape(self.nodes.h_max, self.nodes.v_max);
             match self.prv {
                 None => {
                     let x = self.nodes.next()?;
@@ -224,8 +225,8 @@ where
                     }
                     1 => {
                         debug_assert!(n.horizontal.index() + 1 <= g.horizontal_node_count());
-                        if S::LOOP_HORIZONTAL
-                            || n.horizontal.index() + 1 == g.horizontal_node_count()
+                        if !S::LOOP_HORIZONTAL
+                            && n.horizontal.index() + 1 == g.horizontal_node_count()
                         {
                             break 'inner;
                         }
@@ -246,19 +247,24 @@ where
                         }
                     }
                     2 => {
-                        if n.vertical.index() == 0 {
-                            break 'inner;
-                        }
+                        let new_n = if n.vertical.index() == 0 {
+                            if !S::LOOP_VERTICAL {
+                                break 'inner;
+                            }
+                            NodeIndex::new(n.horizontal, Ix::new(g.vertical_node_count() - 1))
+                        } else {
+                            n.down()
+                        };
                         EdgeReference {
                             edge_id: EdgeIndex {
-                                node: n.down(),
+                                node: new_n,
                                 axis: Axis::Vertical,
                             },
                             edge_weight: unsafe {
                                 g.vertical
                                     .ref_2d()
-                                    .get_unchecked(n.horizontal.index())
-                                    .get_unchecked(n.vertical.index() - 1)
+                                    .get_unchecked(new_n.horizontal.index())
+                                    .get_unchecked(new_n.vertical.index())
                             },
                             direction: false,
                             s,
@@ -266,7 +272,8 @@ where
                         }
                     }
                     3 => {
-                        if n.vertical.index() + 1 >= g.vertical_node_count() {
+                        debug_assert!(n.vertical.index() + 1 <= g.vertical_node_count());
+                        if !S::LOOP_VERTICAL && n.vertical.index() + 1 == g.vertical_node_count() {
                             break 'inner;
                         }
                         EdgeReference {

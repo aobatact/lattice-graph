@@ -36,16 +36,14 @@ where
                 }
                 2 if n.vertical.index() != 0 => n.down(),
                 2 if <S as Shape>::LOOP_VERTICAL && n.vertical.index() == 0 => NodeIndex {
-                    horizontal: n.vertical,
+                    horizontal: n.horizontal,
                     vertical: Ix::new(self.v - 1),
                 },
                 3 if n.vertical.index() + 1 < self.v => n.up(),
-                3 if <S as Shape>::LOOP_HORIZONTAL && n.horizontal.index() + 1 == self.h => {
-                    NodeIndex {
-                        horizontal: n.vertical,
-                        vertical: Ix::new(0),
-                    }
-                }
+                3 if <S as Shape>::LOOP_VERTICAL && n.vertical.index() + 1 == self.v => NodeIndex {
+                    horizontal: n.horizontal,
+                    vertical: Ix::new(0),
+                },
                 4..=usize::MAX => return None,
                 _ => {
                     self.state += 1;

@@ -20,9 +20,9 @@ where
 /// Iterate all index of [`SquareGraph`].
 #[derive(Clone, Debug)]
 pub struct NodeIndices<Ix> {
-    h_max: usize,
+    pub(crate) h_max: usize,
     h: usize,
-    v_max: usize,
+    pub(crate) v_max: usize,
     v: usize,
     pd: PhantomData<Ix>,
 }

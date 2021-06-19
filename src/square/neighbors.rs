@@ -14,7 +14,7 @@ pub struct Neighbors<Ix: IndexType, S> {
 impl<Ix, S> Iterator for Neighbors<Ix, S>
 where
     Ix: IndexType,
-    S: IsLoop,
+    S: Shape,
 {
     type Item = NodeIndex<Ix>;
 
@@ -23,25 +23,29 @@ where
             let n = self.node;
             let x = match self.state {
                 0 if n.horizontal.index() != 0 => n.left(),
-                0 if <S as IsLoop>::HORIZONTAL && n.horizontal.index() == 0 => NodeIndex {
+                0 if <S as Shape>::LOOP_HORIZONTAL && n.horizontal.index() == 0 => NodeIndex {
                     horizontal: Ix::new(self.h - 1),
                     vertical: n.vertical,
                 },
                 1 if n.horizontal.index() + 1 < self.h => n.right(),
-                1 if <S as IsLoop>::HORIZONTAL && n.horizontal.index() + 1 == self.h => NodeIndex {
-                    horizontal: Ix::new(0),
-                    vertical: n.vertical,
-                },
+                1 if <S as Shape>::LOOP_HORIZONTAL && n.horizontal.index() + 1 == self.h => {
+                    NodeIndex {
+                        horizontal: Ix::new(0),
+                        vertical: n.vertical,
+                    }
+                }
                 2 if n.vertical.index() != 0 => n.down(),
-                2 if <S as IsLoop>::VERTICAL && n.vertical.index() == 0 => NodeIndex {
+                2 if <S as Shape>::LOOP_VERTICAL && n.vertical.index() == 0 => NodeIndex {
                     horizontal: n.vertical,
                     vertical: Ix::new(self.v - 1),
                 },
                 3 if n.vertical.index() + 1 < self.v => n.up(),
-                3 if <S as IsLoop>::HORIZONTAL && n.horizontal.index() + 1 == self.h => NodeIndex {
-                    horizontal: n.vertical,
-                    vertical: Ix::new(0),
-                },
+                3 if <S as Shape>::LOOP_HORIZONTAL && n.horizontal.index() + 1 == self.h => {
+                    NodeIndex {
+                        horizontal: n.vertical,
+                        vertical: Ix::new(0),
+                    }
+                }
                 4..=usize::MAX => return None,
                 _ => {
                     self.state += 1;
@@ -61,14 +65,14 @@ where
 impl<Ix, S> FusedIterator for Neighbors<Ix, S>
 where
     Ix: IndexType,
-    S: IsLoop,
+    S: Shape,
 {
 }
 
 impl<'a, N, E, Ix, S> IntoNeighbors for &'a SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
-    S: IsLoop,
+    S: Shape,
 {
     type Neighbors = Neighbors<Ix, S>;
 

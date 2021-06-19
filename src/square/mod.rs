@@ -26,10 +26,10 @@ pub use nodes::*;
 #[cfg(test)]
 mod tests;
 
-pub trait IsLoop {
+pub trait Shape {
     type SizeShape: SizeShape;
-    const HORIZONTAL: bool = false;
-    const VERTICAL: bool = false;
+    const LOOP_HORIZONTAL: bool = false;
+    const LOOP_VERTICAL: bool = false;
     fn get_sizeshape(h: usize, v: usize) -> Self::SizeShape;
 }
 
@@ -41,7 +41,7 @@ pub(crate) unsafe fn unreachable_debug_checked<T>() -> T {
         unreachable_unchecked()
     }
 }
-pub trait SizeShape {
+pub trait SizeShape: Copy {
     fn horizontal_size(&self) -> usize {
         unsafe { unreachable_debug_checked() }
     }
@@ -50,31 +50,64 @@ pub trait SizeShape {
     }
 }
 impl SizeShape for () {}
+impl SizeShape for (usize, ()) {
+    fn horizontal_size(&self) -> usize {
+        self.0
+    }
+}
+impl SizeShape for ((), usize) {
+    fn vertical_size(&self) -> usize {
+        self.1
+    }
+}
+impl SizeShape for (usize, usize) {
+    fn horizontal_size(&self) -> usize {
+        self.0
+    }
+    fn vertical_size(&self) -> usize {
+        self.1
+    }
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DefaultShape {}
-impl IsLoop for DefaultShape {
+impl Shape for DefaultShape {
     type SizeShape = ();
-
+    #[inline]
     fn get_sizeshape(_h: usize, _v: usize) -> Self::SizeShape {
         ()
     }
 }
-// #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-// pub struct HorizontalLoop;
-// impl IsLoop for HorizontalLoop {
-//     const HORIZONTAL: bool = true;
-// }
-// #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-// pub struct VerticalLoop;
-// impl IsLoop for VerticalLoop {
-//     const VERTICAL: bool = true;
-// }
-// #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-// pub struct HVLoop;
-// impl IsLoop for HVLoop {
-//     const VERTICAL: bool = true;
-//     const HORIZONTAL: bool = true;
-// }
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct HorizontalLoop;
+impl Shape for HorizontalLoop {
+    type SizeShape = (usize, ());
+    const LOOP_HORIZONTAL: bool = true;
+    #[inline]
+    fn get_sizeshape(h: usize, _v: usize) -> Self::SizeShape {
+        (h, ())
+    }
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct VerticalLoop;
+impl Shape for VerticalLoop {
+    type SizeShape = ((), usize);
+    const LOOP_VERTICAL: bool = true;
+    #[inline]
+    fn get_sizeshape(_h: usize, v: usize) -> Self::SizeShape {
+        ((), v)
+    }
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct HVLoop;
+impl Shape for HVLoop {
+    type SizeShape = (usize, usize);
+    const LOOP_VERTICAL: bool = true;
+    const LOOP_HORIZONTAL: bool = true;
+    #[inline]
+    fn get_sizeshape(h: usize, v: usize) -> Self::SizeShape {
+        (h, v)
+    }
+}
 
 /// Undirected Square Grid Graph.
 /// ```text
@@ -100,7 +133,7 @@ where
 impl<N, E, Ix, S> SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
-    S: IsLoop,
+    S: Shape,
 {
     /// Create a `SquareGraph` from raw data.
     /// It only check whether the size of nodes and edges are correct in `debug_assertion`.
@@ -138,14 +171,18 @@ where
         let nzh = NonZeroUsize::new(h).expect("h must be non zero");
         let mut nodes = unsafe { FixedVec2D::new_uninit(nzh, v) };
         let nodesref = nodes.mut_2d();
-        let mh = if <S as IsLoop>::HORIZONTAL {
+        let mh = if <S as Shape>::LOOP_HORIZONTAL {
             nzh
         } else {
             unsafe { NonZeroUsize::new_unchecked(h - 1) }
         };
         let mut horizontal = unsafe { FixedVec2D::new_uninit(mh, v) };
         let href = horizontal.mut_2d();
-        let mv = if <S as IsLoop>::VERTICAL { v } else { v - 1 };
+        let mv = if <S as Shape>::LOOP_VERTICAL {
+            v
+        } else {
+            v - 1
+        };
         let mut vertical = unsafe { FixedVec2D::new_uninit(nzh, mv) };
         let vref = vertical.mut_2d();
 
@@ -160,14 +197,14 @@ where
                     *vv.get_unchecked_mut(vi) = fedge(hi, vi, Axis::Vertical);
                 }
             }
-            if !<S as IsLoop>::VERTICAL {
+            if !<S as Shape>::LOOP_VERTICAL {
                 unsafe {
                     *nv.get_unchecked_mut(v - 1) = fnode(hi, v - 1);
                     *hv.get_unchecked_mut(v - 1) = fedge(hi, v - 1, Axis::Horizontal);
                 }
             }
         }
-        if !<S as IsLoop>::HORIZONTAL {
+        if !<S as Shape>::LOOP_HORIZONTAL {
             let nv = &mut nodesref[h - 1];
             let vv = &mut vref[h - 1];
             for hi in 0..mv {
@@ -176,7 +213,7 @@ where
                     *vv.get_unchecked_mut(hi) = fedge(h - 1, hi, Axis::Vertical);
                 }
             }
-            if !<S as IsLoop>::VERTICAL {
+            if !<S as Shape>::LOOP_VERTICAL {
                 nv[v - 1] = fnode(h - 1, v - 1);
             }
         }
@@ -186,11 +223,11 @@ where
     /// Check the size of nodes and edges.
     fn check_gen(&self) -> bool {
         self.nodes.h_size()
-            == self.horizontal.h_size() + if <S as IsLoop>::HORIZONTAL { 0 } else { 1 }
+            == self.horizontal.h_size() + if <S as Shape>::LOOP_HORIZONTAL { 0 } else { 1 }
             && self.nodes.v_size() == self.horizontal.v_size()
             && self.nodes.h_size() == self.vertical.h_size()
             && self.nodes.v_size()
-                == self.vertical.v_size() + if <S as IsLoop>::VERTICAL { 0 } else { 1 }
+                == self.vertical.v_size() + if <S as Shape>::LOOP_VERTICAL { 0 } else { 1 }
     }
 
     #[inline]
@@ -207,7 +244,7 @@ where
                 (node, a, true)
             }
             SquareDirection::Foward(a @ Axis::Vertical)
-                if <S as IsLoop>::VERTICAL
+                if <S as Shape>::LOOP_VERTICAL
                     && node.vertical.index() + 1 == self.vertical_node_count() =>
             {
                 (
@@ -225,7 +262,7 @@ where
                 (node, a, true)
             }
             SquareDirection::Foward(a @ Axis::Horizontal)
-                if <S as IsLoop>::HORIZONTAL
+                if <S as Shape>::LOOP_HORIZONTAL
                     && node.horizontal.index() + 1 == self.horizontal_node_count() =>
             {
                 (
@@ -241,7 +278,7 @@ where
                 (node.down(), a, false)
             }
             SquareDirection::Backward(a @ Axis::Vertical)
-                if <S as IsLoop>::VERTICAL && node.vertical.index() == 0 =>
+                if <S as Shape>::LOOP_VERTICAL && node.vertical.index() == 0 =>
             {
                 (
                     NodeIndex {
@@ -256,7 +293,7 @@ where
                 (node.left(), a, false)
             }
             SquareDirection::Backward(a @ Axis::Horizontal)
-                if <S as IsLoop>::HORIZONTAL && node.horizontal.index() == 0 =>
+                if <S as Shape>::LOOP_HORIZONTAL && node.horizontal.index() == 0 =>
             {
                 (
                     NodeIndex {
@@ -278,7 +315,7 @@ where
         &'a self,
         n: NodeIndex<Ix>,
         dir: SquareDirection,
-    ) -> Option<EdgeReference<'a, E, Ix>> {
+    ) -> Option<EdgeReference<'a, E, Ix, S>> {
         self.get_edge_id(n, dir).map(|(e, fo)| EdgeReference {
             edge_id: e,
             edge_weight: unsafe {
@@ -292,6 +329,7 @@ where
                 .get_unchecked(e.node.vertical.index())
             },
             direction: fo,
+            s: S::get_sizeshape(self.horizontal_node_count(), self.vertical_node_count()),
         })
     }
 }
@@ -344,7 +382,7 @@ where
 impl<E, Ix, S> SquareGraph<(), E, Ix, S>
 where
     Ix: IndexType,
-    S: IsLoop,
+    S: Shape,
 {
     /// Create a `SquareGraph` with the edges initialized from position.
     pub fn new_edge_graph<FE>(h: usize, v: usize, fedge: FE) -> Self
@@ -358,7 +396,7 @@ where
 impl<N, E, Ix, S> GraphBase for SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
-    //S : IsLoop
+    //S : Shape
 {
     type NodeId = NodeIndex<Ix>;
     type EdgeId = EdgeIndex<Ix>;

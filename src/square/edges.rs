@@ -10,9 +10,10 @@ where
     Ix: IndexType,
     E: Copy,
     Range<Ix>: Iterator<Item = Ix>,
+    S: Shape,
 {
-    type EdgeRef = EdgeReference<'a, E, Ix>;
-    type EdgeReferences = EdgeReferences<'a, E, Ix>;
+    type EdgeRef = EdgeReference<'a, E, Ix, S::SizeShape>;
+    type EdgeReferences = EdgeReferences<'a, E, Ix, S>;
 
     fn edge_references(self) -> Self::EdgeReferences {
         EdgeReferences::new(&self)
@@ -21,25 +22,27 @@ where
 
 /// Reference of Edge data (EdgeIndex, EdgeWeight, direction) in [`SquareGraph`].
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct EdgeReference<'a, E, Ix: IndexType> {
+pub struct EdgeReference<'a, E, Ix: IndexType, Sh> {
     pub(crate) edge_id: EdgeIndex<Ix>,
     pub(crate) edge_weight: &'a E,
     pub(crate) direction: bool,
+    pub(crate) s: Sh,
 }
 
-impl<'a, E, Ix: IndexType> Clone for EdgeReference<'a, E, Ix> {
+impl<'a, E, Ix: IndexType, S> Clone for EdgeReference<'a, E, Ix, S> {
     fn clone(&self) -> Self {
         Self {
             edge_id: self.edge_id,
             edge_weight: self.edge_weight,
             direction: self.direction,
+            s: self.s,
         }
     }
 }
 
-impl<'a, E, Ix: IndexType> Copy for EdgeReference<'a, E, Ix> {}
+impl<'a, E, Ix: IndexType, S : SizeShape> Copy for EdgeReference<'a, E, Ix, S> {}
 
-impl<'a, E, Ix: IndexType> EdgeReference<'a, E, Ix> {
+impl<'a, E, Ix: IndexType, S: SizeShape> EdgeReference<'a, E, Ix, S> {
     #[inline]
     fn get_node(&self, is_source: bool) -> NodeIndex<Ix> {
         if is_source {
@@ -53,7 +56,7 @@ impl<'a, E, Ix: IndexType> EdgeReference<'a, E, Ix> {
     }
 }
 
-impl<'a, E: Copy, Ix: IndexType> EdgeRef for EdgeReference<'a, E, Ix> {
+impl<'a, E: Copy, Ix: IndexType, S: SizeShape> EdgeRef for EdgeReference<'a, E, Ix, S> {
     type NodeId = NodeIndex<Ix>;
     type EdgeId = EdgeIndex<Ix>;
     type Weight = E;
@@ -79,30 +82,33 @@ impl<'a, E: Copy, Ix: IndexType> EdgeRef for EdgeReference<'a, E, Ix> {
 
 /// Iterator for all edges of [`SquareGraph`].
 #[derive(Clone, Debug)]
-pub struct EdgeReferences<'a, E, Ix: IndexType> {
+pub struct EdgeReferences<'a, E, Ix: IndexType, S> {
     horizontal: &'a FixedVec2D<E>,
     vertical: &'a FixedVec2D<E>,
     nodes: NodeIndices<Ix>,
     prv: Option<NodeIndex<Ix>>,
+    s: PhantomData<S>,
 }
 
-impl<'a, E, Ix: IndexType> EdgeReferences<'a, E, Ix> {
-    fn new<N, S>(graph: &'a SquareGraph<N, E, Ix, S>) -> Self {
+impl<'a, E, Ix: IndexType, S> EdgeReferences<'a, E, Ix, S> {
+    fn new<N>(graph: &'a SquareGraph<N, E, Ix, S>) -> Self {
         Self {
             horizontal: &graph.horizontal,
             vertical: &graph.vertical,
             nodes: NodeIndices::new(graph.horizontal_node_count(), graph.vertical_node_count()),
             prv: None,
+            s: PhantomData,
         }
     }
 }
 
-impl<'a, E, Ix> Iterator for EdgeReferences<'a, E, Ix>
+impl<'a, E, Ix, S> Iterator for EdgeReferences<'a, E, Ix, S>
 where
     Ix: IndexType,
     Range<Ix>: Iterator<Item = Ix>,
+    S: Shape,
 {
-    type Item = EdgeReference<'a, E, Ix>;
+    type Item = EdgeReference<'a, E, Ix, S>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -124,6 +130,7 @@ where
                             edge_id: e,
                             edge_weight: ew,
                             direction: true,
+                            s: S::get_sizeshape(self.nodes.h_max, self.nodes.v_max),
                         });
                     }
                 }
@@ -143,6 +150,7 @@ where
                             },
                             edge_weight: ew,
                             direction: true,
+                            s: S::get_sizeshape(self.nodes.h_max, self.nodes.v_max),
                         });
                     }
                 }
@@ -160,19 +168,20 @@ pub struct Edges<'a, N, E, Ix: IndexType, S> {
 impl<'a, N, E, Ix, S> Iterator for Edges<'a, N, E, Ix, S>
 where
     Ix: IndexType,
-    S: IsLoop,
+    S: Shape,
 {
-    type Item = EdgeReference<'a, E, Ix>;
+    type Item = EdgeReference<'a, E, Ix, S::SizeShape>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let g = self.g;
         let n = self.node;
+        let s = S::get_sizeshape(g.horizontal_node_count(), g.vertical_node_count());
         loop {
             'inner: loop {
                 let er = match self.state {
                     0 => {
                         let new_n = if n.horizontal.index() == 0 {
-                            if !S::HORIZONTAL {
+                            if !S::LOOP_HORIZONTAL {
                                 break 'inner;
                             }
                             NodeIndex::new(Ix::new(g.horizontal_node_count() - 1), n.vertical)
@@ -191,11 +200,14 @@ where
                                     .get_unchecked(new_n.vertical.index())
                             },
                             direction: false,
+                            s,
                         }
                     }
                     1 => {
                         debug_assert!(n.horizontal.index() + 1 <= g.horizontal_node_count());
-                        if S::HORIZONTAL || n.horizontal.index() + 1 == g.horizontal_node_count() {
+                        if S::LOOP_HORIZONTAL
+                            || n.horizontal.index() + 1 == g.horizontal_node_count()
+                        {
                             break 'inner;
                         }
                         EdgeReference {
@@ -210,6 +222,7 @@ where
                                     .get_unchecked(n.vertical.index())
                             },
                             direction: true,
+                            s,
                         }
                     }
                     2 => {
@@ -228,6 +241,7 @@ where
                                     .get_unchecked(n.vertical.index() - 1)
                             },
                             direction: false,
+                            s,
                         }
                     }
                     3 => {
@@ -246,6 +260,7 @@ where
                                     .get_unchecked(n.vertical.index())
                             },
                             direction: true,
+                            s,
                         }
                     }
                     _ => return None,
@@ -265,7 +280,7 @@ where
 impl<'a, N, E, Ix, S> FusedIterator for Edges<'a, N, E, Ix, S>
 where
     Ix: IndexType,
-    S: IsLoop,
+    S: Shape,
 {
 }
 
@@ -274,7 +289,7 @@ where
     Ix: IndexType,
     E: Copy,
     Range<Ix>: Iterator<Item = Ix>,
-    S: IsLoop,
+    S: Shape,
 {
     type Edges = Edges<'a, N, E, Ix, S>;
 

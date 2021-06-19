@@ -17,7 +17,7 @@ where
     }
 }
 
-/// Iterate all index of [`SquareGraph`].
+/// Iterate all index of [`SquareGraph`]. See [`node_identifiers`](`IntoNodeIdentifiers::node_identifiers`).
 #[derive(Clone, Debug)]
 pub struct NodeIndices<Ix> {
     pub(crate) h_max: usize,
@@ -60,12 +60,13 @@ impl<Ix: IndexType> Iterator for NodeIndices<Ix> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.v_max * (self.h_max - self.h - 1) + self.v;
+        let len = self.v_max * (self.h_max - self.h) - self.v;
         (len, Some(len))
     }
 }
 
-impl<Ix: IndexType> FusedIterator for NodeIndices<Ix> where Range<Ix>: Iterator<Item = Ix> {}
+impl<Ix: IndexType> FusedIterator for NodeIndices<Ix> {}
+impl<Ix: IndexType> ExactSizeIterator for NodeIndices<Ix> {}
 
 impl<'a, N: Clone, E, Ix, S> IntoNodeReferences for &'a SquareGraph<N, E, Ix, S>
 where
@@ -83,7 +84,8 @@ where
     }
 }
 
-/// Iterate all nodes of [`SquareGraph`].
+/// Iterate all nodes of [`SquareGraph`]. See [`node_references`](`IntoNodeReferences::node_references`).
+#[derive(Clone, Debug)]
 pub struct NodeReferences<'a, N, Ix> {
     indices: NodeIndices<Ix>,
     nodes: Iter<'a, N>,

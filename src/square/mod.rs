@@ -26,11 +26,16 @@ pub use nodes::*;
 #[cfg(test)]
 mod tests;
 
+/// Shape of the [`SquareGraph`]. It tells that the graph loops or not.
 pub trait Shape: Copy {
-    type SizeShape: SizeShape;
+    /// SizeInfo is needed if loop is enabled.
+    type SizeInfo: SizeInfo;
+    /// Whether the graph loops in horizontal axis.
     const LOOP_HORIZONTAL: bool = false;
+    /// Whether the graph loops in vertical axis.
     const LOOP_VERTICAL: bool = false;
-    fn get_sizeshape(h: usize, v: usize) -> Self::SizeShape;
+    /// Get a size info used in [`EdgeReference`].
+    fn get_sizeinfo(h: usize, v: usize) -> Self::SizeInfo;
 }
 
 #[inline]
@@ -41,70 +46,81 @@ pub(crate) unsafe fn unreachable_debug_checked<T>() -> T {
         unreachable_unchecked()
     }
 }
-pub trait SizeShape: Copy {
-    fn horizontal_size(&self) -> usize {
-        unsafe { unreachable_debug_checked() }
+
+/// It holds a infomation of size of graph if needed.
+/// This is used in [`EdgeReference`] to tell the loop info.
+/// This trick is to optimize when there is no loop in graph.
+pub trait SizeInfo: Copy {
+    /// Should only be called when [`Shape::LOOP_HORIZONTAL`] is true.
+    unsafe fn horizontal_size(&self) -> usize {
+        unreachable_debug_checked()
     }
-    fn vertical_size(&self) -> usize {
-        unsafe { unreachable_debug_checked() }
+    /// Should only be called when [`Shape::LOOP_VERTICAL`] is true.
+    unsafe fn vertical_size(&self) -> usize {
+        unreachable_debug_checked()
     }
 }
-impl SizeShape for () {}
-impl SizeShape for (usize, ()) {
-    fn horizontal_size(&self) -> usize {
+impl SizeInfo for () {}
+impl SizeInfo for (usize, ()) {
+    unsafe fn horizontal_size(&self) -> usize {
         self.0
     }
 }
-impl SizeShape for ((), usize) {
-    fn vertical_size(&self) -> usize {
+impl SizeInfo for ((), usize) {
+    unsafe fn vertical_size(&self) -> usize {
         self.1
     }
 }
-impl SizeShape for (usize, usize) {
-    fn horizontal_size(&self) -> usize {
+impl SizeInfo for (usize, usize) {
+    unsafe fn horizontal_size(&self) -> usize {
         self.0
     }
-    fn vertical_size(&self) -> usize {
+    unsafe fn vertical_size(&self) -> usize {
         self.1
     }
 }
+
+/// Marker that the graph does not loop.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DefaultShape {}
 impl Shape for DefaultShape {
-    type SizeShape = ();
+    type SizeInfo = ();
     #[inline]
-    fn get_sizeshape(_h: usize, _v: usize) -> Self::SizeShape {
+    fn get_sizeinfo(_h: usize, _v: usize) -> Self::SizeInfo {
         ()
     }
 }
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HorizontalLoop;
+/// Marker that the graph does loops in horizontal axis.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum HorizontalLoop {}
 impl Shape for HorizontalLoop {
-    type SizeShape = (usize, ());
+    type SizeInfo = (usize, ());
     const LOOP_HORIZONTAL: bool = true;
     #[inline]
-    fn get_sizeshape(h: usize, _v: usize) -> Self::SizeShape {
+    fn get_sizeinfo(h: usize, _v: usize) -> Self::SizeInfo {
         (h, ())
     }
 }
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct VerticalLoop;
+/// Marker that the graph does loops in vertical axis.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum VerticalLoop {}
 impl Shape for VerticalLoop {
-    type SizeShape = ((), usize);
+    type SizeInfo = ((), usize);
     const LOOP_VERTICAL: bool = true;
     #[inline]
-    fn get_sizeshape(_h: usize, v: usize) -> Self::SizeShape {
+    fn get_sizeinfo(_h: usize, v: usize) -> Self::SizeInfo {
         ((), v)
     }
 }
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HVLoop;
+/// Marker that the graph does loops in horizontal and vertical axis.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum HVLoop {}
 impl Shape for HVLoop {
-    type SizeShape = (usize, usize);
+    type SizeInfo = (usize, usize);
     const LOOP_VERTICAL: bool = true;
     const LOOP_HORIZONTAL: bool = true;
     #[inline]
-    fn get_sizeshape(h: usize, v: usize) -> Self::SizeShape {
+    fn get_sizeinfo(h: usize, v: usize) -> Self::SizeInfo {
         (h, v)
     }
 }
@@ -329,7 +345,7 @@ where
                 .get_unchecked(e.node.vertical.index())
             },
             direction: fo,
-            s: S::get_sizeshape(self.horizontal_node_count(), self.vertical_node_count()),
+            s: S::get_sizeinfo(self.horizontal_node_count(), self.vertical_node_count()),
             spd: PhantomData,
         })
     }
@@ -397,7 +413,6 @@ where
 impl<N, E, Ix, S> GraphBase for SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
-    //S : Shape
 {
     type NodeId = NodeIndex<Ix>;
     type EdgeId = EdgeIndex<Ix>;

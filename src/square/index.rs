@@ -163,7 +163,7 @@ impl<Ix: IndexType> From<NodeIndex<Ix>> for (usize, usize) {
     }
 }
 
-/// Edge Index of [`SquareGraph`]
+/// Edge Index of [`SquareGraph`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EdgeIndex<Ix: IndexType> {
     pub node: NodeIndex<Ix>,

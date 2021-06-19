@@ -54,13 +54,16 @@ fn graph_search_inner(c: &mut Criterion, h: u32, v: u32, seed: u64, name: &'stat
         b.iter_with_setup(
             || (&g, (r.gen_range(0..v), r.gen_range(0..h))),
             |(g, t)| {
-                black_box(algo::astar(
-                    g,
-                    node_index(0),
-                    |x| x.index() as u32 == t.0 + v * t.1,
-                    |x| *x.weight(),
-                    |_| 0,
-                ));
+                black_box(
+                    algo::astar(
+                        g,
+                        node_index(0),
+                        |x| x.index() as u32 == t.0 + v * t.1,
+                        |x| *x.weight(),
+                        |_| 0,
+                    )
+                    .is_some(),
+                );
             },
         )
     });
@@ -72,13 +75,9 @@ fn graph_search_inner(c: &mut Criterion, h: u32, v: u32, seed: u64, name: &'stat
         b.iter_with_setup(
             || (&g, (r.gen_range(0..h) as usize, r.gen_range(0..v) as usize)),
             |(g, t)| {
-                black_box(algo::astar(
-                    g,
-                    (0, 0).into(),
-                    |x| x == t,
-                    |x| *x.weight(),
-                    |_| 0,
-                ));
+                black_box(
+                    algo::astar(g, (0, 0).into(), |x| x == t, |x| *x.weight(), |_| 0).is_some(),
+                );
             },
         )
     });

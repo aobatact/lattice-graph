@@ -70,7 +70,7 @@ where
 
 impl<Ix: IndexType> FusedIterator for NodeIndices<Ix> where Range<Ix>: Iterator<Item = Ix> {}
 
-impl<'a, N: Clone, E, Ix> IntoNodeReferences for &'a SquareGraph<N, E, Ix>
+impl<'a, N: Clone, E, Ix, S> IntoNodeReferences for &'a SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
     Range<Ix>: Iterator<Item = Ix>,

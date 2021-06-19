@@ -12,7 +12,7 @@ where
     Range<Ix>: Iterator<Item = Ix>,
     S: Shape,
 {
-    type EdgeRef = EdgeReference<'a, E, Ix, S::SizeShape>;
+    type EdgeRef = EdgeReference<'a, E, Ix, S>;
     type EdgeReferences = EdgeReferences<'a, E, Ix, S>;
 
     fn edge_references(self) -> Self::EdgeReferences {
@@ -22,41 +22,56 @@ where
 
 /// Reference of Edge data (EdgeIndex, EdgeWeight, direction) in [`SquareGraph`].
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct EdgeReference<'a, E, Ix: IndexType, Sh> {
+pub struct EdgeReference<'a, E, Ix: IndexType, S: Shape> {
     pub(crate) edge_id: EdgeIndex<Ix>,
     pub(crate) edge_weight: &'a E,
     pub(crate) direction: bool,
-    pub(crate) s: Sh,
+    pub(crate) s: S::SizeShape,
+    pub(crate) spd: PhantomData<S>,
 }
 
-impl<'a, E, Ix: IndexType, S> Clone for EdgeReference<'a, E, Ix, S> {
+impl<'a, E, Ix: IndexType, S: Shape> Clone for EdgeReference<'a, E, Ix, S> {
     fn clone(&self) -> Self {
         Self {
             edge_id: self.edge_id,
             edge_weight: self.edge_weight,
             direction: self.direction,
             s: self.s,
+            spd: PhantomData,
         }
     }
 }
 
-impl<'a, E, Ix: IndexType, S : SizeShape> Copy for EdgeReference<'a, E, Ix, S> {}
+impl<'a, E, Ix: IndexType, S: Shape> Copy for EdgeReference<'a, E, Ix, S> {}
 
-impl<'a, E, Ix: IndexType, S: SizeShape> EdgeReference<'a, E, Ix, S> {
+impl<'a, E, Ix: IndexType, S: Shape> EdgeReference<'a, E, Ix, S> {
     #[inline]
     fn get_node(&self, is_source: bool) -> NodeIndex<Ix> {
+        let node = self.edge_id.node;
         if is_source {
-            (self.edge_id).node
+            node
         } else {
-            match (self.edge_id).axis {
-                Axis::Horizontal => (self.edge_id).node.right(),
-                Axis::Vertical => (self.edge_id).node.up(),
+            match self.edge_id.axis {
+                Axis::Horizontal => {
+                    if S::LOOP_HORIZONTAL && node.horizontal.index() == 0 {
+                        NodeIndex::new(Ix::new(self.s.horizontal_size() - 1), node.vertical)
+                    } else {
+                        node.right()
+                    }
+                }
+                Axis::Vertical => {
+                    if S::LOOP_VERTICAL && node.vertical.index() == 0 {
+                        NodeIndex::new(node.horizontal, Ix::new(self.s.vertical_size() - 1))
+                    } else {
+                        node.up()
+                    }
+                }
             }
         }
     }
 }
 
-impl<'a, E: Copy, Ix: IndexType, S: SizeShape> EdgeRef for EdgeReference<'a, E, Ix, S> {
+impl<'a, E: Copy, Ix: IndexType, S: Shape> EdgeRef for EdgeReference<'a, E, Ix, S> {
     type NodeId = NodeIndex<Ix>;
     type EdgeId = EdgeIndex<Ix>;
     type Weight = E;
@@ -112,6 +127,7 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
+            let s = S::get_sizeshape(self.nodes.h_max, self.nodes.v_max);
             match self.prv {
                 None => {
                     let x = self.nodes.next()?;
@@ -130,7 +146,8 @@ where
                             edge_id: e,
                             edge_weight: ew,
                             direction: true,
-                            s: S::get_sizeshape(self.nodes.h_max, self.nodes.v_max),
+                            s,
+                            spd: PhantomData,
                         });
                     }
                 }
@@ -150,7 +167,8 @@ where
                             },
                             edge_weight: ew,
                             direction: true,
-                            s: S::get_sizeshape(self.nodes.h_max, self.nodes.v_max),
+                            s,
+                            spd: PhantomData,
                         });
                     }
                 }
@@ -170,7 +188,7 @@ where
     Ix: IndexType,
     S: Shape,
 {
-    type Item = EdgeReference<'a, E, Ix, S::SizeShape>;
+    type Item = EdgeReference<'a, E, Ix, S>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let g = self.g;
@@ -201,6 +219,7 @@ where
                             },
                             direction: false,
                             s,
+                            spd: PhantomData,
                         }
                     }
                     1 => {
@@ -223,6 +242,7 @@ where
                             },
                             direction: true,
                             s,
+                            spd: PhantomData,
                         }
                     }
                     2 => {
@@ -242,6 +262,7 @@ where
                             },
                             direction: false,
                             s,
+                            spd: PhantomData,
                         }
                     }
                     3 => {
@@ -261,6 +282,7 @@ where
                             },
                             direction: true,
                             s,
+                            spd: PhantomData,
                         }
                     }
                     _ => return None,

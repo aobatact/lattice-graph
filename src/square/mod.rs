@@ -26,7 +26,7 @@ pub use nodes::*;
 #[cfg(test)]
 mod tests;
 
-pub trait Shape {
+pub trait Shape: Copy {
     type SizeShape: SizeShape;
     const LOOP_HORIZONTAL: bool = false;
     const LOOP_VERTICAL: bool = false;
@@ -330,6 +330,7 @@ where
             },
             direction: fo,
             s: S::get_sizeshape(self.horizontal_node_count(), self.vertical_node_count()),
+            spd: PhantomData,
         })
     }
 }

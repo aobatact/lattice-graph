@@ -20,14 +20,20 @@ where
 /// Iterate all index of [`SquareGraph`].
 #[derive(Clone, Debug)]
 pub struct NodeIndices<Ix> {
-    p: itertools::Product<Range<usize>, Range<usize>>,
+    h_max: usize,
+    h: usize,
+    v_max: usize,
+    v: usize,
     pd: PhantomData<Ix>,
 }
 
 impl<Ix> NodeIndices<Ix> {
     pub(crate) fn new(h: usize, v: usize) -> Self {
         Self {
-            p: (0..h).cartesian_product(0..v),
+            h_max: h,
+            h: 0,
+            v_max: v,
+            v: 0,
             pd: PhantomData,
         }
     }
@@ -40,19 +46,25 @@ where
     type Item = NodeIndex<Ix>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.p.next().map(|x| (x.0, x.1).into())
+        let nv: usize;
+        if self.v < self.v_max {
+            nv = self.v;
+            self.v += 1;
+        } else {
+            if self.h + 1 < self.h_max {
+                nv = 0;
+                self.v = 1;
+                self.h += 1;
+            } else {
+                return None;
+            }
+        }
+        Some(NodeIndex::new(Ix::new(self.h), Ix::new(nv)))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.p.size_hint()
-    }
-
-    fn fold<B, F>(self, init: B, mut f: F) -> B
-    where
-        Self: Sized,
-        F: FnMut(B, Self::Item) -> B,
-    {
-        self.p.fold(init, |x, item| (&mut f)(x, item.into()))
+        let len = self.v_max * (self.h_max - self.h - 1) + self.v;
+        (len, Some(len))
     }
 }
 

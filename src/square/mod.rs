@@ -1,6 +1,5 @@
 use crate::fixedvec2d::FixedVec2D;
 use fixedbitset::FixedBitSet;
-use itertools::*;
 use petgraph::{
     data::{DataMap, DataMapMut},
     graph::IndexType,

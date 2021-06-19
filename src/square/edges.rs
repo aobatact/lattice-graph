@@ -83,7 +83,7 @@ pub struct EdgeReferences<'a, E, Ix: IndexType> {
     horizontal: &'a FixedVec2D<E>,
     vertical: &'a FixedVec2D<E>,
     nodes: NodeIndices<Ix>,
-    prv: Option<EdgeIndex<Ix>>,
+    prv: Option<NodeIndex<Ix>>,
 }
 
 impl<'a, E, Ix: IndexType> EdgeReferences<'a, E, Ix> {
@@ -106,51 +106,48 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if let Some(ref mut e) = self.prv {
-                if e.axis == Axis::Horizontal {
-                    let item = self.vertical.ref_2d()[e.node.horizontal.index()]
-                        .get(e.node.vertical.index());
-                    if let Some(item) = item {
-                        e.axis = Axis::Vertical;
+            match self.prv {
+                None => {
+                    let x = self.nodes.next()?;
+                    let e = EdgeIndex {
+                        node: x,
+                        axis: Axis::Horizontal,
+                    };
+                    self.prv = Some(x);
+                    let ew = self
+                        .horizontal
+                        .ref_2d()
+                        .get(x.horizontal.index())
+                        .map(|he| unsafe { he.get_unchecked(x.vertical.index()) });
+                    if let Some(ew) = ew {
                         return Some(EdgeReference {
-                            edge_id: *e,
-                            edge_weight: item,
+                            edge_id: e,
+                            edge_weight: ew,
+                            direction: true,
+                        });
+                    }
+                }
+                Some(x) => {
+                    self.prv = None;
+                    let ew = unsafe {
+                        self.vertical
+                            .ref_2d()
+                            .get_unchecked(x.horizontal.index())
+                            .get(x.vertical.index())
+                    };
+                    if let Some(ew) = ew {
+                        return Some(EdgeReference {
+                            edge_id: EdgeIndex {
+                                node: x,
+                                axis: Axis::Vertical,
+                            },
+                            edge_weight: ew,
                             direction: true,
                         });
                     }
                 }
             }
-            if let Some(next) = self.nodes.next() {
-                let item = self
-                    .horizontal
-                    .ref_2d()
-                    .get(next.horizontal.index())
-                    .map(|x| x.get(next.vertical.index()))
-                    .flatten();
-                let edge_id = EdgeIndex {
-                    node: next,
-                    axis: Axis::Horizontal,
-                };
-                self.prv = Some(edge_id);
-                if let Some(edge_weight) = item {
-                    return Some(EdgeReference {
-                        edge_id,
-                        edge_weight,
-                        direction: true,
-                    });
-                }
-            } else {
-                return None;
-            }
         }
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let (lo, hi) = self.nodes.size_hint();
-        (
-            lo.saturating_sub(self.horizontal.size() + self.vertical.size()),
-            hi.map(|x| x * 2),
-        )
     }
 }
 

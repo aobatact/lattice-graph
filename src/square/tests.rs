@@ -39,19 +39,17 @@ fn gen() {
 
 #[test]
 fn node_identifiers() {
-    let sq = SquareGraph::<_, _, u32>::new_with(
-        3,
-        5,
-        |x, y| x + 2 * y,
-        |x, y, d| (x + 2 * y) as i32 * (if d.is_horizontal() { 1 } else { -1 }),
-    );
+    let sq = SquareGraph::<_, _, u32>::new_with(3, 5, |_x, _y| (), |_x, _y, _d| ());
+    let mut count = 0;
     for (i, x) in sq.node_identifiers().enumerate() {
         let x = x;
         let x2 = sq.to_index(x);
         assert_eq!(x2, i);
         let x3 = sq.from_index(x2);
         assert_eq!(x, x3);
+        count += 1;
     }
+    assert_eq!(count, 15);
 }
 
 #[test]

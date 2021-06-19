@@ -1,6 +1,9 @@
 use super::*;
 use crate::SquareGraph;
-use petgraph::{graph::IndexType, visit::IntoNeighbors};
+use petgraph::{
+    graph::IndexType,
+    visit::{IntoNeighbors, IntoNeighborsDirected},
+};
 use std::iter::FusedIterator;
 
 pub struct Neighbors<Ix: IndexType, S> {
@@ -77,6 +80,28 @@ where
     fn neighbors(self: Self, a: Self::NodeId) -> Self::Neighbors {
         Neighbors {
             node: a,
+            state: 0,
+            h: self.horizontal_node_count(),
+            v: self.vertical_node_count(),
+            s: PhantomData,
+        }
+    }
+}
+
+impl<'a, N, E, Ix, S> IntoNeighborsDirected for &'a SquareGraph<N, E, Ix, S>
+where
+    Ix: IndexType,
+    S: Shape,
+{
+    type NeighborsDirected = Neighbors<Ix, S>;
+
+    fn neighbors_directed(
+        self,
+        n: Self::NodeId,
+        _d: petgraph::Direction,
+    ) -> Self::NeighborsDirected {
+        Neighbors {
+            node: n,
             state: 0,
             h: self.horizontal_node_count(),
             v: self.vertical_node_count(),

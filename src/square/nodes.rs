@@ -39,10 +39,7 @@ impl<Ix> NodeIndices<Ix> {
     }
 }
 
-impl<Ix: IndexType> Iterator for NodeIndices<Ix>
-where
-    Range<Ix>: Iterator<Item = Ix>,
-{
+impl<Ix: IndexType> Iterator for NodeIndices<Ix> {
     type Item = NodeIndex<Ix>;
 
     fn next(&mut self) -> Option<Self::Item> {

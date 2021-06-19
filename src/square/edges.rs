@@ -1,15 +1,14 @@
 use super::*;
 use petgraph::{
     graph::IndexType,
-    visit::{EdgeRef, IntoEdgeReferences, IntoEdges},
+    visit::{EdgeRef, IntoEdgeReferences, IntoEdges, IntoEdgesDirected},
 };
-use std::{iter::FusedIterator, ops::Range};
+use std::iter::FusedIterator;
 
 impl<'a, N, E, Ix, S> IntoEdgeReferences for &'a SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
     E: Copy,
-    Range<Ix>: Iterator<Item = Ix>,
     S: Shape,
 {
     type EdgeRef = EdgeReference<'a, E, Ix, S>;
@@ -121,7 +120,6 @@ impl<'a, E, Ix: IndexType, S> EdgeReferences<'a, E, Ix, S> {
 impl<'a, E, Ix, S> Iterator for EdgeReferences<'a, E, Ix, S>
 where
     Ix: IndexType,
-    Range<Ix>: Iterator<Item = Ix>,
     S: Shape,
 {
     type Item = EdgeReference<'a, E, Ix, S>;
@@ -317,7 +315,6 @@ impl<'a, N, E, Ix, S> IntoEdges for &'a SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
     E: Copy,
-    Range<Ix>: Iterator<Item = Ix>,
     S: Shape,
 {
     type Edges = Edges<'a, N, E, Ix, S>;
@@ -328,5 +325,18 @@ where
             node: a,
             state: 0,
         }
+    }
+}
+
+impl<'a, N, E, Ix, S> IntoEdgesDirected for &'a SquareGraph<N, E, Ix, S>
+where
+    Ix: IndexType,
+    E: Copy,
+    S: Shape,
+{
+    type EdgesDirected = Edges<'a, N, E, Ix, S>;
+
+    fn edges_directed(self, a: Self::NodeId, _dir: petgraph::EdgeDirection) -> Self::EdgesDirected {
+        self.edges(a)
     }
 }

@@ -10,7 +10,8 @@ use petgraph::{
     Undirected,
 };
 use std::{
-    iter::FusedIterator, marker::PhantomData, num::NonZeroUsize, ops::Range, slice::Iter, usize,
+    hint::unreachable_unchecked, iter::FusedIterator, marker::PhantomData, num::NonZeroUsize,
+    ops::Range, slice::Iter, usize,
 };
 
 mod edges;
@@ -26,29 +27,54 @@ pub use nodes::*;
 mod tests;
 
 pub trait IsLoop {
+    type SizeShape: SizeShape;
     const HORIZONTAL: bool = false;
     const VERTICAL: bool = false;
+    fn get_sizeshape(h: usize, v: usize) -> Self::SizeShape;
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct DefaultShape;
-impl IsLoop for DefaultShape {}
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HorizontalLoop;
-impl IsLoop for HorizontalLoop {
-    const HORIZONTAL: bool = true;
+#[inline]
+pub(crate) unsafe fn unreachable_debug_checked<T>() -> T {
+    if cfg!(debug_assertion) {
+        unreachable!()
+    } else {
+        unreachable_unchecked()
+    }
 }
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct VerticalLoop;
-impl IsLoop for VerticalLoop {
-    const VERTICAL: bool = true;
+pub trait SizeShape {
+    fn horizontal_size(&self) -> usize {
+        unsafe { unreachable_debug_checked() }
+    }
+    fn vertical_size(&self) -> usize {
+        unsafe { unreachable_debug_checked() }
+    }
 }
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HVLoop;
-impl IsLoop for HVLoop {
-    const VERTICAL: bool = true;
-    const HORIZONTAL: bool = true;
+impl SizeShape for () {}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum DefaultShape {}
+impl IsLoop for DefaultShape {
+    type SizeShape = ();
+
+    fn get_sizeshape(_h: usize, _v: usize) -> Self::SizeShape {
+        ()
+    }
 }
+// #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+// pub struct HorizontalLoop;
+// impl IsLoop for HorizontalLoop {
+//     const HORIZONTAL: bool = true;
+// }
+// #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+// pub struct VerticalLoop;
+// impl IsLoop for VerticalLoop {
+//     const VERTICAL: bool = true;
+// }
+// #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+// pub struct HVLoop;
+// impl IsLoop for HVLoop {
+//     const VERTICAL: bool = true;
+//     const HORIZONTAL: bool = true;
+// }
 
 /// Undirected Square Grid Graph.
 /// ```text
@@ -318,7 +344,7 @@ where
 impl<E, Ix, S> SquareGraph<(), E, Ix, S>
 where
     Ix: IndexType,
-    S: Default + IsLoop,
+    S: IsLoop,
 {
     /// Create a `SquareGraph` with the edges initialized from position.
     pub fn new_edge_graph<FE>(h: usize, v: usize, fedge: FE) -> Self

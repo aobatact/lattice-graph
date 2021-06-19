@@ -5,7 +5,7 @@ use petgraph::{
 };
 use std::{iter::FusedIterator, ops::Range};
 
-impl<'a, N, E, Ix> IntoEdgeReferences for &'a SquareGraph<N, E, Ix>
+impl<'a, N, E, Ix, S> IntoEdgeReferences for &'a SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
     E: Copy,
@@ -87,7 +87,7 @@ pub struct EdgeReferences<'a, E, Ix: IndexType> {
 }
 
 impl<'a, E, Ix: IndexType> EdgeReferences<'a, E, Ix> {
-    fn new<N>(graph: &'a SquareGraph<N, E, Ix>) -> Self {
+    fn new<N, S>(graph: &'a SquareGraph<N, E, Ix, S>) -> Self {
         Self {
             horizontal: &graph.horizontal,
             vertical: &graph.vertical,
@@ -151,15 +151,16 @@ where
     }
 }
 
-pub struct Edges<'a, N, E, Ix: IndexType> {
-    g: &'a SquareGraph<N, E, Ix>,
+pub struct Edges<'a, N, E, Ix: IndexType, S> {
+    g: &'a SquareGraph<N, E, Ix, S>,
     node: NodeIndex<Ix>,
     state: usize,
 }
 
-impl<'a, N, E, Ix> Iterator for Edges<'a, N, E, Ix>
+impl<'a, N, E, Ix, S> Iterator for Edges<'a, N, E, Ix, S>
 where
     Ix: IndexType,
+    S: IsLoop,
 {
     type Item = EdgeReference<'a, E, Ix>;
 
@@ -170,25 +171,31 @@ where
             'inner: loop {
                 let er = match self.state {
                     0 => {
-                        if n.horizontal.index() == 0 {
-                            break 'inner;
-                        }
+                        let new_n = if n.horizontal.index() == 0 {
+                            if !S::HORIZONTAL {
+                                break 'inner;
+                            }
+                            NodeIndex::new(Ix::new(g.horizontal_node_count() - 1), n.vertical)
+                        } else {
+                            n.left()
+                        };
                         EdgeReference {
                             edge_id: EdgeIndex {
-                                node: n.left(),
+                                node: new_n,
                                 axis: Axis::Horizontal,
                             },
                             edge_weight: unsafe {
                                 g.horizontal
                                     .ref_2d()
-                                    .get_unchecked(n.horizontal.index() - 1)
-                                    .get_unchecked(n.vertical.index())
+                                    .get_unchecked(new_n.horizontal.index())
+                                    .get_unchecked(new_n.vertical.index())
                             },
                             direction: false,
                         }
                     }
                     1 => {
-                        if n.horizontal.index() + 1 >= g.horizontal_node_count() {
+                        debug_assert!(n.horizontal.index() + 1 <= g.horizontal_node_count());
+                        if S::HORIZONTAL || n.horizontal.index() + 1 == g.horizontal_node_count() {
                             break 'inner;
                         }
                         EdgeReference {
@@ -255,15 +262,21 @@ where
     }
 }
 
-impl<'a, N, E, Ix> FusedIterator for Edges<'a, N, E, Ix> where Ix: IndexType {}
+impl<'a, N, E, Ix, S> FusedIterator for Edges<'a, N, E, Ix, S>
+where
+    Ix: IndexType,
+    S: IsLoop,
+{
+}
 
-impl<'a, N, E, Ix> IntoEdges for &'a SquareGraph<N, E, Ix>
+impl<'a, N, E, Ix, S> IntoEdges for &'a SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
     E: Copy,
     Range<Ix>: Iterator<Item = Ix>,
+    S: IsLoop,
 {
-    type Edges = Edges<'a, N, E, Ix>;
+    type Edges = Edges<'a, N, E, Ix, S>;
 
     fn edges(self, a: Self::NodeId) -> Self::Edges {
         Edges {

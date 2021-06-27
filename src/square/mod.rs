@@ -1,4 +1,4 @@
-use crate::fixedvec2d::FixedVec2D;
+use crate::{fixedvec2d::FixedVec2D, unreachable_debug_checked};
 use fixedbitset::FixedBitSet;
 use petgraph::{
     data::{DataMap, DataMapMut},
@@ -10,8 +10,7 @@ use petgraph::{
     Undirected,
 };
 use std::{
-    hint::unreachable_unchecked, iter::FusedIterator, marker::PhantomData, num::NonZeroUsize,
-    ops::Range, slice::Iter, usize,
+    iter::FusedIterator, marker::PhantomData, num::NonZeroUsize, ops::Range, slice::Iter, usize,
 };
 
 mod edges;
@@ -36,15 +35,6 @@ pub trait Shape: Copy {
     const LOOP_VERTICAL: bool = false;
     /// Get a size info used in [`EdgeReference`].
     fn get_sizeinfo(h: usize, v: usize) -> Self::SizeInfo;
-}
-
-#[inline]
-pub(crate) unsafe fn unreachable_debug_checked<T>() -> T {
-    if cfg!(debug_assertion) {
-        unreachable!()
-    } else {
-        unreachable_unchecked()
-    }
 }
 
 /// It holds a infomation of size of graph if needed.

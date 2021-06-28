@@ -35,6 +35,10 @@ pub trait Shape {
         coord: Self::Coordinate,
         dir: <Self::Axis as Axis>::Direction,
     ) -> Result<Self::Coordinate, Self::CoordinateMoveError>;
+    // fn normalize_coord(&self,
+    //     coord: Self::Coordinate,
+    //     dir: <Self::Axis as Axis>::Direction,
+    // ) -> Result<(Self::Coordinate, Self::Axis), Self::CoordinateMoveError>;
 }
 
 impl<S: Shape> Shape for &S {
@@ -107,6 +111,11 @@ pub trait AxisDirection {
     fn is_backward(&self) -> bool {
         !self.is_forward()
     }
+    fn to_index(&self) -> usize;
+    unsafe fn from_index_unchecked(index: usize) -> Self;
+    fn from_index(index: usize) -> Option<Self>
+    where
+        Self: Sized;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -177,6 +186,21 @@ impl<T> AxisDirection for Direction<T> {
             Direction::Foward(_) => true,
             Direction::Backward(_) => false,
         }
+    }
+
+    fn to_index(&self) -> usize {
+        todo!()
+    }
+
+    unsafe fn from_index_unchecked(index: usize) -> Self {
+        todo!()
+    }
+
+    fn from_index(index: usize) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        todo!()
     }
 }
 

@@ -80,7 +80,13 @@ where
                         self.graph.s.to_offset_unchecked(target)
                     };
                     let ea = S::Axis::from_direction(d.clone()).to_index();
-                    let e = &self.graph.edges.get_unchecked(ea).ref_2d()[nx.0][nx.1];
+                    let e = &self
+                        .graph
+                        .edges
+                        .get_unchecked(ea)
+                        .ref_2d()
+                        .get_unchecked(nx.0)
+                        .get_unchecked(nx.1);
                     return Some(EdgeReference {
                         source_id: self.node,
                         target_id: target,

@@ -1,4 +1,4 @@
-use crate::fixedvec2d::FixedVec2D;
+use crate::{fixedvec2d::FixedVec2D, unreachable_debug_checked};
 use fixedbitset::FixedBitSet;
 use petgraph::{
     data::{DataMap, DataMapMut},
@@ -10,8 +10,7 @@ use petgraph::{
     Undirected,
 };
 use std::{
-    hint::unreachable_unchecked, iter::FusedIterator, marker::PhantomData, num::NonZeroUsize,
-    ops::Range, slice::Iter, usize,
+    iter::FusedIterator, marker::PhantomData, num::NonZeroUsize, ops::Range, slice::Iter, usize,
 };
 
 mod edges;
@@ -38,15 +37,6 @@ pub trait Shape: Copy {
     fn get_sizeinfo(h: usize, v: usize) -> Self::SizeInfo;
 }
 
-#[inline]
-pub(crate) unsafe fn unreachable_debug_checked<T>() -> T {
-    if cfg!(debug_assertion) {
-        unreachable!()
-    } else {
-        unreachable_unchecked()
-    }
-}
-
 /// It holds a infomation of size of graph if needed.
 /// This is used in [`EdgeReference`] to tell the loop info.
 /// This trick is to optimize when there is no loop in graph.
@@ -55,6 +45,7 @@ pub trait SizeInfo: Copy {
     unsafe fn horizontal_size(&self) -> usize {
         unreachable_debug_checked()
     }
+
     /// Should only be called when [`Shape::LOOP_VERTICAL`] is true.
     unsafe fn vertical_size(&self) -> usize {
         unreachable_debug_checked()
@@ -142,8 +133,8 @@ where
     nodes: FixedVec2D<N>,
     horizontal: FixedVec2D<E>, //→
     vertical: FixedVec2D<E>,   //↑
-    s: PhantomData<S>,
-    pd: PhantomData<Ix>,
+    s: PhantomData<fn() -> S>,
+    pd: PhantomData<fn() -> Ix>,
 }
 
 impl<N, E, Ix, S> SquareGraph<N, E, Ix, S>

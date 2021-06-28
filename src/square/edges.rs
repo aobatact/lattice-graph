@@ -26,7 +26,7 @@ pub struct EdgeReference<'a, E, Ix: IndexType, S: Shape> {
     pub(crate) edge_weight: &'a E,
     pub(crate) direction: bool,
     pub(crate) s: S::SizeInfo,
-    pub(crate) spd: PhantomData<S>,
+    pub(crate) spd: PhantomData<fn() -> S>,
 }
 
 impl<'a, E, Ix: IndexType, S: Shape> Clone for EdgeReference<'a, E, Ix, S> {

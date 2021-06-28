@@ -6,6 +6,8 @@ use petgraph::{
 };
 use std::iter::FusedIterator;
 
+/// Neighbors of the node. See [`neighbors`](`IntoNeighbors::neighbors`).
+#[derive(Clone, Debug)]
 pub struct Neighbors<Ix: IndexType, S> {
     node: NodeIndex<Ix>,
     state: usize,

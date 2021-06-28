@@ -1,6 +1,6 @@
 [package]
 name = "lattice-graph"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["aobatact <aobatact144@gmail.com>"]
 edition = "2018"
 resolver= "2"

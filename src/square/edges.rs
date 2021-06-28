@@ -1,7 +1,7 @@
 use super::*;
 use petgraph::{
     graph::IndexType,
-    visit::{EdgeRef, IntoEdgeReferences, IntoEdges, IntoEdgesDirected},
+    visit::{EdgeRef, IntoEdgeReferences, IntoEdges},
 };
 use std::iter::FusedIterator;
 
@@ -25,7 +25,7 @@ pub struct EdgeReference<'a, E, Ix: IndexType, S: Shape> {
     pub(crate) edge_id: EdgeIndex<Ix>,
     pub(crate) edge_weight: &'a E,
     pub(crate) direction: bool,
-    pub(crate) s: S::SizeShape,
+    pub(crate) s: S::SizeInfo,
     pub(crate) spd: PhantomData<S>,
 }
 
@@ -52,7 +52,8 @@ impl<'a, E, Ix: IndexType, S: Shape> EdgeReference<'a, E, Ix, S> {
         } else {
             match self.edge_id.axis {
                 Axis::Horizontal => {
-                    if S::LOOP_HORIZONTAL && node.horizontal.index() + 1 == self.s.horizontal_size()
+                    if S::LOOP_HORIZONTAL
+                        && node.horizontal.index() + 1 == unsafe { self.s.horizontal_size() }
                     {
                         NodeIndex::new(Ix::new(0), node.vertical)
                     } else {
@@ -60,7 +61,9 @@ impl<'a, E, Ix: IndexType, S: Shape> EdgeReference<'a, E, Ix, S> {
                     }
                 }
                 Axis::Vertical => {
-                    if S::LOOP_VERTICAL && node.vertical.index() + 1 == self.s.vertical_size() {
+                    if S::LOOP_VERTICAL
+                        && node.vertical.index() + 1 == unsafe { self.s.vertical_size() }
+                    {
                         NodeIndex::new(node.horizontal, Ix::new(0))
                     } else {
                         node.up()
@@ -95,7 +98,7 @@ impl<'a, E: Copy, Ix: IndexType, S: Shape> EdgeRef for EdgeReference<'a, E, Ix, 
     }
 }
 
-/// Iterator for all edges of [`SquareGraph`].
+/// Iterator for all edges of [`SquareGraph`]. See [`IntoEdgeReferences`](`IntoEdgeReferences::edge_references`).
 #[derive(Clone, Debug)]
 pub struct EdgeReferences<'a, E, Ix: IndexType, S> {
     horizontal: &'a FixedVec2D<E>,
@@ -125,7 +128,7 @@ where
     type Item = EdgeReference<'a, E, Ix, S>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let s = S::get_sizeshape(self.nodes.h_max, self.nodes.v_max);
+        let s = S::get_sizeinfo(self.nodes.h_max, self.nodes.v_max);
         loop {
             match self.prv {
                 None => {
@@ -176,6 +179,8 @@ where
     }
 }
 
+/// Edges connected to a node. See [`edges`][`IntoEdges::edges`].
+#[derive(Clone, Debug)]
 pub struct Edges<'a, N, E, Ix: IndexType, S> {
     g: &'a SquareGraph<N, E, Ix, S>,
     node: NodeIndex<Ix>,
@@ -192,7 +197,7 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         let g = self.g;
         let n = self.node;
-        let s = S::get_sizeshape(g.horizontal_node_count(), g.vertical_node_count());
+        let s = S::get_sizeinfo(g.horizontal_node_count(), g.vertical_node_count());
         loop {
             'inner: loop {
                 let er = match self.state {
@@ -328,15 +333,15 @@ where
     }
 }
 
-impl<'a, N, E, Ix, S> IntoEdgesDirected for &'a SquareGraph<N, E, Ix, S>
-where
-    Ix: IndexType,
-    E: Copy,
-    S: Shape,
-{
-    type EdgesDirected = Edges<'a, N, E, Ix, S>;
+// impl<'a, N, E, Ix, S> IntoEdgesDirected for &'a SquareGraph<N, E, Ix, S>
+// where
+//     Ix: IndexType,
+//     E: Copy,
+//     S: Shape,
+// {
+//     type EdgesDirected = Edges<'a, N, E, Ix, S>;
 
-    fn edges_directed(self, a: Self::NodeId, _dir: petgraph::EdgeDirection) -> Self::EdgesDirected {
-        self.edges(a)
-    }
-}
+//     fn edges_directed(self, a: Self::NodeId, _dir: petgraph::EdgeDirection) -> Self::EdgesDirected {
+//         self.edges(a)
+//     }
+// }

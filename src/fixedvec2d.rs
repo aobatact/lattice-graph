@@ -1,6 +1,7 @@
 use core::slice;
 use std::{
     fmt::Debug,
+    hash::Hash,
     mem::{self, ManuallyDrop, MaybeUninit},
     num::NonZeroUsize,
     ops::{Index, IndexMut},
@@ -207,6 +208,13 @@ impl<T: PartialEq> PartialEq for FixedVec2D<T> {
 }
 
 impl<T: PartialEq> Eq for FixedVec2D<T> {}
+
+impl<T: Hash> Hash for FixedVec2D<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.h_size().hash(state);
+        self.ref_1d().hash(state)
+    }
+}
 
 impl<'a, T> AsRef<[&'a [T]]> for FixedVec2D<T> {
     fn as_ref(&self) -> &[&'a [T]] {

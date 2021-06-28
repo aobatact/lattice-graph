@@ -1,7 +1,7 @@
 pub mod fixedvec2d;
 pub mod square;
 pub use square::SquareGraph;
-mod lattice_abstract;
+pub mod lattice_abstract;
 
 #[inline]
 pub(crate) unsafe fn unreachable_debug_checked<T>() -> T {

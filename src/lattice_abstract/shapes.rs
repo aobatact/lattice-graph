@@ -24,13 +24,21 @@ pub trait Shape {
     /// Convert coordinate from Offset.
     fn from_offset(&self, offset: Offset) -> Self::Coordinate;
     fn from_index(&self, index: usize) -> Self::Coordinate {
-        let v = index / self.horizontal();
-        let h = index % self.horizontal();
+        let v = index / self.vertical();
+        let h = index % self.vertical();
         self.from_offset(Offset(h, v))
     }
     fn to_index(&self, coord: Self::Coordinate) -> Option<usize> {
         let offset = self.to_offset(coord);
-        offset.map(|o| o.1 * self.horizontal() + o.0).ok()
+        offset.map(|o| o.1 * self.vertical() + o.0).ok()
+    }
+    fn index_to_offset(&self, index: usize) -> Offset {
+        let v = index / self.vertical();
+        let h = index % self.vertical();
+        Offset(h, v)
+    }
+    fn offset_to_index(&self, o: Offset) -> usize {
+        o.1 * self.vertical() + o.0
     }
     /// Edge count of horizontal. May differ by the axis info.
     fn horizontal_edge_size(&self, axis: Self::Axis) -> usize;
@@ -130,6 +138,7 @@ pub trait AxisDirection {
         Self: Sized;
 }
 
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Direction<T> {
     Foward(T),
     Backward(T),

@@ -24,6 +24,10 @@ pub struct LatticeGraph<N, E, S> {
 }
 
 impl<N, E, S: Shape> LatticeGraph<N, E, S> {
+    pub unsafe fn new_raw(nodes: FixedVec2D<N>, edges: Vec<FixedVec2D<E>>, s: S) -> Self {
+        Self { nodes, edges, s }
+    }
+
     pub unsafe fn new_uninit(s: S) -> Self {
         let nodes =
             FixedVec2D::<N>::new_uninit(NonZeroUsize::new(s.horizontal()).unwrap(), s.vertical());
@@ -37,6 +41,41 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
             ))
         }
         Self { nodes, edges, s }
+    }
+
+    pub fn new(s: S) -> Self
+    where
+        S: Clone,
+        N: Default,
+        E: Default,
+    {
+        Self::new_with(s.clone(), |_| N::default(), |_, _| Some(E::default()))
+    }
+
+    pub fn new_with<FN, FE>(s: S, mut n: FN, mut e: FE) -> Self
+    where
+        S: Clone,
+        FN: FnMut(S::Coordinate) -> N,
+        FE: FnMut(S::Coordinate, S::Axis) -> Option<E>,
+    {
+        let mut uninit = unsafe { Self::new_uninit(s.clone()) };
+        let nodes = uninit.nodes.mut_1d();
+        let edges = &mut uninit.edges;
+        for i in 0..s.node_count() {
+            let offset = s.index_to_offset(i);
+            let c = s.from_offset(offset);
+            nodes[i] = n(c);
+            for j in 0..S::Axis::COUNT {
+                let a = unsafe { <S::Axis as Axis>::from_index_unchecked(j) };
+                if s.move_coord(c, a.foward()).is_err() {
+                    continue;
+                }
+                if let Some(ex) = e(c, a) {
+                    edges[j].mut_2d()[offset.1][offset.0] = ex;
+                }
+            }
+        }
+        uninit
     }
 }
 
@@ -58,9 +97,9 @@ impl<N, E, S: Shape> DataMap for LatticeGraph<N, E, S> {
             .map(move |offset| unsafe {
                 let nodes = self.nodes.ref_2d();
                 if cfg!(debug_assert) {
-                    nodes.get(offset.0).unwrap().get(offset.1).unwrap()
+                    nodes.get(offset.1).unwrap().get(offset.0).unwrap()
                 } else {
-                    nodes.get_unchecked(offset.0).get_unchecked(offset.1)
+                    nodes.get_unchecked(offset.1).get_unchecked(offset.0)
                 }
             })
             .ok()

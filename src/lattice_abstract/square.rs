@@ -224,13 +224,13 @@ mod tests {
             assert_eq!(x, x3);
             count += 1;
         }
-        assert_eq!(count, 15);
+        assert_eq!(count, 12);
     }
 
     #[test]
     fn neighbors() {
         let sq = SquareGraph::new_with(
-            SquareShape::new(4, 3),
+            SquareShape::new(3, 5),
             |SquareOffset(Offset(x, y))| x + 2 * y,
             |SquareOffset(Offset(x, y)), _d| Some((x + 2 * y) as i32),
         );
@@ -242,13 +242,13 @@ mod tests {
         debug_assert!(v04.eq(IntoIter::new([(1, 4), (0, 3)])));
 
         let v20 = sq.neighbors((2, 0).into());
-        debug_assert!(v20.eq(IntoIter::new([(1, 0), (2, 1)])));
+        debug_assert!(v20.eq(IntoIter::new([(2, 1), (1, 0)])));
 
         let v24 = sq.neighbors((2, 4).into());
         debug_assert!(v24.eq(IntoIter::new([(1, 4), (2, 3)])));
 
         let v12 = sq.neighbors((1, 2).into());
-        debug_assert!(v12.eq(IntoIter::new([(0, 2), (2, 2), (1, 1), (1, 3)])));
+        debug_assert!(v12.eq(IntoIter::new([(2, 2), (1, 3), (0, 2), (1, 1)])));
     }
 
     #[test]
@@ -268,47 +268,13 @@ mod tests {
         debug_assert!(sq
             .edges((1, 1).into())
             .map(|e| e.edge_weight)
-            .eq(&[2, 3, -1, -3]));
+            .eq(&[3, 3,2,  1]));
 
         debug_assert!(sq
             .edges((1, 2).into())
             .map(|e| e.target())
             .eq(IntoIter::new([(0, 2), (2, 2), (1, 1), (1, 3)])));
     }
-
-    // #[test]
-    // fn edge_references() {
-    //     let sq = SquareGraph::new_with(
-    //         SquareShape::new(4, 3),
-    //         |SquareOffset(Offset(x, y))| x + 2 * y,
-    //         |SquareOffset(Offset(x, y)), d| Some((x + 2 * y) as i32),
-    //     );
-
-    //     let mut i = 0;
-    //     let mut x = -1;
-    //     for e in sq
-    //         .edge_references()
-    //         .filter(|x| x.id().axis == SquareAxis::X)
-    //     {
-    //         let y = sq.to_index(e.edge_id.node) as i32;
-    //         assert!(x < y);
-    //         x = y;
-    //         i += 1;
-    //     }
-    //     assert_eq!(i, 10);
-    //     x = -1;
-    //     i = 0;
-    //     for e in sq
-    //         .edge_references()
-    //         .filter(|x| x.id().axis == SquareAxis::Y)
-    //     {
-    //         let y = sq.to_index(e.edge_id.node) as i32;
-    //         assert!(x < y);
-    //         x = y;
-    //         i += 1;
-    //     }
-    //     assert_eq!(i, 12);
-    // }
 
     // #[test]
     // fn astar() {

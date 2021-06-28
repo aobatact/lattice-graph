@@ -1,8 +1,9 @@
 use std::{marker::PhantomData, num::NonZeroUsize, usize};
 
+use fixedbitset::FixedBitSet;
 use petgraph::{
     data::{DataMap, DataMapMut},
-    visit::{Data, GraphBase, GraphProp, NodeCount},
+    visit::{Data, GraphBase, GraphProp, NodeCount, VisitMap, Visitable},
     EdgeType,
 };
 mod edges;
@@ -160,4 +161,55 @@ impl<N, E, S: Shape> DataMapMut for LatticeGraph<N, E, S> {
 
 impl<N, E, S: Shape + EdgeType> GraphProp for LatticeGraph<N, E, S> {
     type EdgeType = S;
+}
+
+/// [`VisitMap`] of [`SquareGraph`].
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct VisMap<S> {
+    v: Vec<FixedBitSet>,
+    s: S,
+}
+
+impl<S: Shape> VisMap<S> {
+    pub fn new(s: S) -> Self {
+        let h = s.horizontal();
+        let v = s.vertical();
+        let mut vec = Vec::with_capacity(h);
+        for _ in 0..h {
+            vec.push(FixedBitSet::with_capacity(v));
+        }
+        Self { v: vec, s }
+    }
+}
+
+impl<S: Shape> VisitMap<S::Coordinate> for VisMap<S> {
+    fn visit(&mut self, a: S::Coordinate) -> bool {
+        let offset = self.s.to_offset(a);
+        if let Ok(a) = offset {
+            !self.v[a.0].put(a.1)
+        } else {
+            false
+        }
+    }
+
+    fn is_visited(&self, a: &S::Coordinate) -> bool {
+        let offset = self.s.to_offset(a.clone());
+        if let Ok(a) = offset {
+            self.v[a.0].contains(a.1)
+        } else {
+            false
+        }
+    }
+}
+
+impl<N, E, S: Shape + Clone> Visitable for LatticeGraph<N, E, S> {
+    type Map = VisMap<S>;
+
+    fn visit_map(self: &Self) -> Self::Map {
+        VisMap::new(self.s.clone())
+    }
+
+    fn reset_map(self: &Self, map: &mut Self::Map) {
+        map.v.iter_mut().for_each(|x| x.clear())
+    }
 }

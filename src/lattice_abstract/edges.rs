@@ -78,19 +78,20 @@ where
             unsafe {
                 let d = D::from_index_unchecked(self.state);
                 let n = self.graph.s.move_coord(self.node, d.clone());
+                let st = self.state;
                 self.state += 1;
                 if let Ok(target) = n {
                     let (nx, ne) = if d.clone().is_forward() {
-                        (self.offset, self.state)
+                        (self.offset, st)
                     } else {
                         (
                             self.graph.s.to_offset_unchecked(target),
-                            self.state - S::Axis::COUNT,
+                            st - S::Axis::COUNT,
                         )
                     };
                     // FIXME
+                    debug_assert_eq!(S::Axis::from_direction(d.clone()).to_index(), ne);
                     let ne = S::Axis::from_direction(d.clone()).to_index();
-                    //debug_assert_eq!(S::Axis::from_direction(d.clone()).to_index(), ne);
                     let e = &self
                         .graph
                         .edges

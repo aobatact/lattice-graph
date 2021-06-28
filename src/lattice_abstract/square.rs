@@ -254,7 +254,7 @@ mod tests {
     #[test]
     fn edges() {
         let sq = SquareGraph::new_with(
-            SquareShape::new(4, 3),
+            SquareShape::new(3, 5),
             |SquareOffset(Offset(x, y))| x + 2 * y,
             |SquareOffset(Offset(x, y)), _d| Some((x + 2 * y) as i32),
         );
@@ -268,12 +268,12 @@ mod tests {
         debug_assert!(sq
             .edges((1, 1).into())
             .map(|e| e.edge_weight)
-            .eq(&[3, 3,2,  1]));
+            .eq(&[3, 3, 2, 1]));
 
         debug_assert!(sq
             .edges((1, 2).into())
             .map(|e| e.target())
-            .eq(IntoIter::new([(0, 2), (2, 2), (1, 1), (1, 3)])));
+            .eq(IntoIter::new([(2, 2), (1, 3), (0, 2), (1, 1)])));
     }
 
     // #[test]

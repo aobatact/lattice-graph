@@ -5,21 +5,82 @@ use petgraph::{
     visit::{Data, GraphBase, GraphProp},
     EdgeType,
 };
+mod edges;
 
 use crate::fixedvec2d::*;
 
+/// Shape of the 2d lattice.
 pub trait Shape {
     type Axis: Axis;
     type Coordinate: Coordinate;
     type OffsetConvertError;
+    type CoordinateMoveError;
 
+    /// Convert coordinate to Offset.
     fn to_offset(&self, coord: Self::Coordinate) -> Result<Offset, Self::OffsetConvertError>;
+    /// Convert coordinate to Offset without a check.
     unsafe fn to_offset_unchecked(&self, coord: Self::Coordinate) -> Offset;
+    /// Convert coordinate from Offset.
     fn from_offset(&self, offset: Offset) -> Self::Coordinate;
+    /// Horizontal node count.
     fn horizontal(&self) -> usize;
+    /// Vertical node count.
     fn vertical(&self) -> usize;
+    /// Edge count of horizontal. May differ by the axis info.
     fn horizontal_edge_size(&self, axis: Self::Axis) -> usize;
+    /// Edge count of vertical. May differ by the axis info.
     fn vertical_edge_size(&self, axis: Self::Axis) -> usize;
+    fn move_coord(
+        &self,
+        coord: Self::Coordinate,
+        dir: <Self::Axis as Axis>::Direction,
+    ) -> Result<Self::Coordinate, Self::CoordinateMoveError>;
+}
+
+impl<S: Shape> Shape for &S {
+    type Axis = S::Axis;
+
+    type Coordinate = S::Coordinate;
+
+    type OffsetConvertError = S::OffsetConvertError;
+
+    type CoordinateMoveError = S::CoordinateMoveError;
+
+    fn to_offset(&self, coord: Self::Coordinate) -> Result<Offset, Self::OffsetConvertError> {
+        (*self).to_offset(coord)
+    }
+
+    unsafe fn to_offset_unchecked(&self, coord: Self::Coordinate) -> Offset {
+        (*self).to_offset_unchecked(coord)
+    }
+
+    fn from_offset(&self, offset: Offset) -> Self::Coordinate {
+        (*self).from_offset(offset)
+    }
+
+    fn horizontal(&self) -> usize {
+        (*self).horizontal()
+    }
+
+    fn vertical(&self) -> usize {
+        (*self).vertical()
+    }
+
+    fn horizontal_edge_size(&self, axis: Self::Axis) -> usize {
+        (*self).horizontal_edge_size(axis)
+    }
+
+    fn vertical_edge_size(&self, axis: Self::Axis) -> usize {
+        (*self).vertical_edge_size(axis)
+    }
+
+    fn move_coord(
+        &self,
+        coord: Self::Coordinate,
+        dir: <Self::Axis as Axis>::Direction,
+    ) -> Result<Self::Coordinate, Self::CoordinateMoveError> {
+        (*self).move_coord(coord, dir)
+    }
 }
 
 pub trait Axis: Copy + PartialEq {
@@ -30,12 +91,22 @@ pub trait Axis: Copy + PartialEq {
     } else {
         Self::COUNT * 2
     };
-    type Direction;
+    type Direction: AxisDirection;
     fn to_index(&self) -> usize;
     unsafe fn from_index_unchecked(index: usize) -> Self;
     fn from_index(index: usize) -> Option<Self>
     where
         Self: Sized;
+    fn foward(&self) -> Self::Direction;
+    fn backward(&self) -> Self::Direction;
+    fn from_direction(dir: Self::Direction) -> Self;
+}
+
+pub trait AxisDirection {
+    fn is_forward(&self) -> bool;
+    fn is_backward(&self) -> bool {
+        !self.is_forward()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -48,6 +119,11 @@ impl Axis for SquareAxis {
     const COUNT: usize = 2;
     const DIRECTED: bool = false;
     type Direction = Direction<Self>;
+    const DIRECTED_COUNT: usize = if Self::DIRECTED {
+        Self::COUNT
+    } else {
+        Self::COUNT * 2
+    };
 
     fn to_index(&self) -> usize {
         match self {
@@ -74,6 +150,20 @@ impl Axis for SquareAxis {
             _ => None,
         }
     }
+
+    fn foward(&self) -> Self::Direction {
+        Direction::Foward(self.clone())
+    }
+
+    fn backward(&self) -> Self::Direction {
+        Direction::Backward(self.clone())
+    }
+
+    fn from_direction(dir: Self::Direction) -> Self {
+        match dir {
+            Direction::Foward(a) | Direction::Backward(a) => a,
+        }
+    }
 }
 
 pub enum Direction<T> {
@@ -81,8 +171,52 @@ pub enum Direction<T> {
     Backward(T),
 }
 
+impl<T> AxisDirection for Direction<T> {
+    fn is_forward(&self) -> bool {
+        match self {
+            Direction::Foward(_) => true,
+            Direction::Backward(_) => false,
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Offset(usize, usize);
+
+impl Offset {
+    pub fn add_x(&self, x: usize) -> Self {
+        Offset(self.0 + x, self.1)
+    }
+    pub fn add_y(&self, y: usize) -> Self {
+        Offset(self.0, self.1 + y)
+    }
+    pub fn sub_x(&self, x: usize) -> Option<Self> {
+        Some(Offset(self.0.checked_sub(x)?, self.1))
+    }
+    pub fn sub_y(&self, y: usize) -> Option<Self> {
+        Some(Offset(self.0, self.1.checked_sub(y)?))
+    }
+    pub unsafe fn sub_x_unchecked(&self, x: usize) -> Self {
+        Offset(self.0 - x, self.1)
+    }
+    pub unsafe fn sub_y_unchecked(&self, y: usize) -> Self {
+        Offset(self.0, self.1 - y)
+    }
+    pub fn check_x(&self, x_max: usize) -> Option<Self> {
+        if self.0 < x_max {
+            Some(*self)
+        } else {
+            None
+        }
+    }
+    pub fn check_y(&self, y_max: usize) -> Option<Self> {
+        if self.1 < y_max {
+            Some(*self)
+        } else {
+            None
+        }
+    }
+}
 
 impl<T: Into<usize>> From<(T, T)> for Offset {
     fn from(x: (T, T)) -> Self {
@@ -111,15 +245,9 @@ pub struct SquareShape {
 
 impl Shape for SquareShape {
     type Axis = SquareAxis;
-
     type Coordinate = SquareOffset;
-
     type OffsetConvertError = ();
-
-    #[inline]
-    unsafe fn to_offset_unchecked(&self, coord: Self::Coordinate) -> Offset {
-        coord.0
-    }
+    type CoordinateMoveError = ();
 
     #[inline]
     fn to_offset(&self, coord: Self::Coordinate) -> Result<Offset, ()> {
@@ -128,6 +256,11 @@ impl Shape for SquareShape {
         } else {
             Err(())
         }
+    }
+
+    #[inline]
+    unsafe fn to_offset_unchecked(&self, coord: Self::Coordinate) -> Offset {
+        coord.0
     }
 
     #[inline]
@@ -159,6 +292,20 @@ impl Shape for SquareShape {
             SquareAxis::X => v,
             SquareAxis::Y => v - 1,
         }
+    }
+
+    fn move_coord(
+        &self,
+        coord: SquareOffset,
+        dir: Direction<SquareAxis>,
+    ) -> Result<SquareOffset, ()> {
+        let o = match dir {
+            Direction::Foward(SquareAxis::X) => coord.0.add_x(1).check_x(self.h),
+            Direction::Foward(SquareAxis::Y) => coord.0.add_y(1).check_y(self.v),
+            Direction::Backward(SquareAxis::X) => coord.0.sub_x(1),
+            Direction::Backward(SquareAxis::Y) => coord.0.sub_y(1),
+        };
+        o.map(|s| SquareOffset(s)).ok_or_else(|| ())
     }
 }
 
@@ -204,11 +351,17 @@ impl<N, E, S: Shape> Data for LatticeGraph<N, E, S> {
 impl<N, E, S: Shape> DataMap for LatticeGraph<N, E, S> {
     fn node_weight(self: &Self, id: Self::NodeId) -> Option<&Self::NodeWeight> {
         let offset = self.s.to_offset(id);
-        if let Ok(offset) = offset {
-            self.nodes.ref_2d().get(offset.0)?.get(offset.1)
-        } else {
-            None
-        }
+        // SAFETY : offset must be checked in `to_offset`
+        offset
+            .map(move |offset| unsafe {
+                let nodes = self.nodes.ref_2d();
+                if cfg!(debug_assert) {
+                    nodes.get(offset.0).unwrap().get(offset.1).unwrap()
+                } else {
+                    nodes.get_unchecked(offset.0).get_unchecked(offset.1)
+                }
+            })
+            .ok()
     }
 
     fn edge_weight(self: &Self, id: Self::EdgeId) -> Option<&Self::EdgeWeight> {
@@ -231,11 +384,20 @@ impl<N, E, S: Shape> DataMap for LatticeGraph<N, E, S> {
 impl<N, E, S: Shape> DataMapMut for LatticeGraph<N, E, S> {
     fn node_weight_mut(self: &mut Self, id: Self::NodeId) -> Option<&mut Self::NodeWeight> {
         let offset = self.s.to_offset(id);
-        if let Ok(offset) = offset {
-            self.nodes.mut_2d().get_mut(offset.0)?.get_mut(offset.1)
-        } else {
-            None
-        }
+
+        // SAFETY : offset must be checked in `to_offset`
+        offset
+            .map(move |offset| unsafe {
+                let nodes = self.nodes.mut_2d();
+                if cfg!(debug_assert) {
+                    nodes.get_mut(offset.0).unwrap().get_mut(offset.1).unwrap()
+                } else {
+                    nodes
+                        .get_unchecked_mut(offset.0)
+                        .get_unchecked_mut(offset.1)
+                }
+            })
+            .ok()
     }
 
     fn edge_weight_mut(self: &mut Self, id: Self::EdgeId) -> Option<&mut Self::EdgeWeight> {

@@ -132,8 +132,8 @@ where
     nodes: FixedVec2D<N>,
     horizontal: FixedVec2D<E>, //→
     vertical: FixedVec2D<E>,   //↑
-    s: PhantomData<S>,
-    pd: PhantomData<Ix>,
+    s: PhantomData<fn() -> S>,
+    pd: PhantomData<fn() -> Ix>,
 }
 
 impl<N, E, Ix, S> SquareGraph<N, E, Ix, S>

@@ -168,7 +168,7 @@ where
                     return next;
                 }
             }
-            if self.index < self.g.s.node_counts() {
+            if self.index < self.g.s.node_count() {
                 let x = self.g.s.from_index(self.index);
                 self.index += 1;
                 self.e = Some(self.g.edges(x));

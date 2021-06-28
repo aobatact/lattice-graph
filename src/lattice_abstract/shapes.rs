@@ -11,7 +11,7 @@ pub trait Shape {
     fn horizontal(&self) -> usize;
     /// Vertical node count.
     fn vertical(&self) -> usize;
-    fn node_counts(&self) -> usize {
+    fn node_count(&self) -> usize {
         self.horizontal() * self.vertical()
     }
     /// Convert coordinate to Offset.

@@ -2,7 +2,7 @@ use std::{marker::PhantomData, num::NonZeroUsize, usize};
 
 use petgraph::{
     data::{DataMap, DataMapMut},
-    visit::{Data, GraphBase, GraphProp},
+    visit::{Data, GraphBase, GraphProp, NodeCount},
     EdgeType,
 };
 mod edges;

@@ -85,6 +85,17 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
     }
 }
 
+impl<N, E, S> Default for LatticeGraph<N, E, S>
+where
+    N: Default,
+    E: Default,
+    S: Shape + Default + Clone,
+{
+    fn default() -> Self {
+        Self::new(S::default())
+    }
+}
+
 impl<N, E, S: Shape> GraphBase for LatticeGraph<N, E, S> {
     type NodeId = S::Coordinate;
     type EdgeId = (S::Coordinate, S::Axis);

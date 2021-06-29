@@ -115,6 +115,20 @@ where
     }
 }
 
+impl<'a, N, Ix> FusedIterator for NodeReferences<'a, N, Ix>
+where
+    Ix: IndexType,
+    Range<Ix>: Iterator<Item = Ix>,
+{
+}
+
+impl<'a, N, Ix> ExactSizeIterator for NodeReferences<'a, N, Ix>
+where
+    Ix: IndexType,
+    Range<Ix>: Iterator<Item = Ix>,
+{
+}
+
 impl<N, E, Ix, S> NodeCompactIndexable for SquareGraph<N, E, Ix, S> where Ix: IndexType {}
 
 impl<N, E, Ix, S> NodeCount for SquareGraph<N, E, Ix, S>

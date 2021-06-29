@@ -4,6 +4,7 @@ use petgraph::visit::{EdgeRef, IntoEdgeReferences, IntoEdges};
 
 use super::*;
 
+/// Iterator for all edges of [`SquareGraph`]. See [`IntoEdgeReferences`](`IntoEdgeReferences::edge_references`).
 #[derive(Debug, PartialEq, Eq)]
 pub struct EdgeReference<'a, C, E, D, A> {
     pub(crate) source_id: C,
@@ -34,9 +35,7 @@ where
     A: Axis<Direction = D>,
 {
     type NodeId = C;
-
     type EdgeId = (C, A);
-
     type Weight = E;
 
     fn source(&self) -> Self::NodeId {
@@ -56,6 +55,7 @@ where
     }
 }
 
+/// Edges connected to a node. See [`edges`][`IntoEdges::edges`].
 #[derive(Debug)]
 pub struct Edges<'a, N, E, S, C> {
     graph: &'a LatticeGraph<N, E, S>,
@@ -179,6 +179,15 @@ where
             }
         }
     }
+}
+
+impl<'a, N, E, S, C, D, A> FusedIterator for EdgeReferences<'a, N, E, S, C>
+where
+    C: Copy,
+    S: Shape<Coordinate = C, Axis = A>,
+    D: AxisDirection + Copy,
+    A: Axis<Direction = D>,
+{
 }
 
 impl<'a, N, E, S, C, D, A> IntoEdgeReferences for &'a LatticeGraph<N, E, S>

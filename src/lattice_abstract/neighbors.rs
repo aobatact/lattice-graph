@@ -4,6 +4,7 @@ use petgraph::visit::IntoNeighbors;
 
 use super::*;
 
+/// Neighbors of the node. See [`neighbors`](`IntoNeighbors::neighbors`).
 #[derive(Debug)]
 pub struct Neighbors<'a, N, E, S, C> {
     graph: &'a LatticeGraph<N, E, S>,

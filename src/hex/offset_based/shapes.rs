@@ -25,6 +25,7 @@ pub enum AxisR {
     E = 1,
     SE = 2,
 }
+
 impl Axis for AxisR {
     const COUNT: usize = 3;
     const DIRECTED: bool = false;
@@ -73,9 +74,54 @@ impl Axis for AxisR {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// Flat top Hex Direction.
 pub enum AxisQ {
-    NE,
-    SE,
-    S,
+    N = 0,
+    NE = 1,
+    SE = 2,
+}
+
+impl Axis for AxisQ {
+    const COUNT: usize = 3;
+    const DIRECTED: bool = false;
+    const DIRECTED_COUNT: usize = if Self::DIRECTED {
+        Self::COUNT
+    } else {
+        Self::COUNT * 2
+    };
+    type Direction = Direction<Self>;
+
+    fn to_index(&self) -> usize {
+        match self {
+            AxisQ::N => 0,
+            AxisQ::NE => 1,
+            AxisQ::SE => 2,
+        }
+    }
+
+    fn from_index(index: usize) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        Some(match index {
+            0 => AxisQ::N,
+            1 => AxisQ::NE,
+            2 => AxisQ::SE,
+            _ => return None,
+        })
+    }
+
+    fn foward(self) -> Self::Direction {
+        Direction::Foward(self)
+    }
+
+    fn backward(self) -> Self::Direction {
+        Direction::Backward(self)
+    }
+
+    fn from_direction(dir: Self::Direction) -> Self {
+        match dir {
+            Direction::Foward(a) | Direction::Backward(a) => a,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -114,21 +160,199 @@ impl<T, const H: usize, const V: usize> Default for ConstHexOffsetShape<T, H, V>
     }
 }
 
+pub trait HexOffsetShapeBase {
+    type Axis: Axis;
+    fn horizontal_edge_size(horizontal: usize, axis: Self::Axis) -> usize;
+    fn vertical_edge_size(vertical: usize, axis: Self::Axis) -> usize;
+    fn move_coord(
+        horizontal: usize,
+        vertical: usize,
+        coord: HexOffset,
+        dir: Direction<Self::Axis>,
+    ) -> Result<HexOffset, ()>;
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum OddR {}
+impl HexOffsetShapeBase for OddR {
+    type Axis = AxisR;
+    fn horizontal_edge_size(horizontal: usize, axis: Self::Axis) -> usize {
+        match axis {
+            AxisR::SE => horizontal,
+            _ => horizontal - 1,
+        }
+    }
+
+    fn vertical_edge_size(vertical: usize, axis: Self::Axis) -> usize {
+        match axis {
+            AxisR::SE => vertical - 1,
+            _ => vertical,
+        }
+    }
+
+    fn move_coord(
+        horizontal: usize,
+        vertical: usize,
+        coord: HexOffset,
+        dir: Direction<AxisR>,
+    ) -> Result<HexOffset, ()> {
+        move_coord_r(horizontal, vertical, coord, dir, 0)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum EvenR {}
+
+impl HexOffsetShapeBase for EvenR {
+    type Axis = AxisR;
+    fn horizontal_edge_size(horizontal: usize, axis: Self::Axis) -> usize {
+        match axis {
+            AxisR::SE => horizontal,
+            _ => horizontal - 1,
+        }
+    }
+
+    fn vertical_edge_size(vertical: usize, axis: Self::Axis) -> usize {
+        match axis {
+            AxisR::SE => vertical - 1,
+            _ => vertical,
+        }
+    }
+
+    fn move_coord(
+        horizontal: usize,
+        vertical: usize,
+        coord: HexOffset,
+        dir: Direction<AxisR>,
+    ) -> Result<HexOffset, ()> {
+        move_coord_r(horizontal, vertical, coord, dir, 1)
+    }
+}
+
+fn move_coord_r(
+    horizontal: usize,
+    vertical: usize,
+    coord: HexOffset,
+    dir: Direction<AxisR>,
+    flag: usize,
+) -> Result<HexOffset, ()> {
+    let o = coord.0;
+    match (dir, o.vertical() & 1 == flag) {
+        (Direction::Foward(AxisR::E), _) => o.add_x(1).check_x(horizontal),
+        (Direction::Backward(AxisR::E), _) => o.sub_x(1),
+        (Direction::Foward(AxisR::NE), true) | (Direction::Backward(AxisR::SE), false) => {
+            o.add_y(1).check_y(vertical)
+        }
+        (Direction::Foward(AxisR::SE), true) | (Direction::Backward(AxisR::NE), false) => {
+            o.sub_y(1)
+        }
+        (Direction::Foward(AxisR::NE), false) => o.add_x(1).add_y(1).check_y(vertical),
+        (Direction::Foward(AxisR::SE), false) => {
+            o.add_x(1).sub_y(1).map(|o| o.check_x(horizontal)).flatten()
+        }
+        (Direction::Backward(AxisR::NE), true) => o.sub_x(1).map(|o| o.sub_y(1)).flatten(),
+        (Direction::Backward(AxisR::SE), true) => {
+            o.sub_x(1).map(|o| o.add_y(1).check_y(vertical)).flatten()
+        }
+    }
+    .map(|o| HexOffset(o))
+    .ok_or(())
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum OddQ {}
+impl HexOffsetShapeBase for OddQ {
+    type Axis = AxisQ;
+    fn horizontal_edge_size(horizontal: usize, axis: Self::Axis) -> usize {
+        match axis {
+            AxisQ::N => horizontal,
+            _ => horizontal - 1,
+        }
+    }
+
+    fn vertical_edge_size(vertical: usize, axis: Self::Axis) -> usize {
+        match axis {
+            AxisQ::N => vertical - 1,
+            _ => vertical,
+        }
+    }
+
+    fn move_coord(
+        horizontal: usize,
+        vertical: usize,
+        coord: HexOffset,
+        dir: Direction<AxisQ>,
+    ) -> Result<HexOffset, ()> {
+        move_coord_q(horizontal, vertical, coord, dir, 0)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum EvenQ {}
+impl HexOffsetShapeBase for EvenQ {
+    type Axis = AxisQ;
+    fn horizontal_edge_size(horizontal: usize, axis: Self::Axis) -> usize {
+        match axis {
+            AxisQ::N => horizontal,
+            _ => horizontal - 1,
+        }
+    }
 
-impl<H, V> Shape for HexOffsetShape<OddR, H, V>
+    fn vertical_edge_size(vertical: usize, axis: Self::Axis) -> usize {
+        match axis {
+            AxisQ::N => vertical - 1,
+            _ => vertical,
+        }
+    }
+
+    fn move_coord(
+        horizontal: usize,
+        vertical: usize,
+        coord: HexOffset,
+        dir: Direction<AxisQ>,
+    ) -> Result<HexOffset, ()> {
+        move_coord_q(horizontal, vertical, coord, dir, 1)
+    }
+}
+
+fn move_coord_q(
+    horizontal: usize,
+    vertical: usize,
+    coord: HexOffset,
+    dir: Direction<AxisQ>,
+    flag: usize,
+) -> Result<HexOffset, ()> {
+    let o = coord.0;
+    match (dir, o.vertical() & 1 != flag) {
+        (Direction::Foward(AxisQ::N), _) => o.add_y(1).check_y(vertical),
+        (Direction::Backward(AxisQ::N), _) => o.sub_y(1),
+        (Direction::Foward(AxisQ::NE), true) | (Direction::Backward(AxisQ::SE), false) => {
+            o.add_x(1).check_x(horizontal)
+        }
+        (Direction::Foward(AxisQ::SE), true) | (Direction::Backward(AxisQ::NE), false) => {
+            o.sub_x(1)
+        }
+        (Direction::Foward(AxisQ::NE), false) => o.add_y(1).add_x(1).check_x(horizontal),
+        (Direction::Foward(AxisQ::SE), false) => {
+            o.add_y(1).sub_x(1).map(|o| o.check_y(vertical)).flatten()
+        }
+        (Direction::Backward(AxisQ::NE), true) => o.sub_y(1).map(|o| o.sub_x(1)).flatten(),
+        (Direction::Backward(AxisQ::SE), true) => {
+            o.sub_y(1).map(|o| o.add_x(1).check_x(horizontal)).flatten()
+        }
+    }
+    .map(|o| HexOffset(o))
+    .ok_or(())
+}
+
+impl<B, H, V> Shape for HexOffsetShape<B, H, V>
 where
+    B: HexOffsetShapeBase,
+    B::Axis: Axis<Direction = Direction<B::Axis>>,
     H: Into<usize> + Copy,
     V: Into<usize> + Copy,
 {
-    type Axis = AxisR;
+    type Axis = B::Axis;
     type Coordinate = HexOffset;
     type OffsetConvertError = ();
     type CoordinateMoveError = ();
@@ -154,52 +378,23 @@ where
         HexOffset(offset)
     }
 
+    unsafe fn to_offset_unchecked(&self, coord: Self::Coordinate) -> Offset {
+        coord.0
+    }
+
     fn horizontal_edge_size(&self, axis: Self::Axis) -> usize {
-        match axis {
-            AxisR::SE => self.horizontal(),
-            _ => self.horizontal() - 1,
-        }
+        B::horizontal_edge_size(self.horizontal(), axis)
     }
 
     fn vertical_edge_size(&self, axis: Self::Axis) -> usize {
-        match axis {
-            AxisR::SE => self.vertical() - 1,
-            _ => self.vertical(),
-        }
+        B::vertical_edge_size(self.vertical(), axis)
     }
 
     fn move_coord(
         &self,
         coord: Self::Coordinate,
-        dir: Direction<AxisR>,
+        dir: <Self::Axis as Axis>::Direction,
     ) -> Result<Self::Coordinate, Self::CoordinateMoveError> {
-        let o = coord.0;
-        match (dir, o.vertical() & 1 == 0) {
-            (Direction::Foward(AxisR::E), _) => o.add_x(1).check_x(self.horizontal()),
-            (Direction::Backward(AxisR::E), _) => o.sub_x(1),
-            (Direction::Foward(AxisR::NE), true) | (Direction::Backward(AxisR::SE), false) => {
-                o.add_y(1).check_y(self.vertical())
-            }
-            (Direction::Foward(AxisR::SE), true) | (Direction::Backward(AxisR::NE), false) => {
-                o.sub_y(1)
-            }
-            (Direction::Foward(AxisR::NE), false) => o.add_x(1).add_y(1).check_y(self.vertical()),
-            (Direction::Foward(AxisR::SE), false) => o
-                .add_x(1)
-                .sub_y(1)
-                .map(|o| o.check_x(self.horizontal()))
-                .flatten(),
-            (Direction::Backward(AxisR::NE), true) => o.sub_x(1).map(|o| o.sub_y(1)).flatten(),
-            (Direction::Backward(AxisR::SE), true) => o
-                .sub_x(1)
-                .map(|o| o.add_y(1).check_y(self.vertical()))
-                .flatten(),
-        }
-        .map(|o| HexOffset(o))
-        .ok_or(())
-    }
-
-    unsafe fn to_offset_unchecked(&self, coord: Self::Coordinate) -> Offset {
-        coord.0
+        B::move_coord(self.horizontal(), self.vertical(), coord, dir)
     }
 }

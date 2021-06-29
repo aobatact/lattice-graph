@@ -89,9 +89,8 @@ where
                             st - S::Axis::COUNT,
                         )
                     };
-                    // FIXME
                     debug_assert_eq!(S::Axis::from_direction(d.clone()).to_index(), ne);
-                    let ne = S::Axis::from_direction(d.clone()).to_index();
+                    //let ne = S::Axis::from_direction(d.clone()).to_index();
                     let e = &self
                         .graph
                         .edges

@@ -276,36 +276,38 @@ mod tests {
             .eq(IntoIter::new([(2, 2), (1, 3), (0, 2), (1, 1)])));
     }
 
-    // #[test]
-    // fn astar() {
-    //     let sq = SquareGraph::new_with(
-    //         SquareShape::new(4, 3),
-    //         |SquareOffset(Offset(x, y))| x + 2 * y,
-    //         |SquareOffset(Offset(x, y)), d| Some((x + 2 * y) as i32),
-    //     );
+    #[test]
+    fn astar() {
+        let sq = SquareGraph::new_with(
+            SquareShape::new(4, 3),
+            |SquareOffset(Offset(x, y))| x + 2 * y,
+            |SquareOffset(Offset(x, y)), d| {
+                Some((x + 2 * y) as i32 * if d == SquareAxis::X { 1 } else { 3 })
+            },
+        );
 
-    //     let x = petgraph::algo::astar(
-    //         &sq,
-    //         (0, 0).into(),
-    //         |x| x == (2, 1),
-    //         |e| *e.weight(),
-    //         |x| x.distance((2, 1)) as i32,
-    //     );
-    //     assert!(x.is_some());
-    //     let (d, p) = x.unwrap();
-    //     assert_eq!(d, 5);
-    //     assert_eq!(p, [(0, 0), (0, 1), (1, 1), (2, 1)]);
+        let x = petgraph::algo::astar(
+            &sq,
+            (0, 0).into(),
+            |x| x == (2, 1),
+            |e| *e.weight(),
+            |x| (x.0 .0 as i32 - 2).abs() + (x.0 .1 as i32 - 1).abs(),
+        );
+        assert!(x.is_some());
+        let (d, p) = x.unwrap();
+        assert_eq!(d, 5);
+        assert_eq!(p, [(0, 0), (0, 1), (1, 1), (2, 1)]);
 
-    //     let x = petgraph::algo::astar(
-    //         &sq,
-    //         (2, 1).into(),
-    //         |x| x == (0, 0),
-    //         |e| *e.weight(),
-    //         |x| x.distance((0, 0)) as i32,
-    //     );
-    //     assert!(x.is_some());
-    //     let (d, p) = x.unwrap();
-    //     assert_eq!(d, 5);
-    //     assert_eq!(p, [(2, 1), (1, 1), (0, 1), (0, 0)])
-    // }
+        let x = petgraph::algo::astar(
+            &sq,
+            (2, 1).into(),
+            |x| x == (0, 0),
+            |e| *e.weight(),
+            |x| (x.0 .0 as i32 - 0).abs() + (x.0 .1 as i32 - 0).abs(),
+        );
+        assert!(x.is_some());
+        let (d, p) = x.unwrap();
+        assert_eq!(d, 5);
+        assert_eq!(p, [(2, 1), (1, 1), (0, 1), (0, 0)])
+    }
 }

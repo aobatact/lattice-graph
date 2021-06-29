@@ -14,36 +14,41 @@ pub trait Shape {
     fn node_count(&self) -> usize {
         self.horizontal() * self.vertical()
     }
-    /// Convert coordinate to Offset.
+    /// Convert coordinate to `Offset`.
     fn to_offset(&self, coord: Self::Coordinate) -> Result<Offset, Self::OffsetConvertError>;
     /// Convert coordinate to Offset without a check.
     unsafe fn to_offset_unchecked(&self, coord: Self::Coordinate) -> Offset {
         self.to_offset(coord)
             .unwrap_or_else(|_| crate::unreachable_debug_checked())
     }
-    /// Convert coordinate from Offset.
+    /// Convert coordinate from `Offset`.
     fn from_offset(&self, offset: Offset) -> Self::Coordinate;
+
+    /// Convert coordinate from index.
     fn from_index(&self, index: usize) -> Self::Coordinate {
-        let v = index / self.horizontal();
-        let h = index % self.horizontal();
-        self.from_offset(Offset(h, v))
+        self.from_offset(self.index_to_offset(index))
     }
+    /// Covert coordinate to index.
     fn to_index(&self, coord: Self::Coordinate) -> Option<usize> {
         let offset = self.to_offset(coord);
-        offset.map(|o| o.1 * self.horizontal() + o.0).ok()
+        offset.map(|o| self.offset_to_index(o)).ok()
     }
+    /// Convert index to offset.
     fn index_to_offset(&self, index: usize) -> Offset {
-        let v = index / self.horizontal();
-        let h = index % self.horizontal();
+        let v = index % self.vertical();
+        let h = index / self.vertical();
         Offset(h, v)
     }
+    /// Covert offset to index.
     fn offset_to_index(&self, o: Offset) -> usize {
-        o.1 * self.horizontal() + o.0
+        o.0 * self.vertical() + o.1
     }
+
     /// Edge count of horizontal. May differ by the axis info.
     fn horizontal_edge_size(&self, axis: Self::Axis) -> usize;
     /// Edge count of vertical. May differ by the axis info.
     fn vertical_edge_size(&self, axis: Self::Axis) -> usize;
+    /// Move coordinate to direction.
     fn move_coord(
         &self,
         coord: Self::Coordinate,

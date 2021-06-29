@@ -45,7 +45,6 @@ pub trait SizeInfo: Copy {
     unsafe fn horizontal_size(&self) -> usize {
         unreachable_debug_checked()
     }
-
     /// Should only be called when [`Shape::LOOP_VERTICAL`] is true.
     unsafe fn vertical_size(&self) -> usize {
         unreachable_debug_checked()

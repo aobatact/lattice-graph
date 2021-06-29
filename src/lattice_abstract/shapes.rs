@@ -149,9 +149,9 @@ pub trait Axis: Copy + PartialEq {
     where
         Self: Sized;
     /// To forward direction. It is nop when Axis is `DIRECTED`.
-    fn foward(&self) -> Self::Direction;
+    fn foward(self) -> Self::Direction;
     /// To backward direction. It reverses when Axis is `DIRECTED`.
-    fn backward(&self) -> Self::Direction;
+    fn backward(self) -> Self::Direction;
     /// Convert from direction.
     fn from_direction(dir: Self::Direction) -> Self;
 }
@@ -174,7 +174,7 @@ pub trait AxisDirection {
         Self: Sized;
 }
 
-/// Default Implimention of [`AxisDirection`] when [`Axis::DIRECTION`] is false.
+/// Default Implimention of [`AxisDirection`] when [`Axis::DIRECTED`] is false.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Direction<T> {
     Foward(T),

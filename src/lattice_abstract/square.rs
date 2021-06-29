@@ -47,11 +47,11 @@ impl Axis for SquareAxis {
         }
     }
 
-    fn foward(&self) -> Self::Direction {
+    fn foward(self) -> Self::Direction {
         Direction::Foward(self.clone())
     }
 
-    fn backward(&self) -> Self::Direction {
+    fn backward(self) -> Self::Direction {
         Direction::Backward(self.clone())
     }
 

@@ -12,8 +12,8 @@ mod neighbors;
 pub use neighbors::*;
 mod nodes;
 pub use nodes::*;
-mod shapes;
-pub use shapes::*;
+pub mod shapes;
+pub(crate) use shapes::*;
 pub mod square;
 
 use crate::{fixedvec2d::*, unreachable_debug_checked};

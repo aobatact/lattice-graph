@@ -60,12 +60,12 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
         FE: FnMut(S::Coordinate, S::Axis) -> Option<E>,
     {
         let mut uninit = unsafe { Self::new_uninit(s.clone()) };
-        let nodes = uninit.nodes.mut_2d();
+        let nodes = uninit.nodes.mut_1d();
         let edges = &mut uninit.edges;
         for i in 0..s.node_count() {
             let offset = s.index_to_offset(i);
             let c = s.from_offset(offset);
-            nodes[offset.0][offset.1] = n(c);
+            nodes[i] = n(c);
             for j in 0..S::Axis::COUNT {
                 let a = unsafe { <S::Axis as Axis>::from_index_unchecked(j) };
                 if s.move_coord(c, a.foward()).is_err() {
@@ -163,7 +163,7 @@ impl<N, E, S: Shape + EdgeType> GraphProp for LatticeGraph<N, E, S> {
     type EdgeType = S;
 }
 
-/// [`VisitMap`] of [`SquareGraph`].
+/// [`VisitMap`] of [`LatticeGraph`].
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct VisMap<S> {
     v: Vec<FixedBitSet>,

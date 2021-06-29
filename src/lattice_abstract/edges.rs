@@ -96,8 +96,8 @@ where
                         .edges
                         .get_unchecked(ne)
                         .ref_2d()
-                        .get_unchecked(nx.0)
-                        .get_unchecked(nx.1);
+                        .get_unchecked(nx.horizontal)
+                        .get_unchecked(nx.vertical);
                     return Some(EdgeReference {
                         source_id: self.node,
                         target_id: target,

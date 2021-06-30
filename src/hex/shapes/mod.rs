@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use crate::{lattice_abstract::*, unreachable_debug_checked};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -326,3 +328,13 @@ impl LoopMarker for () {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum LEW {}
 impl LoopMarker for LEW {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct DirectedMarker<T>(PhantomData<fn() -> T>);
+impl<T: OE> OE for DirectedMarker<T> {
+    const IS_EVEN: bool = T::IS_EVEN;
+    const CONVERT_OFFSET: usize = T::CONVERT_OFFSET;
+}
+impl<T: RQ> RQ for DirectedMarker<T> {
+    const IS_FLAT_TOP: bool = T::IS_FLAT_TOP;
+}

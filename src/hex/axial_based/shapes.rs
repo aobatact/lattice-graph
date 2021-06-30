@@ -71,6 +71,19 @@ impl HexAxialShapeBase for EvenQ {
     }
 }
 
+impl<T, A> HexAxialShapeBase for DirectedMarker<T>
+where
+    T: HexAxialShapeBase<Axis = A>,
+    A: Axis,
+    A::Direction: Axis<Direction = A::Direction>,
+{
+    type Axis = A::Direction;
+
+    unsafe fn move_coord_unchecked(coord: HexAxial, dir: A::Direction) -> HexAxial {
+        T::move_coord_unchecked(coord, dir)
+    }
+}
+
 fn move_coord_r<S>(coord: HexAxial<S>, dir: AxisDR) -> HexAxial<S>
 where
     S: Default,

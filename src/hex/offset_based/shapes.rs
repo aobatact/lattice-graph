@@ -108,40 +108,6 @@ impl HexOffsetShapeBase for EvenR {
     }
 }
 
-// fn move_coord_r(
-//     horizontal: usize,
-//     vertical: usize,
-//     coord: HexOffset,
-//     dir: Direction<AxisR>,
-//     flag: usize,
-// ) -> Result<HexOffset, ()> {
-//     let o = coord.0;
-//     match (dir, o.vertical() & 1 == flag) {
-//         (Direction::Foward(AxisR::E), _) => o.add_x(1).check_x(horizontal),
-//         (Direction::Backward(AxisR::E), _) => o.sub_x(1),
-//         (Direction::Foward(AxisR::NE), true) | (Direction::Backward(AxisR::SE), false) => {
-//             o.add_y(1).check_y(vertical)
-//         }
-//         (Direction::Foward(AxisR::SE), true) | (Direction::Backward(AxisR::NE), false) => {
-//             o.sub_y(1)
-//         }
-//         (Direction::Foward(AxisR::NE), false) => o
-//             .add_x(1)
-//             .check_x(horizontal)
-//             .map(|o| o.add_y(1).check_y(vertical))
-//             .flatten(),
-//         (Direction::Foward(AxisR::SE), false) => {
-//             o.add_x(1).check_x(horizontal).map(|o| o.sub_y(1)).flatten()
-//         }
-//         (Direction::Backward(AxisR::NE), true) => o.sub_x(1).map(|o| o.sub_y(1)).flatten(),
-//         (Direction::Backward(AxisR::SE), true) => {
-//             o.sub_x(1).map(|o| o.add_y(1).check_y(vertical)).flatten()
-//         }
-//     }
-//     .map(|o| HexOffset(o))
-//     .ok_or(())
-// }
-
 fn move_coord_r(
     horizontal: usize,
     vertical: usize,
@@ -285,7 +251,7 @@ impl HexOffsetShapeBase for OddQ {
         horizontal: usize,
         vertical: usize,
         coord: HexOffset,
-        dir: Direction<AxisQ>,
+        dir: AxisDQ,
     ) -> Result<HexOffset, ()> {
         move_coord_q(horizontal, vertical, coord, dir, 0)
     }
@@ -296,7 +262,7 @@ impl HexOffsetShapeBaseLEW for OddQ {
         horizontal: usize,
         vertical: usize,
         coord: HexOffset,
-        dir: Direction<Self::Axis>,
+        dir: AxisDQ,
     ) -> Result<HexOffset, ()> {
         move_coord_q_lew(horizontal, vertical, coord, dir, 0)
     }
@@ -324,7 +290,7 @@ impl HexOffsetShapeBase for EvenQ {
         horizontal: usize,
         vertical: usize,
         coord: HexOffset,
-        dir: Direction<AxisQ>,
+        dir: AxisDQ,
     ) -> Result<HexOffset, ()> {
         move_coord_q(horizontal, vertical, coord, dir, 1)
     }
@@ -335,7 +301,7 @@ impl HexOffsetShapeBaseLEW for EvenQ {
         horizontal: usize,
         vertical: usize,
         coord: HexOffset,
-        dir: Direction<Self::Axis>,
+        dir: AxisDQ,
     ) -> Result<HexOffset, ()> {
         move_coord_q_lew(horizontal, vertical, coord, dir, 1)
     }
@@ -345,27 +311,19 @@ fn move_coord_q(
     horizontal: usize,
     vertical: usize,
     coord: HexOffset,
-    dir: Direction<AxisQ>,
+    dir: AxisDQ,
     flag: usize,
 ) -> Result<HexOffset, ()> {
     let o = coord.0;
     match (dir, o.vertical() & 1 != flag) {
-        (Direction::Foward(AxisQ::N), _) => o.add_y(1).check_y(vertical),
-        (Direction::Backward(AxisQ::N), _) => o.sub_y(1),
-        (Direction::Foward(AxisQ::NE), true) | (Direction::Backward(AxisQ::SE), false) => {
-            o.add_x(1).check_x(horizontal)
-        }
-        (Direction::Foward(AxisQ::SE), true) | (Direction::Backward(AxisQ::NE), false) => {
-            o.sub_x(1)
-        }
-        (Direction::Foward(AxisQ::NE), false) => o.add_y(1).add_x(1).check_x(horizontal),
-        (Direction::Foward(AxisQ::SE), false) => {
-            o.add_y(1).sub_x(1).map(|o| o.check_y(vertical)).flatten()
-        }
-        (Direction::Backward(AxisQ::NE), true) => o.sub_y(1).map(|o| o.sub_x(1)).flatten(),
-        (Direction::Backward(AxisQ::SE), true) => {
-            o.sub_y(1).map(|o| o.add_x(1).check_x(horizontal)).flatten()
-        }
+        (AxisDQ::N, _) => o.add_y(1).check_y(vertical),
+        (AxisDQ::S, _) => o.sub_y(1),
+        (AxisDQ::NE, true) | (AxisDQ::NW, false) => o.add_x(1).check_x(horizontal),
+        (AxisDQ::SE, true) | (AxisDQ::SW, false) => o.sub_x(1),
+        (AxisDQ::NE, false) => o.add_y(1).add_x(1).check_x(horizontal),
+        (AxisDQ::SE, false) => o.add_y(1).sub_x(1).map(|o| o.check_y(vertical)).flatten(),
+        (AxisDQ::SW, true) => o.sub_y(1).map(|o| o.sub_x(1)).flatten(),
+        (AxisDQ::NW, true) => o.sub_y(1).map(|o| o.add_x(1).check_x(horizontal)).flatten(),
     }
     .map(|o| HexOffset(o))
     .ok_or(())
@@ -375,39 +333,31 @@ fn move_coord_q_lew(
     horizontal: usize,
     vertical: usize,
     coord: HexOffset,
-    dir: Direction<AxisQ>,
+    dir: AxisDQ,
     flag: usize,
 ) -> Result<HexOffset, ()> {
     let o = coord.0;
     match (dir, o.vertical() & 1 != flag) {
-        (Direction::Foward(AxisQ::N), _) => {
-            Some(o.add_x(1).check_x(horizontal).unwrap_or_else(|| o.set_x(0)))
-        }
-        (Direction::Backward(AxisQ::N), _) => {
-            Some(o.sub_x(1).unwrap_or_else(|| o.set_x(horizontal - 1)))
-        }
-        (Direction::Foward(AxisQ::NE), true) | (Direction::Backward(AxisQ::SE), false) => {
-            o.add_y(1).check_y(vertical)
-        }
-        (Direction::Foward(AxisQ::SE), true) | (Direction::Backward(AxisQ::NE), false) => {
-            o.sub_x(1)
-        }
-        (Direction::Foward(AxisQ::NE), false) => o
+        (AxisDQ::N, _) => Some(o.add_x(1).check_x(horizontal).unwrap_or_else(|| o.set_x(0))),
+        (AxisDQ::S, _) => Some(o.sub_x(1).unwrap_or_else(|| o.set_x(horizontal - 1))),
+        (AxisDQ::NE, true) | (AxisDQ::NW, false) => o.add_x(1).check_x(horizontal),
+        (AxisDQ::SE, true) | (AxisDQ::SW, false) => o.sub_x(1),
+        (AxisDQ::NE, false) => o
             .add_x(1)
             .check_x(horizontal)
             .unwrap_or_else(|| o.set_x(0))
             .add_y(1)
             .check_y(vertical),
-        (Direction::Foward(AxisQ::SE), false) => o
+        (AxisDQ::SE, false) => o
             .add_x(1)
             .check_x(horizontal)
             .unwrap_or_else(|| o.set_x(0))
             .sub_y(1),
-        (Direction::Backward(AxisQ::NE), true) => o
+        (AxisDQ::SW, true) => o
             .sub_x(1)
             .unwrap_or_else(|| o.set_x(horizontal - 1))
             .sub_y(1),
-        (Direction::Backward(AxisQ::SE), true) => o
+        (AxisDQ::NW, true) => o
             .sub_x(1)
             .unwrap_or_else(|| o.set_x(horizontal - 1))
             .add_y(1)

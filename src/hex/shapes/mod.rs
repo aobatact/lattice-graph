@@ -132,7 +132,7 @@ pub enum AxisQ {
 impl Axis for AxisQ {
     const COUNT: usize = 3;
     const DIRECTED: bool = false;
-    type Direction = Direction<Self>;
+    type Direction = AxisDQ;
 
     fn to_index(&self) -> usize {
         match self {
@@ -155,17 +155,16 @@ impl Axis for AxisQ {
     }
 
     fn foward(self) -> Self::Direction {
-        Direction::Foward(self)
+        unsafe { AxisDQ::from_index_unchecked(self.to_index()) }
     }
 
     fn backward(self) -> Self::Direction {
-        Direction::Backward(self)
+        unsafe { AxisDQ::from_index_unchecked(self.to_index() + 3) }
     }
 
     fn from_direction(dir: Self::Direction) -> Self {
-        match dir {
-            Direction::Foward(a) | Direction::Backward(a) => a,
-        }
+        let i = dir.dir_to_index();
+        unsafe { Self::from_index_unchecked(if i < Self::COUNT { i } else { i - Self::COUNT }) }
     }
 }
 
@@ -176,6 +175,67 @@ impl Direction<AxisQ> {
     pub const S: Self = Direction::Backward(AxisQ::N);
     pub const SW: Self = Direction::Backward(AxisQ::NE);
     pub const NW: Self = Direction::Backward(AxisQ::SE);
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum AxisDQ {
+    N = 0,
+    NE = 1,
+    SE = 2,
+    S = 3,
+    SW = 4,
+    NW = 5,
+}
+
+impl Axis for AxisDQ {
+    const COUNT: usize = 6;
+    const DIRECTED: bool = true;
+    type Direction = Self;
+
+    fn to_index(&self) -> usize {
+        match self {
+            AxisDQ::N => 0,
+            AxisDQ::NE => 1,
+            AxisDQ::SE => 2,
+            AxisDQ::S => 3,
+            AxisDQ::SW => 4,
+            AxisDQ::NW => 5,
+        }
+    }
+
+    fn from_index(index: usize) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        Some(match index {
+            0 => AxisDQ::N,
+            1 => AxisDQ::NE,
+            2 => AxisDQ::SE,
+            3 => AxisDQ::S,
+            4 => AxisDQ::SW,
+            5 => AxisDQ::NW,
+            _ => return None,
+        })
+    }
+
+    fn foward(self) -> Self::Direction {
+        self
+    }
+
+    fn backward(self) -> Self::Direction {
+        match self {
+            AxisDQ::N => AxisDQ::S,
+            AxisDQ::NE => AxisDQ::SW,
+            AxisDQ::SE => AxisDQ::NW,
+            AxisDQ::S => AxisDQ::N,
+            AxisDQ::SW => AxisDQ::NE,
+            AxisDQ::NW => AxisDQ::NE,
+        }
+    }
+
+    fn from_direction(dir: Self::Direction) -> Self {
+        dir
+    }
 }
 
 /// Point-top + Odd Shape.

@@ -1,16 +1,27 @@
+//! Shapes to define the behavior of the [`LatticeGraph`](`crate::lattice_abstract::LatticeGraph`)
+//!
+//! If you want to create your own lattice based graph, use this to implement your own lattice.
+//!
+
 use crate::unreachable_debug_checked;
 
 /// Shape of the 2d lattice.
+/// It decides the behavior of the coordinate.
 pub trait Shape {
     type Axis: Axis;
     type Coordinate: Coordinate;
-    type OffsetConvertError: core::fmt::Debug + Clone + Default;
-    type CoordinateMoveError: core::fmt::Debug + Clone + Default;
+    /// Error to return when [`to_offset`](`Shape::to_offset`) fails.
+    /// Should set [`Infallible`](`core::convert::Infallible`) when the graph is looped and never to fail.
+    type OffsetConvertError: core::fmt::Debug + Clone;
+    /// Error to return when [`move_coord`](`Shape::move_coord`) fails.
+    /// Should set [`Infallible`](`core::convert::Infallible`) when the graph is looped and never to fail.
+    type CoordinateMoveError: core::fmt::Debug + Clone;
 
     /// Horizontal node count.
     fn horizontal(&self) -> usize;
     /// Vertical node count.
     fn vertical(&self) -> usize;
+    /// Node count.
     fn node_count(&self) -> usize {
         self.horizontal() * self.vertical()
     }
@@ -37,11 +48,11 @@ pub trait Shape {
     fn index_to_offset(&self, index: usize) -> Offset {
         let v = index % self.vertical();
         let h = index / self.vertical();
-        Offset(h, v)
+        Offset::new(h, v)
     }
     /// Covert offset to index.
     fn offset_to_index(&self, o: Offset) -> usize {
-        o.0 * self.vertical() + o.1
+        o.horizontal * self.vertical() + o.vertical
     }
 
     /// Edge count of horizontal. May differ by the axis info.
@@ -54,19 +65,12 @@ pub trait Shape {
         coord: Self::Coordinate,
         dir: <Self::Axis as Axis>::Direction,
     ) -> Result<Self::Coordinate, Self::CoordinateMoveError>;
-    // fn normalize_coord(&self,
-    //     coord: Self::Coordinate,
-    //     dir: <Self::Axis as Axis>::Direction,
-    // ) -> Result<(Self::Coordinate, Self::Axis), Self::CoordinateMoveError>;
 }
 
 impl<S: Shape> Shape for &S {
     type Axis = S::Axis;
-
     type Coordinate = S::Coordinate;
-
     type OffsetConvertError = S::OffsetConvertError;
-
     type CoordinateMoveError = S::CoordinateMoveError;
 
     fn to_offset(&self, coord: Self::Coordinate) -> Result<Offset, Self::OffsetConvertError> {
@@ -104,8 +108,29 @@ impl<S: Shape> Shape for &S {
     ) -> Result<Self::Coordinate, Self::CoordinateMoveError> {
         (*self).move_coord(coord, dir)
     }
+
+    fn node_count(&self) -> usize {
+        (*self).node_count()
+    }
+
+    fn from_index(&self, index: usize) -> Self::Coordinate {
+        (*self).from_index(index)
+    }
+
+    fn to_index(&self, coord: Self::Coordinate) -> Option<usize> {
+        (*self).to_index(coord)
+    }
+
+    fn index_to_offset(&self, index: usize) -> Offset {
+        (*self).index_to_offset(index)
+    }
+
+    fn offset_to_index(&self, o: Offset) -> usize {
+        (*self).offset_to_index(o)
+    }
 }
 
+/// Axis of the graph. It holds what direction of edge which node has.
 pub trait Axis: Copy + PartialEq {
     /// Number of axis.
     const COUNT: usize;
@@ -118,31 +143,70 @@ pub trait Axis: Copy + PartialEq {
         Self::COUNT * 2
     };
     /// For tricks to optimize for undirected graph, and not to regress performance of directed graph.
+    /// If the axis is `DIRECTED`, should set `Self`.
     type Direction: AxisDirection;
+    /// Convert to index.
     fn to_index(&self) -> usize;
+    /// Convert form index.
     unsafe fn from_index_unchecked(index: usize) -> Self {
         Self::from_index(index).unwrap_or_else(|| unreachable_debug_checked())
     }
+    /// Convert form index.
     fn from_index(index: usize) -> Option<Self>
     where
         Self: Sized;
-    fn foward(&self) -> Self::Direction;
-    fn backward(&self) -> Self::Direction;
+    /// To forward direction. It is nop when Axis is `DIRECTED`.
+    fn foward(self) -> Self::Direction;
+    /// To backward direction. It reverses when Axis is `DIRECTED`.
+    fn backward(self) -> Self::Direction;
+    fn is_forward_direction(dir: &Self::Direction) -> bool {
+        Self::DIRECTED || dir.dir_to_index() == Self::from_direction(dir.clone()).to_index()
+    }
+    /// Convert from direction.
     fn from_direction(dir: Self::Direction) -> Self;
 }
 
-pub trait AxisDirection {
+/// Direction of axis. It tells which direction is connected to node.
+pub trait AxisDirection: Clone {
+    /// Check this match whith [`Axis`]. It will always return true when `Axis` is directed.
     fn is_forward(&self) -> bool;
+    /// Check this doesn't match whith [`Axis`]. It will always return false when `Axis` is directed.
     fn is_backward(&self) -> bool {
         !self.is_forward()
     }
-    fn to_index(&self) -> usize;
-    unsafe fn from_index_unchecked(index: usize) -> Self;
-    fn from_index(index: usize) -> Option<Self>
+    /// Convert to index.
+    fn dir_to_index(&self) -> usize;
+    /// Convert from index.
+    unsafe fn dir_from_index_unchecked(index: usize) -> Self;
+    /// Convert from index.
+    fn dir_from_index(index: usize) -> Option<Self>
     where
         Self: Sized;
 }
 
+/// Implimention for Axis of directed graph.
+impl<A> AxisDirection for A
+where
+    A: Axis<Direction = Self>,
+{
+    fn is_forward(&self) -> bool {
+        true
+    }
+    fn dir_to_index(&self) -> usize {
+        <Self as Axis>::to_index(self)
+    }
+    unsafe fn dir_from_index_unchecked(index: usize) -> Self {
+        <Self as Axis>::from_index_unchecked(index)
+    }
+    fn dir_from_index(index: usize) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        <Self as Axis>::from_index(index)
+    }
+}
+
+/// Default Implimention of [`AxisDirection`] when [`Axis::DIRECTED`] is false.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Direction<T> {
     Foward(T),
@@ -157,14 +221,14 @@ impl<T: Axis> AxisDirection for Direction<T> {
         }
     }
 
-    fn to_index(&self) -> usize {
+    fn dir_to_index(&self) -> usize {
         match self {
             Direction::Foward(x) => x.to_index(),
             Direction::Backward(x) => x.to_index() + T::COUNT,
         }
     }
 
-    unsafe fn from_index_unchecked(index: usize) -> Self {
+    unsafe fn dir_from_index_unchecked(index: usize) -> Self {
         if index < T::COUNT {
             Direction::Foward(T::from_index_unchecked(index))
         } else {
@@ -172,7 +236,7 @@ impl<T: Axis> AxisDirection for Direction<T> {
         }
     }
 
-    fn from_index(index: usize) -> Option<Self>
+    fn dir_from_index(index: usize) -> Option<Self>
     where
         Self: Sized,
     {
@@ -184,39 +248,62 @@ impl<T: Axis> AxisDirection for Direction<T> {
     }
 }
 
+/// Representention of where is the node in graph.
 pub trait Coordinate: Copy + PartialEq {}
 
+/// Actual postion in the stroage.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Offset(pub(crate) usize, pub(crate) usize);
+pub struct Offset {
+    pub(crate) horizontal: usize,
+    pub(crate) vertical: usize,
+}
 
 impl Offset {
+    pub fn new(h: usize, v: usize) -> Self {
+        Offset {
+            horizontal: h.into(),
+            vertical: v.into(),
+        }
+    }
+    pub fn horizontal(&self) -> usize {
+        self.horizontal
+    }
+    pub fn vertical(&self) -> usize {
+        self.vertical
+    }
     pub fn add_x(&self, x: usize) -> Self {
-        Offset(self.0 + x, self.1)
+        Offset::new(self.horizontal + x, self.vertical)
     }
     pub fn add_y(&self, y: usize) -> Self {
-        Offset(self.0, self.1 + y)
+        Offset::new(self.horizontal, self.vertical + y)
+    }
+    pub fn set_x(&self, x: usize) -> Self {
+        Offset::new(x, self.vertical)
+    }
+    pub fn set_y(&self, y: usize) -> Self {
+        Offset::new(self.horizontal, y)
     }
     pub fn sub_x(&self, x: usize) -> Option<Self> {
-        Some(Offset(self.0.checked_sub(x)?, self.1))
+        Some(Offset::new(self.horizontal.checked_sub(x)?, self.vertical))
     }
     pub fn sub_y(&self, y: usize) -> Option<Self> {
-        Some(Offset(self.0, self.1.checked_sub(y)?))
+        Some(Offset::new(self.horizontal, self.vertical.checked_sub(y)?))
     }
     pub unsafe fn sub_x_unchecked(&self, x: usize) -> Self {
-        Offset(self.0 - x, self.1)
+        Offset::new(self.horizontal - x, self.vertical)
     }
     pub unsafe fn sub_y_unchecked(&self, y: usize) -> Self {
-        Offset(self.0, self.1 - y)
+        Offset::new(self.horizontal, self.vertical - y)
     }
     pub fn check_x(&self, x_max: usize) -> Option<Self> {
-        if self.0 < x_max {
+        if self.horizontal < x_max {
             Some(*self)
         } else {
             None
         }
     }
     pub fn check_y(&self, y_max: usize) -> Option<Self> {
-        if self.1 < y_max {
+        if self.vertical < y_max {
             Some(*self)
         } else {
             None
@@ -225,13 +312,16 @@ impl Offset {
 }
 
 impl<T: Into<usize>> From<(T, T)> for Offset {
-    fn from(x: (T, T)) -> Self {
-        Offset(x.0.into(), x.1.into())
+    fn from(offset: (T, T)) -> Self {
+        Offset {
+            horizontal: offset.0.into(),
+            vertical: offset.1.into(),
+        }
     }
 }
 
 impl<T: From<usize>> From<Offset> for (T, T) {
     fn from(x: Offset) -> Self {
-        (x.0.into(), x.1.into())
+        (x.horizontal.into(), x.vertical.into())
     }
 }

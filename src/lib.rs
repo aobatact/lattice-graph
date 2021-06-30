@@ -1,6 +1,7 @@
 pub mod fixedvec2d;
 pub mod square;
 pub use square::SquareGraph;
+pub mod hex;
 pub mod lattice_abstract;
 
 #[inline]

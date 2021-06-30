@@ -4,6 +4,7 @@ use petgraph::visit::{EdgeRef, IntoEdgeReferences, IntoEdges};
 
 use super::*;
 
+/// Iterator for all edges of [`LatticeGraph`]. See [`IntoEdgeReferences`](`IntoEdgeReferences::edge_references`).
 #[derive(Debug, PartialEq, Eq)]
 pub struct EdgeReference<'a, C, E, D, A> {
     pub(crate) source_id: C,
@@ -11,6 +12,13 @@ pub struct EdgeReference<'a, C, E, D, A> {
     pub(crate) edge_weight: &'a E,
     pub(crate) direction: D,
     pub(crate) axis: PhantomData<fn() -> A>,
+}
+
+impl<'a, C, E, D, A> EdgeReference<'a, C, E, D, A> {
+    /// Get a reference to the edge reference's direction.
+    pub fn direction(&self) -> &D {
+        &self.direction
+    }
 }
 
 impl<'a, C: Clone, E, D: Clone, A> Clone for EdgeReference<'a, C, E, D, A> {
@@ -34,9 +42,7 @@ where
     A: Axis<Direction = D>,
 {
     type NodeId = C;
-
     type EdgeId = (C, A);
-
     type Weight = E;
 
     fn source(&self) -> Self::NodeId {
@@ -56,6 +62,7 @@ where
     }
 }
 
+/// Edges connected to a node. See [`edges`][`IntoEdges::edges`].
 #[derive(Debug)]
 pub struct Edges<'a, N, E, S, C> {
     graph: &'a LatticeGraph<N, E, S>,
@@ -76,12 +83,12 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         while self.state < S::Axis::DIRECTED_COUNT {
             unsafe {
-                let d = D::from_index_unchecked(self.state);
+                let d = D::dir_from_index_unchecked(self.state);
                 let n = self.graph.s.move_coord(self.node, d.clone());
                 let st = self.state;
                 self.state += 1;
                 if let Ok(target) = n {
-                    let (nx, ne) = if d.clone().is_forward() {
+                    let (nx, ne) = if A::is_forward_direction(&d) {
                         (self.offset, st)
                     } else {
                         (
@@ -96,8 +103,8 @@ where
                         .edges
                         .get_unchecked(ne)
                         .ref_2d()
-                        .get_unchecked(nx.0)
-                        .get_unchecked(nx.1);
+                        .get_unchecked(nx.horizontal)
+                        .get_unchecked(nx.vertical);
                     return Some(EdgeReference {
                         source_id: self.node,
                         target_id: target,
@@ -147,6 +154,7 @@ where
     }
 }
 
+/// Iterator for all edges of [`LatticeGraph`]. See [`IntoEdgeReferences`](`IntoEdgeReferences::edge_references`).
 pub struct EdgeReferences<'a, N, E, S, C> {
     g: &'a LatticeGraph<N, E, S>,
     e: Option<Edges<'a, N, E, S, C>>,
@@ -179,6 +187,15 @@ where
             }
         }
     }
+}
+
+impl<'a, N, E, S, C, D, A> FusedIterator for EdgeReferences<'a, N, E, S, C>
+where
+    C: Copy,
+    S: Shape<Coordinate = C, Axis = A>,
+    D: AxisDirection + Copy,
+    A: Axis<Direction = D>,
+{
 }
 
 impl<'a, N, E, S, C, D, A> IntoEdgeReferences for &'a LatticeGraph<N, E, S>

@@ -12,8 +12,8 @@ mod neighbors;
 pub use neighbors::*;
 mod nodes;
 pub use nodes::*;
-mod shapes;
-pub use shapes::*;
+pub mod shapes;
+pub(crate) use shapes::*;
 pub mod square;
 
 use crate::{fixedvec2d::*, unreachable_debug_checked};
@@ -72,11 +72,27 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
                     continue;
                 }
                 if let Some(ex) = e(c, a) {
-                    edges[j].mut_2d()[offset.0][offset.1] = ex;
+                    edges[j].mut_2d()[offset.horizontal][offset.vertical] = ex;
                 }
             }
         }
         uninit
+    }
+
+    /// Get a reference to the lattice graph's s.
+    pub fn shape(&self) -> &S {
+        &self.s
+    }
+}
+
+impl<N, E, S> Default for LatticeGraph<N, E, S>
+where
+    N: Default,
+    E: Default,
+    S: Shape + Default + Clone,
+{
+    fn default() -> Self {
+        Self::new(S::default())
     }
 }
 
@@ -98,9 +114,15 @@ impl<N, E, S: Shape> DataMap for LatticeGraph<N, E, S> {
             .map(move |offset| unsafe {
                 let nodes = self.nodes.ref_2d();
                 if cfg!(debug_assert) {
-                    nodes.get(offset.0).unwrap().get(offset.1).unwrap()
+                    nodes
+                        .get(offset.horizontal)
+                        .unwrap()
+                        .get(offset.vertical)
+                        .unwrap()
                 } else {
-                    nodes.get_unchecked(offset.0).get_unchecked(offset.1)
+                    nodes
+                        .get_unchecked(offset.horizontal)
+                        .get_unchecked(offset.vertical)
                 }
             })
             .ok()
@@ -114,8 +136,8 @@ impl<N, E, S: Shape> DataMap for LatticeGraph<N, E, S> {
                 self.edges
                     .get_unchecked(ax)
                     .ref_2d()
-                    .get(offset.0)?
-                    .get(offset.1)
+                    .get(offset.horizontal)?
+                    .get(offset.vertical)
             }
         } else {
             None
@@ -132,11 +154,15 @@ impl<N, E, S: Shape> DataMapMut for LatticeGraph<N, E, S> {
             .map(move |offset| unsafe {
                 let nodes = self.nodes.mut_2d();
                 if cfg!(debug_assert) {
-                    nodes.get_mut(offset.0).unwrap().get_mut(offset.1).unwrap()
+                    nodes
+                        .get_mut(offset.horizontal)
+                        .unwrap()
+                        .get_mut(offset.vertical)
+                        .unwrap()
                 } else {
                     nodes
-                        .get_unchecked_mut(offset.0)
-                        .get_unchecked_mut(offset.1)
+                        .get_unchecked_mut(offset.horizontal)
+                        .get_unchecked_mut(offset.vertical)
                 }
             })
             .ok()
@@ -150,8 +176,8 @@ impl<N, E, S: Shape> DataMapMut for LatticeGraph<N, E, S> {
                 self.edges
                     .get_unchecked_mut(ax)
                     .mut_2d()
-                    .get_mut(offset.0)?
-                    .get_mut(offset.1)
+                    .get_mut(offset.horizontal)?
+                    .get_mut(offset.vertical)
             }
         } else {
             None
@@ -186,7 +212,7 @@ impl<S: Shape> VisitMap<S::Coordinate> for VisMap<S> {
     fn visit(&mut self, a: S::Coordinate) -> bool {
         let offset = self.s.to_offset(a);
         if let Ok(a) = offset {
-            !self.v[a.0].put(a.1)
+            !self.v[a.horizontal].put(a.vertical)
         } else {
             false
         }
@@ -195,7 +221,7 @@ impl<S: Shape> VisitMap<S::Coordinate> for VisMap<S> {
     fn is_visited(&self, a: &S::Coordinate) -> bool {
         let offset = self.s.to_offset(a.clone());
         if let Ok(a) = offset {
-            self.v[a.0].contains(a.1)
+            self.v[a.horizontal].contains(a.vertical)
         } else {
             false
         }

@@ -50,6 +50,7 @@ pub trait SizeInfo: Copy {
         unreachable_debug_checked()
     }
 }
+
 impl SizeInfo for () {}
 impl SizeInfo for (usize, ()) {
     unsafe fn horizontal_size(&self) -> usize {
@@ -115,7 +116,7 @@ impl Shape for HVLoop {
     }
 }
 
-/// Undirected Square Grid Graph.
+/// Undirected Square Grid Graph. It is has rectangle shape.
 /// ```text
 /// Node(i,j+1) - Edge(i,j+1,Horizontal) - Node(i+1,j+1)
 ///   |                                     |

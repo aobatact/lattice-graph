@@ -47,11 +47,11 @@ impl Axis for SquareAxis {
         }
     }
 
-    fn foward(&self) -> Self::Direction {
+    fn foward(self) -> Self::Direction {
         Direction::Foward(self.clone())
     }
 
-    fn backward(&self) -> Self::Direction {
+    fn backward(self) -> Self::Direction {
         Direction::Backward(self.clone())
     }
 
@@ -68,13 +68,16 @@ pub struct SquareOffset(pub Offset);
 
 impl PartialEq<(usize, usize)> for SquareOffset {
     fn eq(&self, other: &(usize, usize)) -> bool {
-        self.0 .0 == other.0 && self.0 .1 == other.1
+        self.0.horizontal == other.0 && self.0.vertical == other.1
     }
 }
 
 impl From<(usize, usize)> for SquareOffset {
     fn from(x: (usize, usize)) -> Self {
-        SquareOffset(Offset(x.0, x.1))
+        SquareOffset(Offset {
+            horizontal: x.0,
+            vertical: x.1,
+        })
     }
 }
 
@@ -101,7 +104,7 @@ impl Shape for SquareShape {
 
     #[inline]
     fn to_offset(&self, coord: Self::Coordinate) -> Result<Offset, ()> {
-        if coord.0 .0 < self.horizontal() && coord.0 .1 < self.vertical() {
+        if coord.0.horizontal < self.horizontal() && coord.0.vertical < self.vertical() {
             Ok(coord.0)
         } else {
             Err(())
@@ -179,8 +182,15 @@ mod tests {
     fn gen() {
         let sq = SquareGraph::new_with(
             SquareShape::new(4, 3),
-            |SquareOffset(Offset(x, y))| x + 2 * y,
-            |SquareOffset(Offset(x, y)), _d| Some((x + 2 * y) as i32),
+            |SquareOffset(Offset {
+                 horizontal: x,
+                 vertical: y,
+             })| x + 2 * y,
+            |SquareOffset(Offset {
+                 horizontal: x,
+                 vertical: y,
+             }),
+             _d| Some((x + 2 * y) as i32),
         );
         assert_eq!(sq.s.horizontal(), 4);
         assert_eq!(sq.s.vertical(), 3);
@@ -212,8 +222,15 @@ mod tests {
     fn node_identifiers() {
         let sq = SquareGraph::new_with(
             SquareShape::new(4, 3),
-            |SquareOffset(Offset(x, y))| x + 2 * y,
-            |SquareOffset(Offset(x, y)), _d| Some((x + 2 * y) as i32),
+            |SquareOffset(Offset {
+                 horizontal: x,
+                 vertical: y,
+             })| x + 2 * y,
+            |SquareOffset(Offset {
+                 horizontal: x,
+                 vertical: y,
+             }),
+             _d| Some((x + 2 * y) as i32),
         );
         let mut count = 0;
         for (i, x) in sq.node_identifiers().enumerate() {
@@ -231,8 +248,15 @@ mod tests {
     fn neighbors() {
         let sq = SquareGraph::new_with(
             SquareShape::new(3, 5),
-            |SquareOffset(Offset(x, y))| x + 2 * y,
-            |SquareOffset(Offset(x, y)), _d| Some((x + 2 * y) as i32),
+            |SquareOffset(Offset {
+                 horizontal: x,
+                 vertical: y,
+             })| x + 2 * y,
+            |SquareOffset(Offset {
+                 horizontal: x,
+                 vertical: y,
+             }),
+             _d| Some((x + 2 * y) as i32),
         );
 
         let v00 = sq.neighbors((0, 0).into());
@@ -255,8 +279,15 @@ mod tests {
     fn edges() {
         let sq = SquareGraph::new_with(
             SquareShape::new(3, 5),
-            |SquareOffset(Offset(x, y))| x + 2 * y,
-            |SquareOffset(Offset(x, y)), _d| Some((x + 2 * y) as i32),
+            |SquareOffset(Offset {
+                 horizontal: x,
+                 vertical: y,
+             })| x + 2 * y,
+            |SquareOffset(Offset {
+                 horizontal: x,
+                 vertical: y,
+             }),
+             _d| Some((x + 2 * y) as i32),
         );
 
         debug_assert!(sq
@@ -280,10 +311,15 @@ mod tests {
     fn astar() {
         let sq = SquareGraph::new_with(
             SquareShape::new(4, 3),
-            |SquareOffset(Offset(x, y))| x + 2 * y,
-            |SquareOffset(Offset(x, y)), d| {
-                Some((x + 2 * y) as i32 * if d == SquareAxis::X { 1 } else { 3 })
-            },
+            |SquareOffset(Offset {
+                 horizontal: x,
+                 vertical: y,
+             })| x + 2 * y,
+            |SquareOffset(Offset {
+                 horizontal: x,
+                 vertical: y,
+             }),
+             d| { Some((x + 2 * y) as i32 * if d == SquareAxis::X { 1 } else { 3 }) },
         );
 
         let x = petgraph::algo::astar(
@@ -291,7 +327,7 @@ mod tests {
             (0, 0).into(),
             |x| x == (2, 1),
             |e| *e.weight(),
-            |x| (x.0 .0 as i32 - 2).abs() + (x.0 .1 as i32 - 1).abs(),
+            |x| (x.0.horizontal as i32 - 2).abs() + (x.0.vertical as i32 - 1).abs(),
         );
         assert!(x.is_some());
         let (d, p) = x.unwrap();
@@ -303,7 +339,7 @@ mod tests {
             (2, 1).into(),
             |x| x == (0, 0),
             |e| *e.weight(),
-            |x| (x.0 .0 as i32 - 0).abs() + (x.0 .1 as i32 - 0).abs(),
+            |x| (x.0.horizontal as i32 - 0).abs() + (x.0.vertical as i32 - 0).abs(),
         );
         assert!(x.is_some());
         let (d, p) = x.unwrap();

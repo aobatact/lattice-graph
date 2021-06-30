@@ -19,6 +19,7 @@ impl Axis {
     }
 }
 
+/// Direction of Axis.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum SquareDirection {
     Foward(Axis),

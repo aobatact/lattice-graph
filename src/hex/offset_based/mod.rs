@@ -1,23 +1,28 @@
-use super::shapes::DirectedMarker;
-use super::shapes::LEW;
-use crate::lattice_abstract::LatticeGraph;
-use shapes::*;
-pub mod shapes;
-pub use shapes::HexOffset;
-pub use shapes::HexOffsetShape;
+//! Module for Hex Graph with offset based coordinates.
 
+use super::shapes::{DirectedMarker, LEW};
+use crate::lattice_abstract::LatticeGraph;
+mod shapes;
+pub use shapes::{ConstHexOffsetShape, HexOffset, HexOffsetShape};
+
+///Hex Graph with offset based coordinates.
 pub type HexGraph<N, E, B, H = usize, V = usize> = LatticeGraph<N, E, HexOffsetShape<B, (), H, V>>;
+///Hex Graph with offset based coordinates and loop in e-w direction.
 pub type HexGraphLoopEW<N, E, B, H = usize, V = usize> =
     LatticeGraph<N, E, HexOffsetShape<B, LEW, H, V>>;
-pub type DiHexGraph<N, E, B, H = usize, V = usize> =
-    LatticeGraph<N, E, HexOffsetShape<DirectedMarker<B>, (), H, V>>;
+///Directed Hex Graph with offset based coordinates.
+pub type DiHexGraph<N, E, B, Loop = (), H = usize, V = usize> =
+    LatticeGraph<N, E, HexOffsetShape<DirectedMarker<B>, Loop, H, V>>;
 
+///Hex Graph with offset based coordinates.
 #[cfg(feature = "const-generic-wrap")]
 pub type HexGraphConst<N, E, B, const H: usize, const V: usize> =
     LatticeGraph<N, E, ConstHexOffsetShape<B, (), H, V>>;
+///Hex Graph with offset based coordinates and loop in e-w direction.
 #[cfg(feature = "const-generic-wrap")]
 pub type HexGraphConstLoopEW<N, E, B, const H: usize, const V: usize> =
     LatticeGraph<N, E, ConstHexOffsetShape<B, LEW, H, V>>;
+///Directed Hex Graph with offset based coordinates.
 #[cfg(feature = "const-generic-wrap")]
 pub type DiHexGraphConst<N, E, B, const H: usize, const V: usize> =
     LatticeGraph<N, E, ConstHexOffsetShape<DirectedMarker<B>, (), H, V>>;

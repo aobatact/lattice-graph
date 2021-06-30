@@ -1,3 +1,5 @@
+//! Square 2d Lattice Graph. It does not use [`lattice_abstract`](`crate::lattice_abstract`) for historical and performance reason.
+
 use crate::{fixedvec2d::FixedVec2D, unreachable_debug_checked};
 use fixedbitset::FixedBitSet;
 use petgraph::{

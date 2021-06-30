@@ -7,7 +7,7 @@ use crate::{
     lattice_abstract::{Axis, Coordinate, Offset, Shape},
 };
 
-/// Offset based coordinates for hex graph.
+/// Axial based coordinates for hex graph.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct HexAxial<S = ()> {
     pub(crate) r: isize,
@@ -112,6 +112,7 @@ where
     }
 }
 
+/// Shape for Axial based coordinates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HexAxialShape<ShapeBase, Loop, H = usize, V = usize> {
     h: H,
@@ -145,6 +146,7 @@ impl<ShapeBase, Loop, H, V> HexAxialShape<ShapeBase, Loop, H, V> {
     }
 }
 
+/// Shape for Axial based coordinates with const size. This is ZST.
 #[cfg(feature = "const-generic-wrap")]
 pub type ConstHexAxialShape<T, L, const H: usize, const V: usize> =
     HexAxialShape<T, L, WrapUSIZE<H>, WrapUSIZE<V>>;

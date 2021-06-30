@@ -4,7 +4,7 @@ use petgraph::visit::{EdgeRef, IntoEdgeReferences, IntoEdges};
 
 use super::*;
 
-/// Iterator for all edges of [`LatticeGraph`]. See [`IntoEdgeReferences`](`IntoEdgeReferences::edge_references`).
+/// Edge reference data. See [`IntoEdgeReferences`] or [`IntoEdges`].
 #[derive(Debug, PartialEq, Eq)]
 pub struct EdgeReference<'a, C, E, D, A> {
     pub(crate) source_id: C,

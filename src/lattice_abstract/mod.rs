@@ -1,11 +1,14 @@
-use std::{marker::PhantomData, num::NonZeroUsize, usize};
+//! Module for Abstract 2D Lattice Graph. It is used inside by other lattice graph in other modules like [`hex`](`crate::hex`).
+//! Use it when you want to define your own lattice graph, or to use the concreate visit iterator structs for traits in [`visit`](`petgraph::visit`).
 
+use crate::{fixedvec2d::*, unreachable_debug_checked};
 use fixedbitset::FixedBitSet;
 use petgraph::{
     data::{DataMap, DataMapMut},
     visit::{Data, GraphBase, GraphProp, NodeCount, VisitMap, Visitable},
     EdgeType,
 };
+use std::{marker::PhantomData, num::NonZeroUsize, usize};
 mod edges;
 pub use edges::*;
 mod neighbors;
@@ -16,8 +19,10 @@ pub mod shapes;
 pub(crate) use shapes::*;
 pub mod square;
 
-use crate::{fixedvec2d::*, unreachable_debug_checked};
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// Abstract Lattice Graph.
+/// It holds the node and edge weight data.
+/// The actural behaviour is dependent on [`Shape`](`shapes::Shape`).
 pub struct LatticeGraph<N, E, S> {
     nodes: FixedVec2D<N>,
     edges: Vec<FixedVec2D<E>>,
@@ -25,10 +30,12 @@ pub struct LatticeGraph<N, E, S> {
 }
 
 impl<N, E, S: Shape> LatticeGraph<N, E, S> {
+    /// Creates a graph from raw data.
     pub unsafe fn new_raw(nodes: FixedVec2D<N>, edges: Vec<FixedVec2D<E>>, s: S) -> Self {
         Self { nodes, edges, s }
     }
 
+    /// Creates a graph with uninitalized node and edge weight data.
     pub unsafe fn new_uninit(s: S) -> Self {
         let nodes =
             FixedVec2D::<N>::new_uninit(NonZeroUsize::new(s.horizontal()).unwrap(), s.vertical());
@@ -44,6 +51,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
         Self { nodes, edges, s }
     }
 
+    /// Creates a graph with node and edge weight data set to [`default`](`Default::default`).
     pub fn new(s: S) -> Self
     where
         S: Clone,
@@ -53,6 +61,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
         Self::new_with(s.clone(), |_| N::default(), |_, _| Some(E::default()))
     }
 
+    /// Creates a graph with node and edge weight data from the coordinate.
     pub fn new_with<FN, FE>(s: S, mut n: FN, mut e: FE) -> Self
     where
         S: Clone,

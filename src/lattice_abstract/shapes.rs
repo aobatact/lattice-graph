@@ -1,3 +1,8 @@
+//! Shapes to define the behavior of the [`LatticeGraph`](`crate::lattice_abstract::LatticeGraph`)
+//!
+//! If you want to create your own lattice based graph, use this to implement your own lattice.
+//!
+
 use crate::unreachable_debug_checked;
 
 /// Shape of the 2d lattice.
@@ -5,7 +10,11 @@ use crate::unreachable_debug_checked;
 pub trait Shape {
     type Axis: Axis;
     type Coordinate: Coordinate;
+    /// Error to return when [`to_offset`](`Shape::to_offset`) fails.
+    /// Should set [`Infallible`](`core::convert::Infallible`) when the graph is looped and never to fail.
     type OffsetConvertError: core::fmt::Debug + Clone;
+    /// Error to return when [`move_coord`](`Shape::move_coord`) fails.
+    /// Should set [`Infallible`](`core::convert::Infallible`) when the graph is looped and never to fail.
     type CoordinateMoveError: core::fmt::Debug + Clone;
 
     /// Horizontal node count.
@@ -60,11 +69,8 @@ pub trait Shape {
 
 impl<S: Shape> Shape for &S {
     type Axis = S::Axis;
-
     type Coordinate = S::Coordinate;
-
     type OffsetConvertError = S::OffsetConvertError;
-
     type CoordinateMoveError = S::CoordinateMoveError;
 
     fn to_offset(&self, coord: Self::Coordinate) -> Result<Offset, Self::OffsetConvertError> {
@@ -137,6 +143,7 @@ pub trait Axis: Copy + PartialEq {
         Self::COUNT * 2
     };
     /// For tricks to optimize for undirected graph, and not to regress performance of directed graph.
+    /// If the axis is `DIRECTED`, should set `Self`.
     type Direction: AxisDirection;
     /// Convert to index.
     fn to_index(&self) -> usize;
@@ -172,6 +179,28 @@ pub trait AxisDirection {
     fn from_index(index: usize) -> Option<Self>
     where
         Self: Sized;
+}
+
+/// Implimention for Axis of directed graph.
+impl<A> AxisDirection for A
+where
+    A: Axis<Direction = Self>,
+{
+    fn is_forward(&self) -> bool {
+        true
+    }
+    fn to_index(&self) -> usize {
+        <Self as Axis>::to_index(self)
+    }
+    unsafe fn from_index_unchecked(index: usize) -> Self {
+        <Self as Axis>::from_index_unchecked(index)
+    }
+    fn from_index(index: usize) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        <Self as Axis>::from_index(index)
+    }
 }
 
 /// Default Implimention of [`AxisDirection`] when [`Axis::DIRECTED`] is false.
@@ -244,6 +273,9 @@ impl Offset {
     }
     pub fn add_y(&self, y: usize) -> Self {
         Offset::new(self.horizontal, self.vertical + y)
+    }
+    pub fn set_x(&self, x : usize) -> Self{
+        Offset::new(x, self.vertical)
     }
     pub fn sub_x(&self, x: usize) -> Option<Self> {
         Some(Offset::new(self.horizontal.checked_sub(x)?, self.vertical))

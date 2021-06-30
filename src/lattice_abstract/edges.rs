@@ -147,6 +147,7 @@ where
     }
 }
 
+/// Iterator for all edges of [`LatticeGraph`]. See [`IntoEdgeReferences`](`IntoEdgeReferences::edge_references`).
 pub struct EdgeReferences<'a, N, E, S, C> {
     g: &'a LatticeGraph<N, E, S>,
     e: Option<Edges<'a, N, E, S, C>>,

@@ -1,9 +1,10 @@
-use std::num::NonZeroUsize;
+//mod enum_b;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use lattice_graph::{fixedvec2d::FixedVec2D, SquareGraph};
+use lattice_graph::{fixedvec2d::FixedVec2D, lattice_abstract::square::SquareAxis, SquareGraph};
 use petgraph::{algo, graph::*, visit::EdgeRef};
 use rand::{prelude::StdRng, Rng, SeedableRng};
+use std::num::NonZeroUsize;
 
 fn graph_build(c: &mut Criterion) {
     let mut g = c.benchmark_group("build");
@@ -81,6 +82,22 @@ fn graph_search_inner(c: &mut Criterion, h: u32, v: u32, seed: u64, name: &'stat
             },
         )
     });
+    g.bench_function("lattice_abst", |b| {
+        let mut r = StdRng::seed_from_u64(seed);
+        let g = lattice_graph::lattice_abstract::square::SquareGraphAbstract::<_, _>::new_with(
+            lattice_graph::lattice_abstract::square::SquareShape::new(h as usize, v as usize),
+            |_| (),
+            |o, d| Some(o.0.horizontal() + o.0.vertical() + if d == SquareAxis::X { 0 } else { 1 }),
+        );
+        b.iter_with_setup(
+            || (&g, (r.gen_range(0..h) as usize, r.gen_range(0..v) as usize)),
+            |(g, t)| {
+                black_box(
+                    algo::astar(g, (0, 0).into(), |x| x == t, |x| *x.weight(), |_| 0).is_some(),
+                );
+            },
+        )
+    });
 }
 
 fn graph_search_small(c: &mut Criterion) {
@@ -90,6 +107,7 @@ fn graph_search_small(c: &mut Criterion) {
 fn graph_search_large(c: &mut Criterion) {
     graph_search_inner(c, 2000, 2000, 12345, "astar_large")
 }
+
 fn array2d(c: &mut Criterion) {
     let mut g = c.benchmark_group("array2d");
     g.bench_function("jag", |b| {

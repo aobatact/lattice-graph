@@ -11,7 +11,7 @@ pub enum AxisR {
 impl Axis for AxisR {
     const COUNT: usize = 3;
     const DIRECTED: bool = false;
-    type Direction = Direction<Self>;
+    type Direction = AxisDR;
 
     fn to_index(&self) -> usize {
         match self {
@@ -34,17 +34,20 @@ impl Axis for AxisR {
     }
 
     fn foward(self) -> Self::Direction {
-        Direction::Foward(self)
+        unsafe { AxisDR::from_index_unchecked(self.to_index()) }
     }
 
     fn backward(self) -> Self::Direction {
-        Direction::Backward(self)
+        unsafe { AxisDR::from_index_unchecked(self.to_index() + Self::COUNT) }
     }
 
     fn from_direction(dir: Self::Direction) -> Self {
-        match dir {
-            Direction::Foward(a) | Direction::Backward(a) => a,
-        }
+        let i = dir.to_index();
+        unsafe { Self::from_index_unchecked(if i >= Self::COUNT { i - Self::COUNT } else { i }) }
+    }
+
+    fn is_forward_direction(dir: &Self::Direction) -> bool {
+        dir.dir_to_index() < Self::COUNT
     }
 }
 

@@ -23,7 +23,7 @@ mod tests {
     use std::array::IntoIter;
 
     use super::*;
-    use crate::{hex::shapes::*, lattice_abstract::Direction};
+    use crate::hex::shapes::*;
     use petgraph::{data::DataMap, visit::*};
 
     #[test]
@@ -87,10 +87,7 @@ mod tests {
         let e = graph
             .edges(HexOffset::new(0, 0))
             .map(|e| e.direction().clone());
-        debug_assert!(e.eq(IntoIter::new([
-            Direction::<AxisR>::NE,
-            Direction::<AxisR>::E,
-        ])));
+        debug_assert!(e.eq(IntoIter::new([AxisDR::NE, AxisDR::E,])));
 
         let e = graph.edges(HexOffset::new(4, 0)).map(|e| e.id().1);
         debug_assert!(e.eq(IntoIter::new([AxisR::NE, AxisR::E, AxisR::SE,])));

@@ -88,7 +88,7 @@ where
                 let st = self.state;
                 self.state += 1;
                 if let Ok(target) = n {
-                    let (nx, ne) = if d.clone().is_forward() {
+                    let (nx, ne) = if A::is_forward_direction(&d) {
                         (self.offset, st)
                     } else {
                         (

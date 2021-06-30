@@ -159,12 +159,15 @@ pub trait Axis: Copy + PartialEq {
     fn foward(self) -> Self::Direction;
     /// To backward direction. It reverses when Axis is `DIRECTED`.
     fn backward(self) -> Self::Direction;
+    fn is_forward_direction(dir: &Self::Direction) -> bool {
+        Self::DIRECTED || dir.dir_to_index() == Self::from_direction(dir.clone()).to_index()
+    }
     /// Convert from direction.
     fn from_direction(dir: Self::Direction) -> Self;
 }
 
 /// Direction of axis. It tells which direction is connected to node.
-pub trait AxisDirection {
+pub trait AxisDirection: Clone {
     /// Check this match whith [`Axis`]. It will always return true when `Axis` is directed.
     fn is_forward(&self) -> bool;
     /// Check this doesn't match whith [`Axis`]. It will always return false when `Axis` is directed.

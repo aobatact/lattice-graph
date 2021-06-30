@@ -3,6 +3,8 @@ use shapes::*;
 
 use super::shapes::LEW;
 pub mod shapes;
+pub use shapes::HexOffset;
+pub use shapes::HexOffsetShape;
 
 pub type HexGraph<N, E, B, H = usize, V = usize> = LatticeGraph<N, E, HexOffsetShape<B, (), H, V>>;
 pub type HexGraphLEW<N, E, B, H = usize, V = usize> =
@@ -111,6 +113,50 @@ mod tests {
             AxisR::NE,
             AxisR::E,
             AxisR::SE,
+        ])));
+    }
+
+    #[test]
+    fn neighbors_oddr_lew() {
+        let graph = HexGraphConstLEW::<_, _, OddR, 5, 5>::new_with(
+            HexOffsetShape::default(),
+            |x| (x),
+            |n, d| Some((n, d)),
+        );
+        let e = graph.neighbors(HexOffset::new(0, 0));
+        debug_assert!(e.eq(IntoIter::new([
+            HexOffset::new(0, 1),
+            HexOffset::new(1, 0),
+            HexOffset::new(4, 0),
+            HexOffset::new(4, 1),
+        ])));
+
+        let e = graph.neighbors(HexOffset::new(4, 0));
+        debug_assert!(e.eq(IntoIter::new([
+            HexOffset::new(4, 1),
+            HexOffset::new(0, 0),
+            HexOffset::new(3, 0),
+            HexOffset::new(3, 1)
+        ])));
+
+        let e = graph.neighbors(HexOffset::new(1, 1));
+        debug_assert!(e.eq(IntoIter::new([
+            HexOffset::new(2, 2),
+            HexOffset::new(2, 1),
+            HexOffset::new(2, 0),
+            HexOffset::new(1, 0),
+            HexOffset::new(0, 1),
+            HexOffset::new(1, 2),
+        ])));
+
+        let e = graph.neighbors(HexOffset::new(1, 2));
+        debug_assert!(e.eq(IntoIter::new([
+            HexOffset::new(1, 3),
+            HexOffset::new(2, 2),
+            HexOffset::new(1, 1),
+            HexOffset::new(0, 1),
+            HexOffset::new(0, 2),
+            HexOffset::new(0, 3),
         ])));
     }
 }

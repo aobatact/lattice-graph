@@ -172,11 +172,11 @@ pub trait AxisDirection {
         !self.is_forward()
     }
     /// Convert to index.
-    fn to_index(&self) -> usize;
+    fn dir_to_index(&self) -> usize;
     /// Convert from index.
-    unsafe fn from_index_unchecked(index: usize) -> Self;
+    unsafe fn dir_from_index_unchecked(index: usize) -> Self;
     /// Convert from index.
-    fn from_index(index: usize) -> Option<Self>
+    fn dir_from_index(index: usize) -> Option<Self>
     where
         Self: Sized;
 }
@@ -189,13 +189,13 @@ where
     fn is_forward(&self) -> bool {
         true
     }
-    fn to_index(&self) -> usize {
+    fn dir_to_index(&self) -> usize {
         <Self as Axis>::to_index(self)
     }
-    unsafe fn from_index_unchecked(index: usize) -> Self {
+    unsafe fn dir_from_index_unchecked(index: usize) -> Self {
         <Self as Axis>::from_index_unchecked(index)
     }
-    fn from_index(index: usize) -> Option<Self>
+    fn dir_from_index(index: usize) -> Option<Self>
     where
         Self: Sized,
     {
@@ -218,14 +218,14 @@ impl<T: Axis> AxisDirection for Direction<T> {
         }
     }
 
-    fn to_index(&self) -> usize {
+    fn dir_to_index(&self) -> usize {
         match self {
             Direction::Foward(x) => x.to_index(),
             Direction::Backward(x) => x.to_index() + T::COUNT,
         }
     }
 
-    unsafe fn from_index_unchecked(index: usize) -> Self {
+    unsafe fn dir_from_index_unchecked(index: usize) -> Self {
         if index < T::COUNT {
             Direction::Foward(T::from_index_unchecked(index))
         } else {
@@ -233,7 +233,7 @@ impl<T: Axis> AxisDirection for Direction<T> {
         }
     }
 
-    fn from_index(index: usize) -> Option<Self>
+    fn dir_from_index(index: usize) -> Option<Self>
     where
         Self: Sized,
     {

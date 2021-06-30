@@ -27,7 +27,7 @@ pub trait HexOffsetShapeBase {
         horizontal: usize,
         vertical: usize,
         coord: HexOffset,
-        dir: Direction<Self::Axis>,
+        dir: <Self::Axis as Axis>::Direction,
     ) -> Result<HexOffset, ()>;
 }
 
@@ -37,7 +37,7 @@ pub trait HexOffsetShapeBaseLEW: HexOffsetShapeBase {
         horizontal: usize,
         vertical: usize,
         coord: HexOffset,
-        dir: Direction<Self::Axis>,
+        dir: <Self::Axis as Axis>::Direction,
     ) -> Result<HexOffset, ()>;
 }
 

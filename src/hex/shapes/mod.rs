@@ -70,7 +70,6 @@ pub enum AxisDR {
 impl Axis for AxisDR {
     const COUNT: usize = 6;
     const DIRECTED: bool = true;
-
     type Direction = Self;
 
     fn to_index(&self) -> usize {

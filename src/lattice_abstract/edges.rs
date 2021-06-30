@@ -83,7 +83,7 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         while self.state < S::Axis::DIRECTED_COUNT {
             unsafe {
-                let d = D::from_index_unchecked(self.state);
+                let d = D::dir_from_index_unchecked(self.state);
                 let n = self.graph.s.move_coord(self.node, d.clone());
                 let st = self.state;
                 self.state += 1;

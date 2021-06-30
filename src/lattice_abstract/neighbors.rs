@@ -33,7 +33,7 @@ where
     fn next_cd(&mut self) -> Option<(C, D)> {
         while self.state < S::Axis::DIRECTED_COUNT {
             unsafe {
-                let d = D::from_index_unchecked(self.state);
+                let d = D::dir_from_index_unchecked(self.state);
                 let n = self.graph.s.move_coord(self.node, d.clone());
                 self.state += 1;
                 if let Ok(target) = n {
@@ -58,7 +58,7 @@ where
         // self.next_cd().map(|(c, _)| c)
         while self.state < S::Axis::DIRECTED_COUNT {
             unsafe {
-                let d = D::from_index_unchecked(self.state);
+                let d = D::dir_from_index_unchecked(self.state);
                 let n = self.graph.s.move_coord(self.node, d.clone());
                 self.state += 1;
                 if let Ok(target) = n {

@@ -108,6 +108,17 @@ impl HexOffsetShapeBase for EvenR {
     }
 }
 
+impl HexOffsetShapeBaseLEW for EvenR {
+    fn move_coord_lew(
+        horizontal: usize,
+        vertical: usize,
+        coord: HexOffset,
+        dir: AxisDR,
+    ) -> Result<HexOffset, ()> {
+        move_coord_r_lew(horizontal, vertical, coord, dir, 1)
+    }
+}
+
 fn move_coord_r(
     horizontal: usize,
     vertical: usize,
@@ -133,63 +144,6 @@ fn move_coord_r(
     .map(|o| HexOffset(o))
     .ok_or(())
 }
-
-impl HexOffsetShapeBaseLEW for EvenR {
-    fn move_coord_lew(
-        horizontal: usize,
-        vertical: usize,
-        coord: HexOffset,
-        dir: AxisDR,
-    ) -> Result<HexOffset, ()> {
-        move_coord_r_lew(horizontal, vertical, coord, dir, 1)
-    }
-}
-
-// fn move_coord_r_lew(
-//     horizontal: usize,
-//     vertical: usize,
-//     coord: HexOffset,
-//     dir: Direction<AxisR>,
-//     flag: usize,
-// ) -> Result<HexOffset, ()> {
-//     let o = coord.0;
-//     match (dir, o.vertical() & 1 == flag) {
-//         (Direction::Foward(AxisR::E), _) => {
-//             Some(o.add_x(1).check_x(horizontal).unwrap_or_else(|| o.set_x(0)))
-//         }
-//         (Direction::Backward(AxisR::E), _) => {
-//             Some(o.sub_x(1).unwrap_or_else(|| o.set_x(horizontal - 1)))
-//         }
-//         (Direction::Foward(AxisR::NE), true) | (Direction::Backward(AxisR::SE), false) => {
-//             o.add_y(1).check_y(vertical)
-//         }
-//         (Direction::Foward(AxisR::SE), true) | (Direction::Backward(AxisR::NE), false) => {
-//             o.sub_y(1)
-//         }
-//         (Direction::Foward(AxisR::NE), false) => o
-//             .add_x(1)
-//             .check_x(horizontal)
-//             .unwrap_or_else(|| o.set_x(0))
-//             .add_y(1)
-//             .check_y(vertical),
-//         (Direction::Foward(AxisR::SE), false) => o
-//             .add_x(1)
-//             .check_x(horizontal)
-//             .unwrap_or_else(|| o.set_x(0))
-//             .sub_y(1),
-//         (Direction::Backward(AxisR::NE), true) => o
-//             .sub_x(1)
-//             .unwrap_or_else(|| o.set_x(horizontal - 1))
-//             .sub_y(1),
-//         (Direction::Backward(AxisR::SE), true) => o
-//             .sub_x(1)
-//             .unwrap_or_else(|| o.set_x(horizontal - 1))
-//             .add_y(1)
-//             .check_y(vertical),
-//     }
-//     .map(|o| HexOffset(o))
-//     .ok_or(())
-// }
 
 fn move_coord_r_lew(
     horizontal: usize,

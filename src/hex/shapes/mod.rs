@@ -1,4 +1,4 @@
-use crate::lattice_abstract::*;
+use crate::{lattice_abstract::*, unreachable_debug_checked};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// Point top Hex Direcion.
@@ -31,6 +31,15 @@ impl Axis for AxisR {
             2 => AxisR::SE,
             _ => return None,
         })
+    }
+
+    unsafe fn from_index_unchecked(index: usize) -> Self {
+        match index {
+            0 => AxisR::NE,
+            1 => AxisR::E,
+            2 => AxisR::SE,
+            _ => unreachable_debug_checked(),
+        }
     }
 
     fn foward(self) -> Self::Direction {
@@ -101,6 +110,18 @@ impl Axis for AxisDR {
         })
     }
 
+    unsafe fn from_index_unchecked(index: usize) -> Self {
+        match index {
+            0 => AxisDR::NE,
+            1 => AxisDR::E,
+            2 => AxisDR::SE,
+            3 => AxisDR::SW,
+            4 => AxisDR::W,
+            5 => AxisDR::NW,
+            _ => unreachable_debug_checked(),
+        }
+    }
+
     fn foward(self) -> Self::Direction {
         self
     }
@@ -154,6 +175,15 @@ impl Axis for AxisQ {
         })
     }
 
+    unsafe fn from_index_unchecked(index: usize) -> Self {
+        match index {
+            0 => AxisQ::N,
+            1 => AxisQ::NE,
+            2 => AxisQ::SE,
+            _ => unreachable_debug_checked(),
+        }
+    }
+
     fn foward(self) -> Self::Direction {
         unsafe { AxisDQ::from_index_unchecked(self.to_index()) }
     }
@@ -166,15 +196,6 @@ impl Axis for AxisQ {
         let i = dir.dir_to_index();
         unsafe { Self::from_index_unchecked(if i < Self::COUNT { i } else { i - Self::COUNT }) }
     }
-}
-
-impl Direction<AxisQ> {
-    pub const N: Self = Direction::Foward(AxisQ::N);
-    pub const NE: Self = Direction::Foward(AxisQ::NE);
-    pub const SE: Self = Direction::Foward(AxisQ::SE);
-    pub const S: Self = Direction::Backward(AxisQ::N);
-    pub const SW: Self = Direction::Backward(AxisQ::NE);
-    pub const NW: Self = Direction::Backward(AxisQ::SE);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -216,6 +237,18 @@ impl Axis for AxisDQ {
             5 => AxisDQ::NW,
             _ => return None,
         })
+    }
+
+    unsafe fn from_index_unchecked(index: usize) -> Self {
+        match index {
+            0 => AxisDQ::N,
+            1 => AxisDQ::NE,
+            2 => AxisDQ::SE,
+            3 => AxisDQ::S,
+            4 => AxisDQ::SW,
+            5 => AxisDQ::NW,
+            _ => unreachable_debug_checked(),
+        }
     }
 
     fn foward(self) -> Self::Direction {

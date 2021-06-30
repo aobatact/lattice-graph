@@ -2,8 +2,9 @@
 use const_generic_wrap::*;
 use std::marker::{Copy, PhantomData};
 
-use crate::lattice_abstract::shapes::*;
+use crate::{hex::shapes::*, lattice_abstract::shapes::*};
 
+/// Offset based coordinates for hex graph.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct HexOffset(Offset);
 
@@ -17,103 +18,7 @@ impl HexOffset {
 }
 
 impl Coordinate for HexOffset {}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-/// Point top Hex Direcion.
-pub enum AxisR {
-    NE = 0,
-    E = 1,
-    SE = 2,
-}
-
-impl Axis for AxisR {
-    const COUNT: usize = 3;
-    const DIRECTED: bool = false;
-    type Direction = Direction<Self>;
-
-    fn to_index(&self) -> usize {
-        match self {
-            AxisR::NE => 0,
-            AxisR::E => 1,
-            AxisR::SE => 2,
-        }
-    }
-
-    fn from_index(index: usize) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        Some(match index {
-            0 => AxisR::NE,
-            1 => AxisR::E,
-            2 => AxisR::SE,
-            _ => return None,
-        })
-    }
-
-    fn foward(self) -> Self::Direction {
-        Direction::Foward(self)
-    }
-
-    fn backward(self) -> Self::Direction {
-        Direction::Backward(self)
-    }
-
-    fn from_direction(dir: Self::Direction) -> Self {
-        match dir {
-            Direction::Foward(a) | Direction::Backward(a) => a,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-/// Flat top Hex Direction.
-pub enum AxisQ {
-    N = 0,
-    NE = 1,
-    SE = 2,
-}
-
-impl Axis for AxisQ {
-    const COUNT: usize = 3;
-    const DIRECTED: bool = false;
-    type Direction = Direction<Self>;
-
-    fn to_index(&self) -> usize {
-        match self {
-            AxisQ::N => 0,
-            AxisQ::NE => 1,
-            AxisQ::SE => 2,
-        }
-    }
-
-    fn from_index(index: usize) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        Some(match index {
-            0 => AxisQ::N,
-            1 => AxisQ::NE,
-            2 => AxisQ::SE,
-            _ => return None,
-        })
-    }
-
-    fn foward(self) -> Self::Direction {
-        Direction::Foward(self)
-    }
-
-    fn backward(self) -> Self::Direction {
-        Direction::Backward(self)
-    }
-
-    fn from_direction(dir: Self::Direction) -> Self {
-        match dir {
-            Direction::Foward(a) | Direction::Backward(a) => a,
-        }
-    }
-}
-
+/// Defines wheter the hex graph is `flat-top` or `point-top` and is odd or even.
 pub trait HexOffsetShapeBase {
     type Axis: Axis;
     fn horizontal_edge_size(horizontal: usize, axis: Self::Axis) -> usize;
@@ -126,6 +31,7 @@ pub trait HexOffsetShapeBase {
     ) -> Result<HexOffset, ()>;
 }
 
+/// Defines wheter the hex graph, which is looped in E-W Direction, is `flat-top` or `point-top` and is odd or even.
 pub trait HexOffsetShapeBaseLEW: HexOffsetShapeBase {
     fn move_coord_lew(
         horizontal: usize,
@@ -135,22 +41,22 @@ pub trait HexOffsetShapeBaseLEW: HexOffsetShapeBase {
     ) -> Result<HexOffset, ()>;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum OddR {}
 impl HexOffsetShapeBase for OddR {
     type Axis = AxisR;
-    fn horizontal_edge_size(horizontal: usize, axis: Self::Axis) -> usize {
-        match axis {
-            AxisR::SE => horizontal,
-            _ => horizontal - 1,
-        }
+    fn horizontal_edge_size(horizontal: usize, _axis: Self::Axis) -> usize {
+        horizontal
+        // match axis {
+        //     AxisR::SE => horizontal,
+        //     _ => horizontal - 1,
+        // }
     }
 
-    fn vertical_edge_size(vertical: usize, axis: Self::Axis) -> usize {
-        match axis {
-            AxisR::SE => vertical - 1,
-            _ => vertical,
-        }
+    fn vertical_edge_size(vertical: usize, _axis: Self::Axis) -> usize {
+        vertical
+        // match axis {
+        //     AxisR::SE => vertical - 1,
+        //     _ => vertical,
+        // }
     }
 
     fn move_coord(
@@ -174,23 +80,22 @@ impl HexOffsetShapeBaseLEW for OddR {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum EvenR {}
-
 impl HexOffsetShapeBase for EvenR {
     type Axis = AxisR;
-    fn horizontal_edge_size(horizontal: usize, axis: Self::Axis) -> usize {
-        match axis {
-            AxisR::SE => horizontal,
-            _ => horizontal - 1,
-        }
+    fn horizontal_edge_size(horizontal: usize, _axis: Self::Axis) -> usize {
+        horizontal
+        // match axis {
+        //     AxisR::SE => horizontal,
+        //     _ => horizontal - 1,
+        // }
     }
 
-    fn vertical_edge_size(vertical: usize, axis: Self::Axis) -> usize {
-        match axis {
-            AxisR::SE => vertical - 1,
-            _ => vertical,
-        }
+    fn vertical_edge_size(vertical: usize, _axis: Self::Axis) -> usize {
+        vertical
+        // match axis {
+        //     AxisR::SE => vertical - 1,
+        //     _ => vertical,
+        // }
     }
 
     fn move_coord(
@@ -294,22 +199,22 @@ fn move_coord_r_lew(
     .ok_or(())
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum OddQ {}
 impl HexOffsetShapeBase for OddQ {
     type Axis = AxisQ;
-    fn horizontal_edge_size(horizontal: usize, axis: Self::Axis) -> usize {
-        match axis {
-            AxisQ::N => horizontal,
-            _ => horizontal - 1,
-        }
+    fn horizontal_edge_size(horizontal: usize, _axis: Self::Axis) -> usize {
+        horizontal
+        // match axis {
+        //     AxisQ::N => horizontal,
+        //     _ => horizontal - 1,
+        // }
     }
 
-    fn vertical_edge_size(vertical: usize, axis: Self::Axis) -> usize {
-        match axis {
-            AxisQ::N => vertical - 1,
-            _ => vertical,
-        }
+    fn vertical_edge_size(vertical: usize, _axis: Self::Axis) -> usize {
+        vertical
+        // match axis {
+        //     AxisQ::N => vertical - 1,
+        //     _ => vertical,
+        // }
     }
 
     fn move_coord(
@@ -322,22 +227,33 @@ impl HexOffsetShapeBase for OddQ {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum EvenQ {}
+impl HexOffsetShapeBaseLEW for OddQ {
+    fn move_coord_lew(
+        horizontal: usize,
+        vertical: usize,
+        coord: HexOffset,
+        dir: Direction<Self::Axis>,
+    ) -> Result<HexOffset, ()> {
+        move_coord_q_lew(horizontal, vertical, coord, dir, 0)
+    }
+}
+
 impl HexOffsetShapeBase for EvenQ {
     type Axis = AxisQ;
-    fn horizontal_edge_size(horizontal: usize, axis: Self::Axis) -> usize {
-        match axis {
-            AxisQ::N => horizontal,
-            _ => horizontal - 1,
-        }
+    fn horizontal_edge_size(horizontal: usize, _axis: Self::Axis) -> usize {
+        horizontal
+        // match axis {
+        //     AxisQ::N => horizontal,
+        //     _ => horizontal - 1,
+        // }
     }
 
-    fn vertical_edge_size(vertical: usize, axis: Self::Axis) -> usize {
-        match axis {
-            AxisQ::N => vertical - 1,
-            _ => vertical,
-        }
+    fn vertical_edge_size(vertical: usize, _axis: Self::Axis) -> usize {
+        vertical
+        // match axis {
+        //     AxisQ::N => vertical - 1,
+        //     _ => vertical,
+        // }
     }
 
     fn move_coord(
@@ -347,6 +263,17 @@ impl HexOffsetShapeBase for EvenQ {
         dir: Direction<AxisQ>,
     ) -> Result<HexOffset, ()> {
         move_coord_q(horizontal, vertical, coord, dir, 1)
+    }
+}
+
+impl HexOffsetShapeBaseLEW for EvenQ {
+    fn move_coord_lew(
+        horizontal: usize,
+        vertical: usize,
+        coord: HexOffset,
+        dir: Direction<Self::Axis>,
+    ) -> Result<HexOffset, ()> {
+        move_coord_q_lew(horizontal, vertical, coord, dir, 1)
     }
 }
 
@@ -380,15 +307,62 @@ fn move_coord_q(
     .ok_or(())
 }
 
+fn move_coord_q_lew(
+    horizontal: usize,
+    vertical: usize,
+    coord: HexOffset,
+    dir: Direction<AxisQ>,
+    flag: usize,
+) -> Result<HexOffset, ()> {
+    let o = coord.0;
+    match (dir, o.vertical() & 1 != flag) {
+        (Direction::Foward(AxisQ::N), _) => {
+            Some(o.add_x(1).check_x(horizontal).unwrap_or_else(|| o.set_x(0)))
+        }
+        (Direction::Backward(AxisQ::N), _) => {
+            Some(o.sub_x(1).unwrap_or_else(|| o.set_x(horizontal - 1)))
+        }
+        (Direction::Foward(AxisQ::NE), true) | (Direction::Backward(AxisQ::SE), false) => {
+            o.add_y(1).check_y(vertical)
+        }
+        (Direction::Foward(AxisQ::SE), true) | (Direction::Backward(AxisQ::NE), false) => {
+            o.sub_x(1)
+        }
+        (Direction::Foward(AxisQ::NE), false) => o
+            .add_x(1)
+            .check_x(horizontal)
+            .unwrap_or_else(|| o.set_x(0))
+            .add_y(1)
+            .check_y(vertical),
+        (Direction::Foward(AxisQ::SE), false) => o
+            .add_x(1)
+            .check_x(horizontal)
+            .unwrap_or_else(|| o.set_x(0))
+            .sub_y(1),
+        (Direction::Backward(AxisQ::NE), true) => o
+            .sub_x(1)
+            .unwrap_or_else(|| o.set_x(horizontal - 1))
+            .sub_y(1),
+        (Direction::Backward(AxisQ::SE), true) => o
+            .sub_x(1)
+            .unwrap_or_else(|| o.set_x(horizontal - 1))
+            .add_y(1)
+            .check_y(vertical),
+    }
+    .map(|o| HexOffset(o))
+    .ok_or(())
+}
+
+/// Shapes for hex graph with offset-based coordinate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HexOffsetShape<T, Loop, H = usize, V = usize> {
+pub struct HexOffsetShape<ShapeBase, Loop, H = usize, V = usize> {
     h: H,
     v: V,
     l: PhantomData<fn() -> Loop>,
-    t: PhantomData<fn() -> T>,
+    t: PhantomData<fn() -> ShapeBase>,
 }
 
-impl<T, L, H, V> HexOffsetShape<T, L, H, V>
+impl<B, L, H, V> HexOffsetShape<B, L, H, V>
 where
     H: Into<usize> + Copy,
     V: Into<usize> + Copy,
@@ -404,11 +378,11 @@ where
 }
 
 #[cfg(feature = "const-generic-wrap")]
-pub type ConstHexOffsetShape<T, const H: usize, const V: usize> =
-    HexOffsetShape<T, (), WrapUSIZE<H>, WrapUSIZE<V>>;
+pub type ConstHexOffsetShape<T, L, const H: usize, const V: usize> =
+    HexOffsetShape<T, L, WrapUSIZE<H>, WrapUSIZE<V>>;
 
 #[cfg(feature = "const-generic-wrap")]
-impl<T, const H: usize, const V: usize> Default for ConstHexOffsetShape<T, H, V> {
+impl<T, L, const H: usize, const V: usize> Default for ConstHexOffsetShape<T, L, H, V> {
     fn default() -> Self {
         Self::new(WrapUSIZE::<H>, WrapUSIZE::<V>)
     }
@@ -467,8 +441,6 @@ where
         B::move_coord(self.horizontal(), self.vertical(), coord, dir)
     }
 }
-
-pub enum LEW {}
 
 impl<B, H, V> Shape for HexOffsetShape<B, LEW, H, V>
 where

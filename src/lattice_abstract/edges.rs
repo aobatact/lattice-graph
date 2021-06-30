@@ -14,6 +14,13 @@ pub struct EdgeReference<'a, C, E, D, A> {
     pub(crate) axis: PhantomData<fn() -> A>,
 }
 
+impl<'a, C, E, D, A> EdgeReference<'a, C, E, D, A> {
+    /// Get a reference to the edge reference's direction.
+    pub fn direction(&self) -> &D {
+        &self.direction
+    }
+}
+
 impl<'a, C: Clone, E, D: Clone, A> Clone for EdgeReference<'a, C, E, D, A> {
     fn clone(&self) -> Self {
         Self {

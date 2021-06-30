@@ -13,3 +13,6 @@ This is for developing game, but it can be used for other purposes as well.
 - [ ] Hierarchical graph structure.
 - [ ] (Virtual graph?)
 - [ ] (Cubic graph?)
+
+# MSRV
+Needs const generics (rustc >= 1.51) to use `const-generice-wrap` feature to fold ZST shape info.

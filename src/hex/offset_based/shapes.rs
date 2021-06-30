@@ -372,6 +372,7 @@ where
     }
 }
 
+/// Shapes for hex graph with offset-based coordinate with const size. This is ZST.
 #[cfg(feature = "const-generic-wrap")]
 pub type ConstHexOffsetShape<T, L, const H: usize, const V: usize> =
     HexOffsetShape<T, L, WrapUSIZE<H>, WrapUSIZE<V>>;

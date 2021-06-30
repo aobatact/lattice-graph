@@ -1,3 +1,4 @@
+//! Inner strage of Lattice Graph.
 use core::slice;
 use std::{
     fmt::Debug,

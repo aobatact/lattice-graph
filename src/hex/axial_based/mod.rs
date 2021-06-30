@@ -1,20 +1,30 @@
-pub mod shapes;
-use super::shapes::LEW;
+//! Module for Hex Graph with axial coordinates.
+mod shapes;
+use super::shapes::{DirectedMarker, LEW};
 use crate::lattice_abstract::LatticeGraph;
-use shapes::*;
-
+pub use shapes::{ConstHexAxialShape, HexAxial, HexAxialShape};
+///Hex Graph with axial coordinates.
 pub type HexGraph<N, E, B, H = usize, V = usize> = LatticeGraph<N, E, HexAxialShape<B, (), H, V>>;
-
+///Hex Graph with axial coordinates.
 #[cfg(feature = "const-generic-wrap")]
 pub type HexGraphConst<N, E, B, const H: usize, const V: usize> =
     LatticeGraph<N, E, ConstHexAxialShape<B, (), H, V>>;
 
+///Hex Graph with axial coordinates with e-w loop.
 pub type HexGraphLoopEW<N, E, B, H = usize, V = usize> =
     LatticeGraph<N, E, HexAxialShape<B, LEW, H, V>>;
 
+///Hex Graph with axial coordinates with e-w loop.
 #[cfg(feature = "const-generic-wrap")]
 pub type HexGraphConstLoopEW<N, E, B, const H: usize, const V: usize> =
     LatticeGraph<N, E, ConstHexAxialShape<B, LEW, H, V>>;
+///Directed Hex Graph with axial coordinates.
+pub type DiHexGraph<N, E, B, Loop = (), H = usize, V = usize> =
+    LatticeGraph<N, E, HexAxialShape<DirectedMarker<B>, Loop, H, V>>;
+///Directed Hex Graph with axial coordinates.
+#[cfg(feature = "const-generic-wrap")]
+pub type DiHexGraphConst<N, E, B, Loop, const H: usize, const V: usize> =
+    LatticeGraph<N, E, ConstHexAxialShape<DirectedMarker<B>, Loop, H, V>>;
 
 #[cfg(test)]
 mod tests {

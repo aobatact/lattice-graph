@@ -1,3 +1,5 @@
+//! Defines the shape and behaivour of coordinates in hex graph.
+
 use std::marker::PhantomData;
 
 use crate::{lattice_abstract::*, unreachable_debug_checked};
@@ -62,15 +64,7 @@ impl Axis for AxisR {
     }
 }
 
-impl Direction<AxisR> {
-    pub const NE: Self = Direction::Foward(AxisR::NE);
-    pub const E: Self = Direction::Foward(AxisR::E);
-    pub const SE: Self = Direction::Foward(AxisR::SE);
-    pub const SW: Self = Direction::Backward(AxisR::NE);
-    pub const W: Self = Direction::Backward(AxisR::E);
-    pub const NW: Self = Direction::Backward(AxisR::SE);
-}
-
+/// Point top Directed Hex Direcion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AxisDR {
     NE = 0,
@@ -200,6 +194,7 @@ impl Axis for AxisQ {
     }
 }
 
+/// Flat top Directed Hex Direction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AxisDQ {
     N = 0,
@@ -273,10 +268,12 @@ impl Axis for AxisDQ {
     }
 }
 
+/// Whether the offset is even.
 pub trait OE {
     const IS_EVEN: bool;
     const CONVERT_OFFSET: usize = if Self::IS_EVEN { 1 } else { 0 };
 }
+/// Whether the hex graph is point top or flat top.
 pub trait RQ {
     const IS_FLAT_TOP: bool;
 }
@@ -321,6 +318,7 @@ impl RQ for EvenQ {
     const IS_FLAT_TOP: bool = false;
 }
 
+/// Marker to show the graph have loop.
 pub trait LoopMarker {}
 impl LoopMarker for () {}
 
@@ -329,6 +327,7 @@ impl LoopMarker for () {}
 pub enum LEW {}
 impl LoopMarker for LEW {}
 
+///Marker to tell the graph is directed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DirectedMarker<T>(PhantomData<fn() -> T>);
 impl<T: OE> OE for DirectedMarker<T> {

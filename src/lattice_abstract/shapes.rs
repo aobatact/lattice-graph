@@ -274,8 +274,11 @@ impl Offset {
     pub fn add_y(&self, y: usize) -> Self {
         Offset::new(self.horizontal, self.vertical + y)
     }
-    pub fn set_x(&self, x : usize) -> Self{
+    pub fn set_x(&self, x: usize) -> Self {
         Offset::new(x, self.vertical)
+    }
+    pub fn set_y(&self, y: usize) -> Self {
+        Offset::new(self.horizontal, y)
     }
     pub fn sub_x(&self, x: usize) -> Option<Self> {
         Some(Offset::new(self.horizontal.checked_sub(x)?, self.vertical))

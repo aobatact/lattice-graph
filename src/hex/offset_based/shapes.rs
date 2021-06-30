@@ -43,6 +43,7 @@ pub trait HexOffsetShapeBaseLEW: HexOffsetShapeBase {
 
 impl HexOffsetShapeBase for OddR {
     type Axis = AxisR;
+    // TODO : give Shape Data
     fn horizontal_edge_size(horizontal: usize, _axis: Self::Axis) -> usize {
         horizontal
         // match axis {

@@ -65,6 +65,15 @@ pub trait Shape {
         coord: Self::Coordinate,
         dir: <Self::Axis as Axis>::Direction,
     ) -> Result<Self::Coordinate, Self::CoordinateMoveError>;
+    /// Move coordinate to direction.
+    unsafe fn move_coord_unchecked(
+        &self,
+        coord: Self::Coordinate,
+        dir: <Self::Axis as Axis>::Direction,
+    ) -> Self::Coordinate {
+        self.move_coord(coord, dir)
+            .unwrap_or_else(|_| unreachable_debug_checked())
+    }
 }
 
 impl<S: Shape> Shape for &S {
@@ -107,6 +116,14 @@ impl<S: Shape> Shape for &S {
         dir: <Self::Axis as Axis>::Direction,
     ) -> Result<Self::Coordinate, Self::CoordinateMoveError> {
         (*self).move_coord(coord, dir)
+    }
+
+    unsafe fn move_coord_unchecked(
+        &self,
+        coord: Self::Coordinate,
+        dir: <Self::Axis as Axis>::Direction,
+    ) -> Self::Coordinate {
+        (*self).move_coord_unchecked(coord, dir)
     }
 
     fn node_count(&self) -> usize {

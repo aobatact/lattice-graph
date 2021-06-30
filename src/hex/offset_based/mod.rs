@@ -1,20 +1,19 @@
+use super::shapes::LEW;
 use crate::lattice_abstract::LatticeGraph;
 use shapes::*;
-
-use super::shapes::LEW;
 pub mod shapes;
 pub use shapes::HexOffset;
 pub use shapes::HexOffsetShape;
 
 pub type HexGraph<N, E, B, H = usize, V = usize> = LatticeGraph<N, E, HexOffsetShape<B, (), H, V>>;
-pub type HexGraphLEW<N, E, B, H = usize, V = usize> =
+pub type HexGraphLoopEW<N, E, B, H = usize, V = usize> =
     LatticeGraph<N, E, HexOffsetShape<B, LEW, H, V>>;
 
 #[cfg(feature = "const-generic-wrap")]
 pub type HexGraphConst<N, E, B, const H: usize, const V: usize> =
     LatticeGraph<N, E, ConstHexOffsetShape<B, (), H, V>>;
 #[cfg(feature = "const-generic-wrap")]
-pub type HexGraphConstLEW<N, E, B, const H: usize, const V: usize> =
+pub type HexGraphConstLoopEW<N, E, B, const H: usize, const V: usize> =
     LatticeGraph<N, E, ConstHexOffsetShape<B, LEW, H, V>>;
 
 #[cfg(test)]
@@ -115,7 +114,7 @@ mod tests {
 
     #[test]
     fn neighbors_oddr_lew() {
-        let graph = HexGraphConstLEW::<_, _, OddR, 5, 5>::new_with(
+        let graph = HexGraphConstLoopEW::<_, _, OddR, 5, 5>::new_with(
             HexOffsetShape::default(),
             |x| (x),
             |n, d| Some((n, d)),

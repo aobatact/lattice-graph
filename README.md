@@ -9,7 +9,7 @@ This is for developing game, but it can be used for other purposes as well.
 # Feature Status
 - [x] Square grid graph.
   - [x] Loop support for square grid.
-- [ ] Hex grid graph.
+- [x] Hex grid graph.
 - [ ] Hierarchical graph structure.
 - [ ] (Virtual graph?)
 - [ ] (Cubic graph?)

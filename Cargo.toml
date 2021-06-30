@@ -4,6 +4,10 @@ version = "0.3.0"
 authors = ["aobatact <aobatact144@gmail.com>"]
 edition = "2018"
 resolver= "2"
+license = "MPL-2.0"
+keywords = ["graph", "graph-algorithms", "data-structure"]
+categories = ["data-structures", "game-development"]
+description = "Set of Lattice(Grid) based Graph Structures"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

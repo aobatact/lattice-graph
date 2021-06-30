@@ -271,21 +271,53 @@ impl Axis for AxisDQ {
     }
 }
 
+pub trait OE {
+    const IS_EVEN: bool;
+    const CONVERT_OFFSET: usize = if Self::IS_EVEN { 1 } else { 0 };
+}
+pub trait RQ {
+    const IS_FLAT_TOP: bool;
+}
+
 /// Point-top + Odd Shape.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum OddR {}
+impl OE for OddR {
+    const IS_EVEN: bool = false;
+}
+impl RQ for OddR {
+    const IS_FLAT_TOP: bool = false;
+}
 
 /// Point-top + Even Shape.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum EvenR {}
+impl OE for EvenR {
+    const IS_EVEN: bool = true;
+}
+impl RQ for EvenR {
+    const IS_FLAT_TOP: bool = false;
+}
 
 /// Odd-top + Even Shape.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum OddQ {}
+impl OE for OddQ {
+    const IS_EVEN: bool = false;
+}
+impl RQ for OddQ {
+    const IS_FLAT_TOP: bool = false;
+}
 
 /// Flat-top + Even Shape.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum EvenQ {}
+impl OE for EvenQ {
+    const IS_EVEN: bool = true;
+}
+impl RQ for EvenQ {
+    const IS_FLAT_TOP: bool = false;
+}
 
 pub trait LoopMarker {}
 impl LoopMarker for () {}

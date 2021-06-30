@@ -281,24 +281,19 @@ where
         if (q as usize) >= self.vertical() {
             return Err(());
         }
-        'a: loop {
-            let min = -((q + B::CONVERT_OFFSET as isize) / 2);
-            'b: loop {
-                if c.r >= min {
-                    break 'b;
-                }
-                while {
-                    c.r += self.horizontal() as isize;
-                    c.r < min
-                } {}
-                break 'a;
-            }
+        let min = -((q + B::CONVERT_OFFSET as isize) / 2);
+        if c.r < min {
+            while {
+                c.r += self.horizontal() as isize;
+                c.r < min
+            } {}
+        } else {
             let max = self.horizontal() as isize - min;
             while c.r >= max {
                 c.r -= self.horizontal() as isize;
             }
-            break 'a;
         }
+
         Ok(c)
     }
 }

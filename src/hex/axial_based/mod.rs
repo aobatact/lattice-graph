@@ -80,10 +80,20 @@ mod tests {
             |n, d| Some((n, d)),
         );
         let e = graph.neighbors(C::new(0, 0));
-        debug_assert!(e.eq(IntoIter::new([C::new(0, 1), C::new(1, 0), C::new(4, 0), C::new(4,1)])));
+        debug_assert!(e.eq(IntoIter::new([
+            C::new(0, 1),
+            C::new(1, 0),
+            C::new(4, 0),
+            C::new(4, 1)
+        ])));
 
         let e = graph.neighbors(C::new(4, 0));
-        debug_assert!(e.eq(IntoIter::new([C::new(4, 1), C::new(0, 0), C::new(3, 0), C::new(3, 1)])));
+        debug_assert!(e.eq(IntoIter::new([
+            C::new(4, 1),
+            C::new(0, 0),
+            C::new(3, 0),
+            C::new(3, 1)
+        ])));
 
         let e = graph.neighbors(C::new(1, 1));
         debug_assert!(e.eq(IntoIter::new([

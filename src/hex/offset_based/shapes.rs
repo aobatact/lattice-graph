@@ -262,6 +262,32 @@ impl HexOffsetShapeBaseLEW for EvenQ {
     }
 }
 
+impl<T, A> HexOffsetShapeBase for DirectedMarker<T>
+where
+    T: HexOffsetShapeBase<Axis = A>,
+    A: Axis,
+    A::Direction: Axis<Direction = A::Direction>,
+{
+    type Axis = <T::Axis as Axis>::Direction;
+
+    fn horizontal_edge_size(horizontal: usize, _axis: Self::Axis) -> usize {
+        horizontal
+    }
+
+    fn vertical_edge_size(vertical: usize, _axis: Self::Axis) -> usize {
+        vertical
+    }
+
+    fn move_coord(
+        horizontal: usize,
+        vertical: usize,
+        coord: HexOffset,
+        dir: Self::Axis,
+    ) -> Result<HexOffset, ()> {
+        T::move_coord(horizontal, vertical, coord, dir)
+    }
+}
+
 fn move_coord_q(
     horizontal: usize,
     vertical: usize,

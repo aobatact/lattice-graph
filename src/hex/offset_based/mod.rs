@@ -1,3 +1,4 @@
+use super::shapes::DirectedMarker;
 use super::shapes::LEW;
 use crate::lattice_abstract::LatticeGraph;
 use shapes::*;
@@ -8,6 +9,8 @@ pub use shapes::HexOffsetShape;
 pub type HexGraph<N, E, B, H = usize, V = usize> = LatticeGraph<N, E, HexOffsetShape<B, (), H, V>>;
 pub type HexGraphLoopEW<N, E, B, H = usize, V = usize> =
     LatticeGraph<N, E, HexOffsetShape<B, LEW, H, V>>;
+pub type DiHexGraph<N, E, B, H = usize, V = usize> =
+    LatticeGraph<N, E, HexOffsetShape<DirectedMarker<B>, (), H, V>>;
 
 #[cfg(feature = "const-generic-wrap")]
 pub type HexGraphConst<N, E, B, const H: usize, const V: usize> =
@@ -15,6 +18,9 @@ pub type HexGraphConst<N, E, B, const H: usize, const V: usize> =
 #[cfg(feature = "const-generic-wrap")]
 pub type HexGraphConstLoopEW<N, E, B, const H: usize, const V: usize> =
     LatticeGraph<N, E, ConstHexOffsetShape<B, LEW, H, V>>;
+#[cfg(feature = "const-generic-wrap")]
+pub type DiHexGraphConst<N, E, B, const H: usize, const V: usize> =
+    LatticeGraph<N, E, ConstHexOffsetShape<DirectedMarker<B>, (), H, V>>;
 
 #[cfg(test)]
 #[cfg(feature = "const-generic-wrap")]
@@ -154,5 +160,35 @@ mod tests {
             HexOffset::new(0, 2),
             HexOffset::new(0, 3),
         ])));
+    }
+
+    #[test]
+    fn gen_oddr_di() {
+        let graph = DiHexGraphConst::<_, _, OddR, 5, 3>::new_with(
+            HexOffsetShape::default(),
+            |x| (x),
+            |n, d| Some((n, d)),
+        );
+        for i in 0..graph.node_count() {
+            let x = graph.from_index(i);
+            assert_eq!(Some(&x), graph.node_weight(x));
+        }
+    }
+
+    #[test]
+    fn edges_oddr_dir() {
+        let graph = DiHexGraphConst::<_, _, OddR, 5, 5>::new_with(
+            HexOffsetShape::default(),
+            |x| (x),
+            |n, d| Some((n, d)),
+        );
+        assert!(graph
+            .edges(HexOffset::new(0, 0))
+            .map(|e| e.source())
+            .all(|x| x == HexOffset::new(0, 0)));
+        assert!(graph
+            .edges(HexOffset::new(1, 1))
+            .map(|e| e.source())
+            .all(|x| x == HexOffset::new(1, 1)));
     }
 }

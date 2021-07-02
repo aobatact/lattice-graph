@@ -1,17 +1,60 @@
-//! Module for Hex Graph with axial coordinates.
+/*!
+Module for Hex Graph with axial coordinates.
+
+## Example
+[`HexGraph`]`<N, E,`[`OddR`](`super::shapes::OddR`)`>`
+```text
+(-1, 1) - (0, 2)        (NW)   NE
+    \    /    \            \   /
+    (0, 1)  - (1, 1)  (W) -  C -  E
+    /    \    /            /   \
+(0, 0) - (1, 0)        (SW)     SE
+```
+[`HexGraph`]`<N, E,`[`EvenR`](`super::shapes::OddR`)`>`
+```text
+    (-1, 1) - (0, 2)     (NW)  NE
+    /    \    /            \   /
+(0, 1) - (1, 1)       (W) -  C -  E
+    \    /    \            /   \
+    (0, 0) - (1, 0)     (SW)    SE
+```
+[`HexGraph`]`<N, E,`[`OddQ`](`super::shapes::OddQ`)`>`
+```text
+     (1, 1)
+     / |  \
+(0, 1) | (2, 0)       (NW)  N   NE
+  |  \ |  /  |           \  |  /
+  |  (1, 0)  |              C
+  |  /    \  |           /  |  \
+(0, 0)   (2, -1)      (SW) (S)  SE
+```
+[`HexGraph`]`<N, E,`[`EvenQ`](`super::shapes::EvenQ`)`>`
+```text
+(0, 1)   (2, 1)       (NW)  N   NE
+  |  \    /  |           \  |  /
+  |  (1,  1) |              C
+  |  /  |  \ |           /  |  \
+(0, 0)  | (2, 0)      (SW) (S)  SE
+     \  |  /
+     (1,  0)
+```
+*/
 mod shapes;
-use super::shapes::{DirectedMarker, LEW};
+use super::shapes::{DirectedMarker, OddR, LEW};
 use crate::lattice_abstract::LatticeGraph;
 pub use shapes::{ConstHexAxialShape, HexAxial, HexAxialShape};
+/// Coordinate for Hex Graph with axial coordinates.
+pub type Coord = HexAxial;
 ///Hex Graph with axial coordinates.
-pub type HexGraph<N, E, B, H = usize, V = usize> = LatticeGraph<N, E, HexAxialShape<B, (), H, V>>;
+pub type HexGraph<N, E, B = OddR, L = (), H = usize, V = usize> =
+    LatticeGraph<N, E, HexAxialShape<B, L, H, V>>;
 ///Hex Graph with axial coordinates.
 #[cfg(feature = "const-generic-wrap")]
 pub type HexGraphConst<N, E, B, const H: usize, const V: usize> =
     LatticeGraph<N, E, ConstHexAxialShape<B, (), H, V>>;
 
 ///Hex Graph with axial coordinates with e-w loop.
-pub type HexGraphLoopEW<N, E, B, H = usize, V = usize> =
+pub type HexGraphLoopEW<N, E, B = OddR, H = usize, V = usize> =
     LatticeGraph<N, E, HexAxialShape<B, LEW, H, V>>;
 
 ///Hex Graph with axial coordinates with e-w loop.
@@ -19,7 +62,7 @@ pub type HexGraphLoopEW<N, E, B, H = usize, V = usize> =
 pub type HexGraphConstLoopEW<N, E, B, const H: usize, const V: usize> =
     LatticeGraph<N, E, ConstHexAxialShape<B, LEW, H, V>>;
 ///Directed Hex Graph with axial coordinates.
-pub type DiHexGraph<N, E, B, Loop = (), H = usize, V = usize> =
+pub type DiHexGraph<N, E, B = OddR, Loop = (), H = usize, V = usize> =
     LatticeGraph<N, E, HexAxialShape<DirectedMarker<B>, Loop, H, V>>;
 ///Directed Hex Graph with axial coordinates.
 #[cfg(feature = "const-generic-wrap")]
@@ -28,7 +71,7 @@ pub type DiHexGraphConst<N, E, B, Loop, const H: usize, const V: usize> =
 
 #[cfg(test)]
 mod tests {
-    use std::array::IntoIter;
+    use std::{array::IntoIter, mem};
 
     use super::*;
     use crate::hex::shapes::OddR;
@@ -46,6 +89,7 @@ mod tests {
             let x = graph.from_index(i);
             assert_eq!(Some(&x), graph.node_weight(x));
         }
+        assert_eq!(0, mem::size_of_val(graph.shape()))
     }
 
     #[test]

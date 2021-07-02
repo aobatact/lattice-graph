@@ -9,11 +9,22 @@ use crate::{hex::shapes::*, lattice_abstract::shapes::*};
 pub struct HexOffset(Offset);
 
 impl HexOffset {
+    /// Creates a new offset.
     pub fn new(x: usize, y: usize) -> Self {
         Self(Offset {
             horizontal: x,
             vertical: y,
         })
+    }
+
+    /// horizontal
+    pub fn horizontal(&self) -> usize {
+        self.0.horizontal()
+    }
+
+    /// vertical
+    pub fn vertical(&self) -> usize {
+        self.0.vertical()
     }
 }
 
@@ -21,8 +32,6 @@ impl Coordinate for HexOffset {}
 /// Defines wheter the hex graph is `flat-top` or `point-top` and is odd or even.
 pub trait HexOffsetShapeBase {
     type Axis: Axis;
-    fn horizontal_edge_size(horizontal: usize, axis: Self::Axis) -> usize;
-    fn vertical_edge_size(vertical: usize, axis: Self::Axis) -> usize;
     fn move_coord(
         horizontal: usize,
         vertical: usize,
@@ -43,22 +52,6 @@ pub trait HexOffsetShapeBaseLEW: HexOffsetShapeBase {
 
 impl HexOffsetShapeBase for OddR {
     type Axis = AxisR;
-    // TODO : give Shape Data
-    fn horizontal_edge_size(horizontal: usize, _axis: Self::Axis) -> usize {
-        horizontal
-        // match axis {
-        //     AxisR::SE => horizontal,
-        //     _ => horizontal - 1,
-        // }
-    }
-
-    fn vertical_edge_size(vertical: usize, _axis: Self::Axis) -> usize {
-        vertical
-        // match axis {
-        //     AxisR::SE => vertical - 1,
-        //     _ => vertical,
-        // }
-    }
 
     fn move_coord(
         horizontal: usize,
@@ -83,21 +76,6 @@ impl HexOffsetShapeBaseLEW for OddR {
 
 impl HexOffsetShapeBase for EvenR {
     type Axis = AxisR;
-    fn horizontal_edge_size(horizontal: usize, _axis: Self::Axis) -> usize {
-        horizontal
-        // match axis {
-        //     AxisR::SE => horizontal,
-        //     _ => horizontal - 1,
-        // }
-    }
-
-    fn vertical_edge_size(vertical: usize, _axis: Self::Axis) -> usize {
-        vertical
-        // match axis {
-        //     AxisR::SE => vertical - 1,
-        //     _ => vertical,
-        // }
-    }
 
     fn move_coord(
         horizontal: usize,
@@ -186,21 +164,6 @@ fn move_coord_r_lew(
 
 impl HexOffsetShapeBase for OddQ {
     type Axis = AxisQ;
-    fn horizontal_edge_size(horizontal: usize, _axis: Self::Axis) -> usize {
-        horizontal
-        // match axis {
-        //     AxisQ::N => horizontal,
-        //     _ => horizontal - 1,
-        // }
-    }
-
-    fn vertical_edge_size(vertical: usize, _axis: Self::Axis) -> usize {
-        vertical
-        // match axis {
-        //     AxisQ::N => vertical - 1,
-        //     _ => vertical,
-        // }
-    }
 
     fn move_coord(
         horizontal: usize,
@@ -225,21 +188,6 @@ impl HexOffsetShapeBaseLEW for OddQ {
 
 impl HexOffsetShapeBase for EvenQ {
     type Axis = AxisQ;
-    fn horizontal_edge_size(horizontal: usize, _axis: Self::Axis) -> usize {
-        horizontal
-        // match axis {
-        //     AxisQ::N => horizontal,
-        //     _ => horizontal - 1,
-        // }
-    }
-
-    fn vertical_edge_size(vertical: usize, _axis: Self::Axis) -> usize {
-        vertical
-        // match axis {
-        //     AxisQ::N => vertical - 1,
-        //     _ => vertical,
-        // }
-    }
 
     fn move_coord(
         horizontal: usize,
@@ -269,14 +217,6 @@ where
     A::Direction: Axis<Direction = A::Direction>,
 {
     type Axis = <T::Axis as Axis>::Direction;
-
-    fn horizontal_edge_size(horizontal: usize, _axis: Self::Axis) -> usize {
-        horizontal
-    }
-
-    fn vertical_edge_size(vertical: usize, _axis: Self::Axis) -> usize {
-        vertical
-    }
 
     fn move_coord(
         horizontal: usize,
@@ -420,12 +360,12 @@ where
         coord.0
     }
 
-    fn horizontal_edge_size(&self, axis: Self::Axis) -> usize {
-        B::horizontal_edge_size(self.horizontal(), axis)
+    fn horizontal_edge_size(&self, _axis: Self::Axis) -> usize {
+        self.horizontal()
     }
 
-    fn vertical_edge_size(&self, axis: Self::Axis) -> usize {
-        B::vertical_edge_size(self.vertical(), axis)
+    fn vertical_edge_size(&self, _axis: Self::Axis) -> usize {
+        self.vertical()
     }
 
     fn move_coord(
@@ -473,12 +413,12 @@ where
         coord.0
     }
 
-    fn horizontal_edge_size(&self, axis: Self::Axis) -> usize {
-        B::horizontal_edge_size(self.horizontal(), axis)
+    fn horizontal_edge_size(&self, _axis: Self::Axis) -> usize {
+        self.horizontal()
     }
 
-    fn vertical_edge_size(&self, axis: Self::Axis) -> usize {
-        B::vertical_edge_size(self.vertical(), axis)
+    fn vertical_edge_size(&self, _axis: Self::Axis) -> usize {
+        self.vertical()
     }
 
     fn move_coord(

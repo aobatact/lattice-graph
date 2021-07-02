@@ -1,5 +1,8 @@
 # lattice-graph
 
+[![Doc](https://docs.rs/lattice-graph/badge.svg)](https://docs.rs/lattice-graph)
+[![Crate](https://img.shields.io/crates/v/lattice-graph.svg)](https://crates.io/crates/lattice-graph)
+
 Extention library for [petgraph](https://crates.io/crates/petgraph).
 This adds a specialized graph for lattice (or grid) based graph structures for petgraph.
 This probides a smaller and faster graph than the general purpose `petgraph::Graph` struct.

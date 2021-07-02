@@ -259,7 +259,7 @@ impl Axis for AxisDQ {
             AxisDQ::SE => AxisDQ::NW,
             AxisDQ::S => AxisDQ::N,
             AxisDQ::SW => AxisDQ::NE,
-            AxisDQ::NW => AxisDQ::NE,
+            AxisDQ::NW => AxisDQ::SE,
         }
     }
 

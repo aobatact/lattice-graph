@@ -324,8 +324,10 @@ impl LoopMarker for () {}
 
 ///Marker for E-W direction Loop.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum LEW {}
-impl LoopMarker for LEW {}
+pub enum LoopEW {}
+impl LoopMarker for LoopEW {}
+#[deprecated(note = "Use LoopEW instead.")]
+pub type LEW = LoopEW;
 
 ///Marker to tell the graph is directed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

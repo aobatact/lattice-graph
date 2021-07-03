@@ -41,7 +41,7 @@ pub trait HexOffsetShapeBase {
 }
 
 /// Defines wheter the hex graph, which is looped in E-W Direction, is `flat-top` or `point-top` and is odd or even.
-pub trait HexOffsetShapeBaseLEW: HexOffsetShapeBase {
+pub trait HexOffsetShapeBaseLoopEW: HexOffsetShapeBase {
     fn move_coord_lew(
         horizontal: usize,
         vertical: usize,
@@ -63,7 +63,7 @@ impl HexOffsetShapeBase for OddR {
     }
 }
 
-impl HexOffsetShapeBaseLEW for OddR {
+impl HexOffsetShapeBaseLoopEW for OddR {
     fn move_coord_lew(
         horizontal: usize,
         vertical: usize,
@@ -87,7 +87,7 @@ impl HexOffsetShapeBase for EvenR {
     }
 }
 
-impl HexOffsetShapeBaseLEW for EvenR {
+impl HexOffsetShapeBaseLoopEW for EvenR {
     fn move_coord_lew(
         horizontal: usize,
         vertical: usize,
@@ -175,7 +175,7 @@ impl HexOffsetShapeBase for OddQ {
     }
 }
 
-impl HexOffsetShapeBaseLEW for OddQ {
+impl HexOffsetShapeBaseLoopEW for OddQ {
     fn move_coord_lew(
         horizontal: usize,
         vertical: usize,
@@ -199,7 +199,7 @@ impl HexOffsetShapeBase for EvenQ {
     }
 }
 
-impl HexOffsetShapeBaseLEW for EvenQ {
+impl HexOffsetShapeBaseLoopEW for EvenQ {
     fn move_coord_lew(
         horizontal: usize,
         vertical: usize,
@@ -377,9 +377,9 @@ where
     }
 }
 
-impl<B, H, V> Shape for HexOffsetShape<B, LEW, H, V>
+impl<B, H, V> Shape for HexOffsetShape<B, LoopEW, H, V>
 where
-    B: HexOffsetShapeBaseLEW,
+    B: HexOffsetShapeBaseLoopEW,
     H: Into<usize> + Copy,
     V: Into<usize> + Copy,
 {

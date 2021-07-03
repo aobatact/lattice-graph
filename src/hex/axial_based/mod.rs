@@ -40,7 +40,7 @@ Module for Hex Graph with axial coordinates.
 ```
 */
 mod shapes;
-use super::shapes::{DirectedMarker, OddR, LEW};
+use super::shapes::{DirectedMarker, OddR, LoopEW};
 use crate::lattice_abstract::LatticeGraph;
 pub use shapes::{ConstHexAxialShape, HexAxial, HexAxialShape};
 /// Coordinate for Hex Graph with axial coordinates.
@@ -55,12 +55,12 @@ pub type HexGraphConst<N, E, B, const H: usize, const V: usize> =
 
 ///Hex Graph with axial coordinates with e-w loop.
 pub type HexGraphLoopEW<N, E, B = OddR, H = usize, V = usize> =
-    LatticeGraph<N, E, HexAxialShape<B, LEW, H, V>>;
+    LatticeGraph<N, E, HexAxialShape<B, LoopEW, H, V>>;
 
 ///Hex Graph with axial coordinates with e-w loop.
 #[cfg(feature = "const-generic-wrap")]
 pub type HexGraphConstLoopEW<N, E, B, const H: usize, const V: usize> =
-    LatticeGraph<N, E, ConstHexAxialShape<B, LEW, H, V>>;
+    LatticeGraph<N, E, ConstHexAxialShape<B, LoopEW, H, V>>;
 ///Directed Hex Graph with axial coordinates.
 pub type DiHexGraph<N, E, B = OddR, Loop = (), H = usize, V = usize> =
     LatticeGraph<N, E, HexAxialShape<DirectedMarker<B>, Loop, H, V>>;

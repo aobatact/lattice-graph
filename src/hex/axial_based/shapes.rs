@@ -258,7 +258,7 @@ where
     }
 }
 
-impl<B, H, V> Shape for HexAxialShape<B, LEW, H, V>
+impl<B, H, V> Shape for HexAxialShape<B, LoopEW, H, V>
 where
     B: HexAxialShapeBase,
     H: Clone + Into<usize>,

@@ -1,6 +1,12 @@
-//! Module for Hex Graph with offset based coordinates.
+/*!
+Module for Hex Graph with offset based coordinates.
+Offset coordinate is the coordinate pointing the same offset with underlying [`Offset`](`crate::lattice_abstract::Offset`), 
+so converting to the [`Offset`](`crate::lattice_abstract::Offset) to get the weight of node or edge is just validating.
+Though, this might be costly for moving ([`move_coord`](`crate::lattice_abstract::Shape::move_coord`)) the coordinate than [`axial_based`](`super::axial_based`).
+*/
 
-use super::shapes::{DirectedMarker, LEW};
+
+use super::shapes::{DirectedMarker, LoopEW};
 use crate::lattice_abstract::LatticeGraph;
 mod shapes;
 pub use shapes::{ConstHexOffsetShape, HexOffset, HexOffsetShape};
@@ -9,7 +15,7 @@ pub use shapes::{ConstHexOffsetShape, HexOffset, HexOffsetShape};
 pub type HexGraph<N, E, B, H = usize, V = usize> = LatticeGraph<N, E, HexOffsetShape<B, (), H, V>>;
 ///Hex Graph with offset based coordinates and loop in e-w direction.
 pub type HexGraphLoopEW<N, E, B, H = usize, V = usize> =
-    LatticeGraph<N, E, HexOffsetShape<B, LEW, H, V>>;
+    LatticeGraph<N, E, HexOffsetShape<B, LoopEW, H, V>>;
 ///Directed Hex Graph with offset based coordinates.
 pub type DiHexGraph<N, E, B, Loop = (), H = usize, V = usize> =
     LatticeGraph<N, E, HexOffsetShape<DirectedMarker<B>, Loop, H, V>>;
@@ -21,7 +27,7 @@ pub type HexGraphConst<N, E, B, const H: usize, const V: usize> =
 ///Hex Graph with offset based coordinates and loop in e-w direction.
 #[cfg(feature = "const-generic-wrap")]
 pub type HexGraphConstLoopEW<N, E, B, const H: usize, const V: usize> =
-    LatticeGraph<N, E, ConstHexOffsetShape<B, LEW, H, V>>;
+    LatticeGraph<N, E, ConstHexOffsetShape<B, LoopEW, H, V>>;
 ///Directed Hex Graph with offset based coordinates.
 #[cfg(feature = "const-generic-wrap")]
 pub type DiHexGraphConst<N, E, B, const H: usize, const V: usize> =

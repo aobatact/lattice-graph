@@ -1,10 +1,9 @@
 /*!
 Module for Hex Graph with offset based coordinates.
-Offset coordinate is the coordinate pointing the same offset with underlying [`Offset`](`crate::lattice_abstract::Offset`), 
+Offset coordinate is the coordinate pointing the same offset with underlying [`Offset`](`crate::lattice_abstract::Offset`),
 so converting to the [`Offset`](`crate::lattice_abstract::Offset) to get the weight of node or edge is just validating.
-Though, this might be costly for moving ([`move_coord`](`crate::lattice_abstract::Shape::move_coord`)) the coordinate than [`axial_based`](`super::axial_based`).
+Though, this might be costly for moving the coordinate ([`move_coord`](`crate::lattice_abstract::Shape::move_coord`)) than [`axial_based`](`super::axial_based`).
 */
-
 
 use super::shapes::{DirectedMarker, LoopEW};
 use crate::lattice_abstract::LatticeGraph;

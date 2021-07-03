@@ -20,27 +20,27 @@ Module for Hex Graph with axial coordinates.
 ```
 [`HexGraph`]`<N, E,`[`OddQ`](`super::shapes::OddQ`)`>`
 ```text
-     (1, 1)
-     / |  \
-(0, 1) | (2, 0)       (NW)  N   NE
-  |  \ |  /  |           \  |  /
-  |  (1, 0)  |              C
-  |  /    \  |           /  |  \
-(0, 0)   (2, -1)      (SW) (S)  SE
+     (1, 1)                 N
+     / |  \           (NW)  |   NE
+(0, 1) | (2, 0)          \  |  /
+  |  \ |  /  |              C
+  |  (1, 0)  |           /  |  \
+  |  /    \  |        (SW)  |  SE
+(0, 0)   (2, -1)           (S)
 ```
 [`HexGraph`]`<N, E,`[`EvenQ`](`super::shapes::EvenQ`)`>`
 ```text
-(0, 1)   (2, 1)       (NW)  N   NE
-  |  \    /  |           \  |  /
-  |  (1,  1) |              C
-  |  /  |  \ |           /  |  \
-(0, 0)  | (2, 0)      (SW) (S)  SE
-     \  |  /
-     (1,  0)
+(0, 1)   (2, 1)           N
+  |  \    /  |      (NW)  |   NE
+  |  (1,  1) |         \  |  /
+  |  /  |  \ |            C
+(0, 0)  | (2, 0)       /  |  \
+     \  |  /        (SW)  |  SE
+     (1,  0)             (S)
 ```
 */
 mod shapes;
-use super::shapes::{DirectedMarker, OddR, LoopEW};
+use super::shapes::{DirectedMarker, LoopEW, OddR};
 use crate::lattice_abstract::LatticeGraph;
 pub use shapes::{ConstHexAxialShape, HexAxial, HexAxialShape};
 /// Coordinate for Hex Graph with axial coordinates.

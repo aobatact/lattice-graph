@@ -74,17 +74,24 @@ mod tests {
     use std::{array::IntoIter, mem};
 
     use super::*;
-    use crate::hex::shapes::OddR;
+    use crate::hex::shapes::{AxisR, OddR};
     use petgraph::{data::DataMap, visit::*};
+    use rstest::*;
     type C = HexAxial;
+    type Hex5x5 = HexGraphConst<C, (C, AxisR), OddR, 5, 5>;
+    type Hex5x5Lew = HexGraphConstLoopEW<C, (C, AxisR), OddR, 5, 5>;
 
-    #[test]
-    fn gen_oddr() {
-        let graph = HexGraphConst::<_, _, OddR, 5, 3>::new_with(
-            HexAxialShape::default(),
-            |x| (x),
-            |n, d| Some((n, d)),
-        );
+    #[fixture]
+    fn hexgraph_oddr55() -> Hex5x5 {
+        Hex5x5::new_with(HexAxialShape::default(), |x| (x), |n, d| Some((n, d)))
+    }
+    #[fixture]
+    fn hexgraph_oddr55_lew() -> Hex5x5Lew {
+        Hex5x5Lew::new_with(HexAxialShape::default(), |x| (x), |n, d| Some((n, d)))
+    }
+    #[rstest]
+    fn gen_oddr(hexgraph_oddr55: Hex5x5) {
+        let graph = hexgraph_oddr55;
         for i in 0..graph.node_count() {
             let x = graph.from_index(i);
             assert_eq!(Some(&x), graph.node_weight(x));
@@ -92,81 +99,69 @@ mod tests {
         assert_eq!(0, mem::size_of_val(graph.shape()))
     }
 
-    #[test]
-    fn neighbors_oddr() {
-        let graph = HexGraphConst::<_, _, OddR, 5, 5>::new_with(
-            HexAxialShape::default(),
-            |x| (x),
-            |n, d| Some((n, d)),
-        );
-        let e = graph.neighbors(C::new(0, 0));
-        debug_assert!(e.eq(IntoIter::new([C::new(0, 1), C::new(1, 0)])));
-
-        let e = graph.neighbors(C::new(4, 0));
-        debug_assert!(e.eq(IntoIter::new([C::new(4, 1), C::new(3, 0), C::new(3, 1)])));
-
-        let e = graph.neighbors(C::new(1, 1));
-        debug_assert!(e.eq(IntoIter::new([
-            C::new(1, 2),
-            C::new(2, 1),
-            C::new(2, 0),
-            C::new(1, 0),
-            C::new(0, 1),
-            C::new(0, 2),
-        ])));
-
-        let e = graph.neighbors(C::new(1, 2));
-        debug_assert!(e.eq(IntoIter::new([
-            C::new(1, 3),
-            C::new(2, 2),
-            C::new(2, 1),
-            C::new(1, 1),
-            C::new(0, 2),
-            C::new(0, 3),
-        ])));
+    #[rstest]
+    #[case(C::new(0, 0),IntoIter::new([C::new(0, 1), C::new(1, 0)]) )]
+    #[case(C::new(4, 0),IntoIter::new([C::new(4, 1), C::new(3, 0), C::new(3, 1)]) )]
+    #[case(C::new(1, 1),IntoIter::new([
+        C::new(1, 2),
+        C::new(2, 1),
+        C::new(2, 0),
+        C::new(1, 0),
+        C::new(0, 1),
+        C::new(0, 2),
+    ]) )]
+    #[case(C::new(1, 2),IntoIter::new([
+        C::new(1, 3),
+        C::new(2, 2),
+        C::new(2, 1),
+        C::new(1, 1),
+        C::new(0, 2),
+        C::new(0, 3),
+    ]) )]
+    fn neighbors_oddr(
+        hexgraph_oddr55: Hex5x5,
+        #[case] target: C,
+        #[case] neighbors: impl Iterator<Item = C>,
+    ) {
+        let graph = hexgraph_oddr55;
+        let e = graph.neighbors(target);
+        debug_assert!(e.eq(neighbors));
     }
 
-    #[test]
-    fn neighbors_oddr_lew() {
-        let graph = HexGraphConstLoopEW::<_, _, OddR, 5, 5>::new_with(
-            HexAxialShape::default(),
-            |x| (x),
-            |n, d| Some((n, d)),
-        );
-        let e = graph.neighbors(C::new(0, 0));
-        debug_assert!(e.eq(IntoIter::new([
-            C::new(0, 1),
-            C::new(1, 0),
-            C::new(4, 0),
-            C::new(4, 1)
-        ])));
-
-        let e = graph.neighbors(C::new(4, 0));
-        debug_assert!(e.eq(IntoIter::new([
-            C::new(4, 1),
-            C::new(0, 0),
-            C::new(3, 0),
-            C::new(3, 1)
-        ])));
-
-        let e = graph.neighbors(C::new(1, 1));
-        debug_assert!(e.eq(IntoIter::new([
-            C::new(1, 2),
-            C::new(2, 1),
-            C::new(2, 0),
-            C::new(1, 0),
-            C::new(0, 1),
-            C::new(0, 2),
-        ])));
-
-        let e = graph.neighbors(C::new(1, 2));
-        debug_assert!(e.eq(IntoIter::new([
-            C::new(1, 3),
-            C::new(2, 2),
-            C::new(2, 1),
-            C::new(1, 1),
-            C::new(0, 2),
-            C::new(0, 3),
-        ])));
+    #[rstest]
+    #[case(C::new(0, 0), IntoIter::new([
+        C::new(0, 1),
+        C::new(1, 0),
+        C::new(4, 0),
+        C::new(4, 1)]) )]
+    #[case(C::new(4, 0), IntoIter::new([
+        C::new(4, 1),
+        C::new(0, 0),
+        C::new(3, 0),
+        C::new(3, 1)]) )]
+    #[case(C::new(1, 1), IntoIter::new([
+        C::new(1, 2),
+        C::new(2, 1),
+        C::new(2, 0),
+        C::new(1, 0),
+        C::new(0, 1),
+        C::new(0, 2),
+    ]) )]
+    #[case(C::new(1, 2), IntoIter::new([
+        C::new(1, 3),
+        C::new(2, 2),
+        C::new(2, 1),
+        C::new(1, 1),
+        C::new(0, 2),
+        C::new(0, 3),
+    ]) )]
+    fn neighbors_oddr_lew(
+        hexgraph_oddr55_lew: Hex5x5Lew,
+        #[case] target: C,
+        #[case] neighbors: impl Iterator<Item = C>,
+    ) {
+        let graph = hexgraph_oddr55_lew;
+        let e = graph.neighbors(target);
+        debug_assert!(e.eq(neighbors));
     }
 }

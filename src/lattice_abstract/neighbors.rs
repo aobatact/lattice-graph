@@ -22,29 +22,6 @@ impl<'a, N, E, S, C> Neighbors<'a, N, E, S, C> {
     }
 }
 
-impl<'a, N, E, S, C, D> Neighbors<'a, N, E, S, C>
-where
-    C: Copy,
-    S: Shape<Coordinate = C>,
-    S::Axis: Axis<Direction = D>,
-    D: AxisDirection + Clone,
-{
-    #[allow(dead_code)]
-    fn next_cd(&mut self) -> Option<(C, D)> {
-        while self.state < S::Axis::DIRECTED_COUNT {
-            unsafe {
-                let d = D::dir_from_index_unchecked(self.state);
-                let n = self.graph.s.move_coord(self.node, d.clone());
-                self.state += 1;
-                if let Ok(target) = n {
-                    return Some((target, d));
-                }
-            }
-        }
-        None
-    }
-}
-
 impl<'a, N, E, S, C, D> Iterator for Neighbors<'a, N, E, S, C>
 where
     C: Copy,

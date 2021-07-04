@@ -56,9 +56,13 @@ pub trait Shape {
     }
 
     /// Edge count of horizontal. May differ by the axis info.
-    fn horizontal_edge_size(&self, axis: Self::Axis) -> usize;
+    fn horizontal_edge_size(&self, _axis: Self::Axis) -> usize {
+        self.horizontal()
+    }
     /// Edge count of vertical. May differ by the axis info.
-    fn vertical_edge_size(&self, axis: Self::Axis) -> usize;
+    fn vertical_edge_size(&self, _axis: Self::Axis) -> usize {
+        self.vertical()
+    }
     /// Move coordinate to direction.
     fn move_coord(
         &self,

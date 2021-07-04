@@ -8,6 +8,7 @@ license = "MPL-2.0"
 keywords = ["graph", "graph-algorithms", "data-structure"]
 categories = ["data-structures", "game-development"]
 description = "Set of Lattice(Grid) based Graph Structures"
+repository = "https://github.com/aobatact/lattice-graph"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -23,6 +24,7 @@ const-generic-wrap = { version = "0.3", default-features = false, optional = tru
 criterion = "0.3.4"
 rand = "0.8.0"
 const-generic-wrap = { version = "0.3"}
+rstest = "0.10.0"
 
 [[bench]]
 name = "bench"

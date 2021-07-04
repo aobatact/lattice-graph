@@ -1,8 +1,17 @@
-//! Just for testing Abstract Lattice Graph. Recommend to use specialized [`SquareGraph`](`crate::SquareGraph`).
+//! Square graph using Abstract Lattice Graph. If you want a undirected square graph, it is recommended to use specialized [`SquareGraph`](`crate::SquareGraph`).
+//! Use this for directed graph or square with diagonal direction graph.
 
 use super::*;
+use petgraph::{Directed, Undirected};
 
+/// Undirected Square Graph based on [`LatticeGraph`], recommended to use [`SquareGraph`](`crate::SquareGraph`) instead.
 pub type SquareGraphAbstract<N, E> = LatticeGraph<N, E, SquareShape>;
+/// Directed Square Graph based on [`LatticeGraph`].
+pub type DirectedSquareGraph<N, E> = LatticeGraph<N, E, SquareShape<Directed>>;
+/// Undirected Square Graph with edge to diagonal direction.
+pub type DiagonalSquareGraph<N, E> = LatticeGraph<N, E, SquareDiagonalShape>;
+/// Directed Square Graph with edge to diagonal direction.
+pub type DirectedDiagonalSquareGraph<N, E> = LatticeGraph<N, E, SquareDiagonalShape<Directed>>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SquareAxis {
@@ -13,7 +22,7 @@ pub enum SquareAxis {
 impl Axis for SquareAxis {
     const COUNT: usize = 2;
     const DIRECTED: bool = false;
-    type Direction = Direction<Self>;
+    type Direction = DirectedSquareAxis;
     const DIRECTED_COUNT: usize = if Self::DIRECTED {
         Self::COUNT
     } else {
@@ -48,20 +57,20 @@ impl Axis for SquareAxis {
     }
 
     fn foward(self) -> Self::Direction {
-        Direction::Foward(self.clone())
+        unsafe { DirectedSquareAxis::from_index_unchecked(self.to_index()) }
     }
 
     fn backward(self) -> Self::Direction {
-        Direction::Backward(self.clone())
+        unsafe { DirectedSquareAxis::from_index_unchecked(self.to_index() + 2) }
     }
 
     fn from_direction(dir: Self::Direction) -> Self {
-        match dir {
-            Direction::Foward(a) | Direction::Backward(a) => a,
-        }
+        let i = dir.dir_to_index();
+        unsafe { Self::from_index_unchecked(if i >= 2 { i - 2 } else { i }) }
     }
 }
 
+/// Offset for square lattice graph.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct SquareOffset(pub Offset);
@@ -85,15 +94,43 @@ impl Coordinate for SquareOffset {}
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 
-pub struct SquareShape {
+pub struct SquareShape<E = Undirected> {
     h: usize,
     v: usize,
+    e: PhantomData<E>,
 }
 
-impl SquareShape {
+impl<E> SquareShape<E> {
+    /// Create a new graph.
     pub fn new(h: usize, v: usize) -> Self {
-        Self { h, v }
+        Self {
+            h,
+            v,
+            e: PhantomData,
+        }
     }
+}
+
+fn range_check<S: Shape>(s: S, coord: SquareOffset) -> Result<Offset, ()> {
+    if coord.0.horizontal < s.horizontal() && coord.0.vertical < s.vertical() {
+        Ok(coord.0)
+    } else {
+        Err(())
+    }
+}
+
+fn move_coord<S: Shape>(
+    s: S,
+    coord: SquareOffset,
+    dir: DirectedSquareAxis,
+) -> Result<SquareOffset, ()> {
+    let o = match dir {
+        DirectedSquareAxis::X => coord.0.add_x(1).check_x(s.horizontal()),
+        DirectedSquareAxis::Y => coord.0.add_y(1).check_y(s.vertical()),
+        DirectedSquareAxis::RX => coord.0.sub_x(1),
+        DirectedSquareAxis::RY => coord.0.sub_y(1),
+    };
+    o.map(|s| SquareOffset(s)).ok_or_else(|| ())
 }
 
 impl Shape for SquareShape {
@@ -104,11 +141,7 @@ impl Shape for SquareShape {
 
     #[inline]
     fn to_offset(&self, coord: Self::Coordinate) -> Result<Offset, ()> {
-        if coord.0.horizontal < self.horizontal() && coord.0.vertical < self.vertical() {
-            Ok(coord.0)
-        } else {
-            Err(())
-        }
+        range_check(self, coord)
     }
 
     #[inline]
@@ -147,24 +180,377 @@ impl Shape for SquareShape {
         }
     }
 
-    fn move_coord(
-        &self,
-        coord: SquareOffset,
-        dir: Direction<SquareAxis>,
-    ) -> Result<SquareOffset, ()> {
-        let o = match dir {
-            Direction::Foward(SquareAxis::X) => coord.0.add_x(1).check_x(self.h),
-            Direction::Foward(SquareAxis::Y) => coord.0.add_y(1).check_y(self.v),
-            Direction::Backward(SquareAxis::X) => coord.0.sub_x(1),
-            Direction::Backward(SquareAxis::Y) => coord.0.sub_y(1),
-        };
-        o.map(|s| SquareOffset(s)).ok_or_else(|| ())
+    fn move_coord(&self, coord: SquareOffset, dir: DirectedSquareAxis) -> Result<SquareOffset, ()> {
+        move_coord(self, coord, dir)
     }
 }
 
-impl EdgeType for SquareShape {
+impl<E: EdgeType> EdgeType for SquareShape<E> {
     fn is_directed() -> bool {
-        <Self as Shape>::Axis::DIRECTED
+        E::is_directed()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum DirectedSquareAxis {
+    X = 0,
+    Y = 1,
+    RX = 2,
+    RY = 3,
+}
+
+impl Axis for DirectedSquareAxis {
+    const COUNT: usize = 4;
+    const DIRECTED: bool = true;
+    type Direction = Self;
+
+    fn to_index(&self) -> usize {
+        match self {
+            DirectedSquareAxis::X => 0,
+            DirectedSquareAxis::Y => 1,
+            DirectedSquareAxis::RX => 2,
+            DirectedSquareAxis::RY => 3,
+        }
+    }
+
+    fn from_index(index: usize) -> Option<Self> {
+        Some(match index {
+            0 => DirectedSquareAxis::X,
+            1 => DirectedSquareAxis::Y,
+            2 => DirectedSquareAxis::RX,
+            3 => DirectedSquareAxis::RY,
+            _ => return None,
+        })
+    }
+
+    fn foward(self) -> Self::Direction {
+        self
+    }
+
+    fn backward(self) -> Self::Direction {
+        let x = self.to_index();
+        let x2 = if x > 2 { x - 2 } else { x + 2 };
+        unsafe { Self::from_index_unchecked(x2) }
+    }
+
+    fn from_direction(dir: Self::Direction) -> Self {
+        dir
+    }
+}
+
+impl Shape for SquareShape<petgraph::Directed> {
+    type Axis = DirectedSquareAxis;
+    type Coordinate = SquareOffset;
+    type OffsetConvertError = ();
+    type CoordinateMoveError = ();
+
+    fn horizontal(&self) -> usize {
+        self.h
+    }
+
+    fn vertical(&self) -> usize {
+        self.v
+    }
+
+    fn to_offset(&self, coord: Self::Coordinate) -> Result<Offset, Self::OffsetConvertError> {
+        range_check(self, coord)
+    }
+
+    fn from_offset(&self, offset: Offset) -> Self::Coordinate {
+        SquareOffset(offset)
+    }
+
+    fn move_coord(
+        &self,
+        coord: Self::Coordinate,
+        dir: DirectedSquareAxis,
+    ) -> Result<Self::Coordinate, Self::CoordinateMoveError> {
+        move_coord(self, coord, dir)
+    }
+}
+
+/// Axis for lattice graph with Square and Diagonal Edge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum SquareDiagonalAxis {
+    N,
+    NE,
+    E,
+    SE,
+}
+
+impl Axis for SquareDiagonalAxis {
+    const COUNT: usize = 4;
+    const DIRECTED: bool = false;
+    const DIRECTED_COUNT: usize = if Self::DIRECTED {
+        Self::COUNT
+    } else {
+        Self::COUNT * 2
+    };
+    type Direction = DirectedSquareDiagonalAxis;
+
+    fn to_index(&self) -> usize {
+        match self {
+            SquareDiagonalAxis::N => 0,
+            SquareDiagonalAxis::NE => 1,
+            SquareDiagonalAxis::E => 2,
+            SquareDiagonalAxis::SE => 3,
+        }
+    }
+
+    fn from_index(index: usize) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        Some(match index {
+            0 => SquareDiagonalAxis::N,
+            1 => SquareDiagonalAxis::NE,
+            2 => SquareDiagonalAxis::E,
+            3 => SquareDiagonalAxis::SE,
+            _ => return None,
+        })
+    }
+
+    fn foward(self) -> Self::Direction {
+        unsafe { DirectedSquareDiagonalAxis::from_index_unchecked(self.to_index()) }
+    }
+
+    fn backward(self) -> Self::Direction {
+        unsafe { DirectedSquareDiagonalAxis::from_index_unchecked(self.to_index() + 4) }
+    }
+
+    fn from_direction(dir: Self::Direction) -> Self {
+        unsafe {
+            let i = dir.to_index();
+            Self::from_index_unchecked(if i < 4 { i } else { i - 4 })
+        }
+    }
+}
+
+/// Axis for lattice graph with Square and Diagonal Edge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum DirectedSquareDiagonalAxis {
+    N,
+    NE,
+    E,
+    SE,
+    S,
+    SW,
+    W,
+    NW,
+}
+
+impl Axis for DirectedSquareDiagonalAxis {
+    const COUNT: usize = 8;
+    const DIRECTED: bool = true;
+    const DIRECTED_COUNT: usize = if Self::DIRECTED {
+        Self::COUNT
+    } else {
+        Self::COUNT * 2
+    };
+    type Direction = Self;
+
+    fn to_index(&self) -> usize {
+        match self {
+            DirectedSquareDiagonalAxis::N => 0,
+            DirectedSquareDiagonalAxis::NE => 1,
+            DirectedSquareDiagonalAxis::E => 2,
+            DirectedSquareDiagonalAxis::SE => 3,
+            DirectedSquareDiagonalAxis::S => 4,
+            DirectedSquareDiagonalAxis::SW => 5,
+            DirectedSquareDiagonalAxis::W => 6,
+            DirectedSquareDiagonalAxis::NW => 7,
+        }
+    }
+
+    unsafe fn from_index_unchecked(index: usize) -> Self {
+        match index {
+            0 => DirectedSquareDiagonalAxis::N,
+            1 => DirectedSquareDiagonalAxis::NE,
+            2 => DirectedSquareDiagonalAxis::E,
+            3 => DirectedSquareDiagonalAxis::SE,
+            4 => DirectedSquareDiagonalAxis::S,
+            5 => DirectedSquareDiagonalAxis::SW,
+            6 => DirectedSquareDiagonalAxis::W,
+            7 => DirectedSquareDiagonalAxis::NW,
+            _ => core::hint::unreachable_unchecked(),
+        }
+    }
+
+    fn from_index(index: usize) -> Option<Self> {
+        Some(match index {
+            0 => DirectedSquareDiagonalAxis::N,
+            1 => DirectedSquareDiagonalAxis::NE,
+            2 => DirectedSquareDiagonalAxis::E,
+            3 => DirectedSquareDiagonalAxis::SE,
+            4 => DirectedSquareDiagonalAxis::S,
+            5 => DirectedSquareDiagonalAxis::SW,
+            6 => DirectedSquareDiagonalAxis::W,
+            7 => DirectedSquareDiagonalAxis::NW,
+            _ => return None,
+        })
+    }
+
+    fn foward(self) -> Self::Direction {
+        self
+    }
+
+    fn backward(self) -> Self::Direction {
+        let i = self.to_index();
+        unsafe { Self::from_index_unchecked(if i < 4 { i + 4 } else { i - 4 }) }
+    }
+
+    fn from_direction(dir: Self::Direction) -> Self {
+        dir
+    }
+}
+
+/// Shape for lattice graph with Square and Diagonal Edge.
+pub struct SquareDiagonalShape<E = Undirected> {
+    h: usize,
+    v: usize,
+    e: PhantomData<E>,
+}
+
+impl<E> SquareDiagonalShape<E> {
+    /// Create a new graph.
+    pub fn new(h: usize, v: usize) -> Self {
+        Self {
+            h,
+            v,
+            e: PhantomData,
+        }
+    }
+}
+
+impl Shape for SquareDiagonalShape {
+    type Axis = SquareDiagonalAxis;
+    type Coordinate = SquareOffset;
+    type OffsetConvertError = ();
+    type CoordinateMoveError = ();
+
+    fn horizontal(&self) -> usize {
+        self.h
+    }
+
+    fn vertical(&self) -> usize {
+        self.v
+    }
+
+    fn to_offset(&self, coord: Self::Coordinate) -> Result<Offset, Self::OffsetConvertError> {
+        if coord.0.horizontal < self.horizontal() && coord.0.vertical < self.vertical() {
+            Ok(coord.0)
+        } else {
+            Err(())
+        }
+    }
+
+    unsafe fn to_offset_unchecked(&self, coord: Self::Coordinate) -> Offset {
+        coord.0
+    }
+
+    fn from_offset(&self, offset: Offset) -> Self::Coordinate {
+        SquareOffset(offset)
+    }
+
+    fn move_coord(
+        &self,
+        coord: Self::Coordinate,
+        dir: DirectedSquareDiagonalAxis,
+    ) -> Result<Self::Coordinate, Self::CoordinateMoveError> {
+        let offset = coord.0;
+        match dir {
+            DirectedSquareDiagonalAxis::N => offset.add_y(1).check_y(self.vertical()),
+            DirectedSquareDiagonalAxis::NE => offset
+                .add_x(1)
+                .check_x(self.horizontal())
+                .map(|o| o.add_y(1).check_y(self.vertical()))
+                .flatten(),
+            DirectedSquareDiagonalAxis::E => offset.add_x(1).check_x(self.horizontal()),
+            DirectedSquareDiagonalAxis::SE => offset
+                .add_x(1)
+                .check_x(self.horizontal())
+                .map(|o| o.sub_y(1))
+                .flatten(),
+
+            DirectedSquareDiagonalAxis::S => offset.sub_y(1),
+            DirectedSquareDiagonalAxis::SW => offset.sub_x(1).map(|o| o.sub_y(1)).flatten(),
+            DirectedSquareDiagonalAxis::W => offset.sub_x(1),
+            DirectedSquareDiagonalAxis::NW => offset
+                .sub_x(1)
+                .map(|o| o.add_y(1).check_y(self.vertical()))
+                .flatten(),
+        }
+        .map(|x| SquareOffset(x))
+        .ok_or(())
+    }
+}
+
+impl Shape for SquareDiagonalShape<Directed> {
+    type Axis = DirectedSquareDiagonalAxis;
+    type Coordinate = SquareOffset;
+    type OffsetConvertError = ();
+    type CoordinateMoveError = ();
+
+    fn horizontal(&self) -> usize {
+        self.h
+    }
+
+    fn vertical(&self) -> usize {
+        self.v
+    }
+
+    fn to_offset(&self, coord: Self::Coordinate) -> Result<Offset, Self::OffsetConvertError> {
+        if coord.0.horizontal < self.horizontal() && coord.0.vertical < self.vertical() {
+            Ok(coord.0)
+        } else {
+            Err(())
+        }
+    }
+
+    unsafe fn to_offset_unchecked(&self, coord: Self::Coordinate) -> Offset {
+        coord.0
+    }
+
+    fn from_offset(&self, offset: Offset) -> Self::Coordinate {
+        SquareOffset(offset)
+    }
+
+    fn move_coord(
+        &self,
+        coord: Self::Coordinate,
+        dir: DirectedSquareDiagonalAxis,
+    ) -> Result<Self::Coordinate, Self::CoordinateMoveError> {
+        let offset = coord.0;
+        match dir {
+            DirectedSquareDiagonalAxis::N => offset.add_y(1).check_y(self.vertical()),
+            DirectedSquareDiagonalAxis::NE => offset
+                .add_x(1)
+                .check_x(self.horizontal())
+                .map(|o| o.add_y(1).check_y(self.vertical()))
+                .flatten(),
+            DirectedSquareDiagonalAxis::E => offset.add_x(1).check_x(self.horizontal()),
+            DirectedSquareDiagonalAxis::SE => offset
+                .add_x(1)
+                .check_x(self.horizontal())
+                .map(|o| o.sub_y(1))
+                .flatten(),
+
+            DirectedSquareDiagonalAxis::S => offset.sub_y(1),
+            DirectedSquareDiagonalAxis::SW => offset.sub_x(1).map(|o| o.sub_y(1)).flatten(),
+            DirectedSquareDiagonalAxis::W => offset.sub_x(1),
+            DirectedSquareDiagonalAxis::NW => offset
+                .sub_x(1)
+                .map(|o| o.add_y(1).check_y(self.vertical()))
+                .flatten(),
+        }
+        .map(|x| SquareOffset(x))
+        .ok_or(())
+    }
+}
+
+impl<E: EdgeType> EdgeType for SquareDiagonalShape<E> {
+    fn is_directed() -> bool {
+        E::is_directed()
     }
 }
 

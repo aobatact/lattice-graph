@@ -15,10 +15,23 @@ pub struct HexAxial<S = ()> {
     s: S,
 }
 
+impl<S> HexAxial<S> {
+    /// Get a reference to the hex axial's r.
+    pub fn r(&self) -> isize {
+        self.r
+    }
+
+    /// Get a reference to the hex axial's q.
+    pub fn q(&self) -> isize {
+        self.q
+    }
+}
+
 impl<S> HexAxial<S>
 where
     S: Default,
 {
+    ///Creates a new Coordinate.
     pub fn new(r: isize, q: isize) -> Self {
         Self {
             q,
@@ -122,6 +135,7 @@ pub struct HexAxialShape<ShapeBase, Loop, H = usize, V = usize> {
 }
 
 impl<ShapeBase, Loop, H, V> HexAxialShape<ShapeBase, Loop, H, V> {
+    /// Create a new shape.
     pub fn new(h: H, v: V) -> Self {
         Self {
             h,
@@ -244,7 +258,7 @@ where
     }
 }
 
-impl<B, H, V> Shape for HexAxialShape<B, LEW, H, V>
+impl<B, H, V> Shape for HexAxialShape<B, LoopEW, H, V>
 where
     B: HexAxialShapeBase,
     H: Clone + Into<usize>,

@@ -81,7 +81,14 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
                     continue;
                 }
                 if let Some(ex) = e(c, a) {
-                    edges[j].mut_2d()[offset.horizontal][offset.vertical] = ex;
+                    let t = edges[j]
+                        .mut_2d()
+                        .get_mut(offset.horizontal)
+                        .map(|x| x.get_mut(offset.vertical))
+                        .flatten();
+                    t.map(|x| {
+                        unsafe { std::ptr::write(x, ex) };
+                    });
                 }
             }
         }

@@ -74,7 +74,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
         for i in 0..s.node_count() {
             let offset = s.index_to_offset(i);
             let c = s.from_offset(offset);
-            nodes[i] = n(c);
+            unsafe { std::ptr::write(nodes.get_unchecked_mut(i), n(c)) }
             for j in 0..S::Axis::COUNT {
                 let a = unsafe { <S::Axis as Axis>::from_index_unchecked(j) };
                 if s.move_coord(c, a.foward()).is_err() {

@@ -187,6 +187,17 @@ where
             }
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let node_len = self.g.node_count() - self.index;
+        let maxlen = node_len * S::Axis::DIRECTED_COUNT
+            + self
+                .e
+                .as_ref()
+                .map(|x| x.size_hint().1.unwrap_or(0))
+                .unwrap_or(0);
+        (0, Some(maxlen))
+    }
 }
 
 impl<'a, N, E, S, C, D, A> FusedIterator for EdgeReferences<'a, N, E, S, C>

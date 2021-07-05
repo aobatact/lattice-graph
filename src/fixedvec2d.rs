@@ -75,8 +75,11 @@ impl<T> FixedVec2D<T> {
         let mut ar = unsafe { Self::new_uninit(h, v) };
         let s2d = ar.mut_2d();
         for i in 0..h.get() {
-            for j in 0..v {
-                s2d[i][j] = (&mut f)(i, j);
+            unsafe {
+                let si = s2d.get_unchecked_mut(i);
+                for j in 0..v {
+                    core::ptr::write(si.get_unchecked_mut(j), (&mut f)(i, j));
+                }
             }
         }
         ar

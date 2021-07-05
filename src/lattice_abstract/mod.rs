@@ -194,8 +194,17 @@ impl<N, E, S: Shape> DataMapMut for LatticeGraph<N, E, S> {
     }
 }
 
-impl<N, E, S: Shape + EdgeType> GraphProp for LatticeGraph<N, E, S> {
-    type EdgeType = S;
+///Wrapper for [`Axis`] to be [`EdgeType`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct EdgeTypeWrap<A>(PhantomData<A>);
+impl<A: Axis> EdgeType for EdgeTypeWrap<A> {
+    fn is_directed() -> bool {
+        A::DIRECTED
+    }
+}
+
+impl<N, E, S: Shape> GraphProp for LatticeGraph<N, E, S> {
+    type EdgeType = EdgeTypeWrap<S::Axis>;
 }
 
 /// [`VisitMap`] of [`LatticeGraph`].

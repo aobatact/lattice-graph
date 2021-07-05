@@ -1,6 +1,6 @@
 use std::iter::FusedIterator;
 
-use petgraph::visit::IntoNeighbors;
+use petgraph::visit::{GetAdjacencyMatrix, IntoNeighbors};
 
 use super::*;
 
@@ -32,7 +32,6 @@ where
     type Item = C;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // self.next_cd().map(|(c, _)| c)
         while self.state < S::Axis::DIRECTED_COUNT {
             unsafe {
                 let d = D::dir_from_index_unchecked(self.state);
@@ -72,5 +71,25 @@ where
 
     fn neighbors(self: Self, a: Self::NodeId) -> Self::Neighbors {
         Neighbors::new(self, a)
+    }
+}
+
+impl<N, E, S, C> GetAdjacencyMatrix for LatticeGraph<N, E, S>
+where
+    C: Copy + PartialEq,
+    S: Shape<Coordinate = C>,
+{
+    type AdjMatrix = ();
+    fn adjacency_matrix(self: &Self) -> Self::AdjMatrix {
+        ()
+    }
+
+    fn is_adjacent(
+        self: &Self,
+        _matrix: &Self::AdjMatrix,
+        a: Self::NodeId,
+        b: Self::NodeId,
+    ) -> bool {
+        self.s.is_neighbor(a, b)
     }
 }

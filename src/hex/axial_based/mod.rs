@@ -40,7 +40,8 @@ Module for Hex Graph with axial coordinates.
 ```
 */
 mod shapes;
-use super::shapes::{DirectedMarker, LoopEW, OddR};
+pub use super::shapes::*;
+pub use crate::lattice_abstract::shapes::*;
 use crate::lattice_abstract::LatticeGraph;
 pub use shapes::{ConstHexAxialShape, HexAxial, HexAxialShape};
 /// Coordinate for Hex Graph with axial coordinates.

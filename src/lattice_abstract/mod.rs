@@ -8,7 +8,7 @@ use petgraph::{
     visit::{Data, GraphBase, GraphProp, NodeCount, VisitMap, Visitable},
     EdgeType,
 };
-use std::{marker::PhantomData, num::NonZeroUsize, usize};
+use std::{marker::PhantomData, mem::MaybeUninit, num::NonZeroUsize, usize};
 mod edges;
 pub use edges::*;
 mod neighbors;
@@ -36,6 +36,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
     }
 
     /// Creates a graph with uninitalized node and edge weight data.
+    /// It is extremely unsafe so should use with [`MaybeUninit`](`core::mem::MaybeUninit`) and use [`assume_init`](`Self::assume_init`).
     pub unsafe fn new_uninit(s: S) -> Self {
         let nodes =
             FixedVec2D::<N>::new_uninit(NonZeroUsize::new(s.horizontal()).unwrap(), s.vertical());
@@ -54,11 +55,35 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
     /// Creates a graph with node and edge weight data set to [`default`](`Default::default`).
     pub fn new(s: S) -> Self
     where
-        S: Clone,
         N: Default,
         E: Default,
     {
-        Self::new_with(s.clone(), |_| N::default(), |_, _| Some(E::default()))
+        unsafe {
+            let mut uninit = Self::new_uninit(s);
+            if std::mem::needs_drop::<N>() {
+                uninit
+                    .nodes
+                    .mut_1d()
+                    .iter_mut()
+                    .for_each(|x| std::ptr::write(x, N::default()));
+            } else {
+                uninit.nodes.mut_1d().fill_with(|| N::default());
+            }
+            if std::mem::needs_drop::<E>() {
+                uninit
+                    .edges
+                    .iter_mut()
+                    .map(|e| e.mut_1d())
+                    .flatten()
+                    .for_each(|e| std::ptr::write(e, E::default()));
+            } else {
+                let _ = uninit
+                    .edges
+                    .iter_mut()
+                    .for_each(|e| e.mut_1d().fill_with(|| E::default()));
+            }
+            uninit
+        }
     }
 
     /// Creates a graph with node and edge weight data from the coordinate.
@@ -98,6 +123,63 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
     /// Get a reference to the lattice graph's s.
     pub fn shape(&self) -> &S {
         &self.s
+    }
+}
+
+impl<N, E, S: Shape + Default> LatticeGraph<N, E, S> {
+    /// Creates a graph with node and edge weight data set to [`default`](`Default::default`) with [`Shape`] from default.
+    pub fn new_s() -> Self
+    where
+        N: Default,
+        E: Default,
+    {
+        Self::new(S::default())
+    }
+
+    /// Creates a graph with node and edge weight data set to [`default`](`Default::default`)   
+    /// Creates a graph with uninitalized node and edge weight data with [`Shape`] from default.  
+    /// It is extremely unsafe so should use with [`MaybeUninit`](`core::mem::MaybeUninit`) and use [`assume_init`](`Self::assume_init`).
+    pub unsafe fn new_uninit_s() -> Self {
+        Self::new_uninit(S::default())
+    }
+
+    /// Creates a graph with node and edge weight data from the coordinate with [`Shape`] from default.
+    pub fn new_with_s<FN, FE>(n: FN, e: FE) -> Self
+    where
+        S: Clone,
+        FN: FnMut(S::Coordinate) -> N,
+        FE: FnMut(S::Coordinate, S::Axis) -> Option<E>,
+    {
+        Self::new_with(S::default(), n, e)
+    }
+}
+
+impl<N, E, S: Shape> LatticeGraph<MaybeUninit<N>, MaybeUninit<E>, S> {
+    /**
+    Assume the underlying nodes and edges to be initialized.
+    ```
+    # use lattice_graph::hex::axial_based::*;
+    # use core::mem::MaybeUninit;
+    # use petgraph::data::*;
+    let mut hex = unsafe { HexGraphConst::<MaybeUninit<f32>, MaybeUninit<()>, OddR, 5, 5>::new_uninit_s() };
+    for i in 0..5{
+        for j in 0..5{
+            let offset = Offset::new(i, j);
+            let coord = hex.shape().from_offset(offset);
+            if let Some(ref mut n) = hex.node_weight_mut(coord){
+                **n = MaybeUninit::new((i + j) as f32);
+            }
+        }
+    }
+    let hex_init = unsafe{ hex.assume_init() };
+    ```
+    */
+    pub unsafe fn assume_init(self) -> LatticeGraph<N, E, S> {
+        LatticeGraph {
+            nodes: self.nodes.assume_init(),
+            edges: self.edges.into_iter().map(|e| e.assume_init()).collect(),
+            s: self.s,
+        }
     }
 }
 

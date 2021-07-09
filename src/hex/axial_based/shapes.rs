@@ -224,15 +224,15 @@ where
     fn from_offset(&self, offset: crate::lattice_abstract::Offset) -> Self::Coordinate {
         if B::IS_FLAT_TOP {
             HexAxial::new(
-                offset.horizontal() as isize
-                    - ((offset.vertical() + B::CONVERT_OFFSET) / 2) as isize,
-                offset.vertical() as isize,
-            )
-        } else {
-            HexAxial::new(
                 offset.horizontal() as isize,
                 offset.vertical() as isize
                     - ((offset.horizontal() + B::CONVERT_OFFSET) / 2) as isize,
+            )
+        } else {
+            HexAxial::new(
+                offset.horizontal() as isize
+                    - ((offset.vertical() + B::CONVERT_OFFSET) / 2) as isize,
+                offset.vertical() as isize,
             )
         }
     }

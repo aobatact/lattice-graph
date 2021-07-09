@@ -1,6 +1,7 @@
 /*!
 Module for Hex Graph with axial coordinates.
 
+
 ## Example
 [`HexGraph`]`<N, E,`[`OddR`](`super::shapes::OddR`)`>`
 ```text

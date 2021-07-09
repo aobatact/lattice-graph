@@ -302,6 +302,7 @@ where
     H: Into<usize> + Copy,
     V: Into<usize> + Copy,
 {
+    /// Create a new shape.
     pub fn new(h: H, v: V) -> Self {
         Self {
             h,

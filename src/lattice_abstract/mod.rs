@@ -304,7 +304,7 @@ pub struct VisMap<S> {
 }
 
 impl<S: Shape> VisMap<S> {
-    pub fn new(s: S) -> Self {
+    pub(crate) fn new(s: S) -> Self {
         let h = s.horizontal();
         let v = s.vertical();
         let mut vec = Vec::with_capacity(h);

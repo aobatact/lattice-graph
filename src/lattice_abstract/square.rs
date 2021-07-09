@@ -13,6 +13,7 @@ pub type DiagonalSquareGraph<N, E> = LatticeGraph<N, E, SquareDiagonalShape>;
 /// Directed Square Graph with edge to diagonal direction.
 pub type DirectedDiagonalSquareGraph<N, E> = LatticeGraph<N, E, SquareDiagonalShape<Directed>>;
 
+/// Axis for square graph.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SquareAxis {
     X = 0,
@@ -93,7 +94,7 @@ impl From<(usize, usize)> for SquareOffset {
 impl Coordinate for SquareOffset {}
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-
+/// Shape for Square Graph.
 pub struct SquareShape<E = Undirected> {
     h: usize,
     v: usize,
@@ -185,12 +186,7 @@ impl Shape for SquareShape {
     }
 }
 
-impl<E: EdgeType> EdgeType for SquareShape<E> {
-    fn is_directed() -> bool {
-        E::is_directed()
-    }
-}
-
+/// Axis for directed square graph.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DirectedSquareAxis {
     X = 0,
@@ -545,12 +541,6 @@ impl Shape for SquareDiagonalShape<Directed> {
         }
         .map(|x| SquareOffset(x))
         .ok_or(())
-    }
-}
-
-impl<E: EdgeType> EdgeType for SquareDiagonalShape<E> {
-    fn is_directed() -> bool {
-        E::is_directed()
     }
 }
 

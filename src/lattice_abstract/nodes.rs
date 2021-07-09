@@ -1,3 +1,5 @@
+use std::iter::FusedIterator;
+
 use petgraph::visit::{
     IntoNodeIdentifiers, IntoNodeReferences, NodeCompactIndexable, NodeIndexable,
 };
@@ -30,6 +32,10 @@ impl<S: shapes::Shape> Iterator for NodeIndices<S> {
     }
 }
 
+impl<S: shapes::Shape> FusedIterator for NodeIndices<S> {}
+
+impl<S: shapes::Shape> ExactSizeIterator for NodeIndices<S> {}
+
 impl<'a, N, E, S: Shape + Clone> IntoNodeIdentifiers for &'a LatticeGraph<N, E, S> {
     type NodeIdentifiers = NodeIndices<S>;
 
@@ -60,6 +66,10 @@ impl<'a, N, E, S: Shape> Iterator for NodeReferences<'a, N, E, S> {
         }
     }
 }
+
+impl<'a, N, E, S: Shape> FusedIterator for NodeReferences<'a, N, E, S> {}
+
+impl<'a, N, E, S: Shape> ExactSizeIterator for NodeReferences<'a, N, E, S> {}
 
 impl<'a, N, E, S: Shape + Clone> IntoNodeReferences for &'a LatticeGraph<N, E, S> {
     type NodeRef = (<S as Shape>::Coordinate, &'a N);

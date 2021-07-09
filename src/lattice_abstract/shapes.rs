@@ -78,6 +78,35 @@ pub trait Shape {
         self.move_coord(coord, dir)
             .unwrap_or_else(|_| unreachable_debug_checked())
     }
+    ///Check whether coordinate is in neighbor.
+    fn is_neighbor(&self, a: Self::Coordinate, b: Self::Coordinate) -> bool
+    where
+        Self::Coordinate: PartialEq,
+    {
+        self.get_direction(a, b).is_some()
+    }
+    ///Get direction if two coordiante is neighbor.
+    fn get_direction(
+        &self,
+        source: Self::Coordinate,
+        target: Self::Coordinate,
+    ) -> Option<<Self::Axis as Axis>::Direction>
+    where
+        Self::Coordinate: PartialEq,
+    {
+        let a = source;
+        let b = target;
+        for i in 0..<Self::Axis as Axis>::DIRECTED_COUNT {
+            let d = unsafe { <Self::Axis as Axis>::Direction::dir_from_index_unchecked(i) };
+            let c = self.move_coord(a, d.clone());
+            if let Ok(c) = c {
+                if c == b {
+                    return Some(d);
+                }
+            }
+        }
+        None
+    }
 }
 
 impl<S: Shape> Shape for &S {
@@ -148,6 +177,24 @@ impl<S: Shape> Shape for &S {
 
     fn offset_to_index(&self, o: Offset) -> usize {
         (*self).offset_to_index(o)
+    }
+
+    fn is_neighbor(&self, a: Self::Coordinate, b: Self::Coordinate) -> bool
+    where
+        Self::Coordinate: PartialEq,
+    {
+        (*self).is_neighbor(a, b)
+    }
+
+    fn get_direction(
+        &self,
+        source: Self::Coordinate,
+        target: Self::Coordinate,
+    ) -> Option<<Self::Axis as Axis>::Direction>
+    where
+        Self::Coordinate: PartialEq,
+    {
+        (*self).get_direction(source, target)
     }
 }
 

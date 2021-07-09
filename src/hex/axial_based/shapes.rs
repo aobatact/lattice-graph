@@ -214,18 +214,27 @@ where
     unsafe fn to_offset_unchecked(&self, coord: Self::Coordinate) -> Offset {
         if B::IS_FLAT_TOP {
             let v = coord.q + ((coord.r as usize + B::CONVERT_OFFSET) / 2) as isize;
-            return Offset::new(coord.r as usize, v as usize);
+            Offset::new(coord.r as usize, v as usize)
         } else {
             let h = coord.r + ((coord.q as usize + B::CONVERT_OFFSET) / 2) as isize;
-            return Offset::new(h as usize, coord.q as usize);
+            Offset::new(h as usize, coord.q as usize)
         }
     }
 
     fn from_offset(&self, offset: crate::lattice_abstract::Offset) -> Self::Coordinate {
-        HexAxial::new(
-            offset.horizontal() as isize - (offset.vertical() / 2) as isize,
-            offset.vertical() as isize,
-        )
+        if B::IS_FLAT_TOP {
+            HexAxial::new(
+                offset.horizontal() as isize
+                    - ((offset.vertical() + B::CONVERT_OFFSET) / 2) as isize,
+                offset.vertical() as isize,
+            )
+        } else {
+            HexAxial::new(
+                offset.horizontal() as isize,
+                offset.vertical() as isize
+                    - ((offset.horizontal() + B::CONVERT_OFFSET) / 2) as isize,
+            )
+        }
     }
 
     fn horizontal_edge_size(&self, _axis: Self::Axis) -> usize {
@@ -311,15 +320,16 @@ where
             return Err(());
         }
         let min = -((q + B::CONVERT_OFFSET as isize) / 2);
+        let h = self.horizontal() as isize;
         if c.r < min {
             while {
-                c.r += self.horizontal() as isize;
+                c.r += h;
                 c.r < min
             } {}
         } else {
-            let max = self.horizontal() as isize - min;
+            let max = h - min;
             while c.r >= max {
-                c.r -= self.horizontal() as isize;
+                c.r -= h;
             }
         }
 

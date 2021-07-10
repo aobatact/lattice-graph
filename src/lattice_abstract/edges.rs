@@ -71,6 +71,38 @@ pub struct Edges<'a, N, E, S, C> {
     state: usize,
 }
 
+impl<'a, N, E, S, C, D, A> Edges<'a, N, E, S, C>
+where
+    C: Copy,
+    S: Shape<Coordinate = C, Axis = A>,
+    A: Axis<Direction = D>,
+    D: AxisDirection + Clone,
+{
+    fn new(g: &'a LatticeGraph<N, E, S>, a: C) -> Edges<N, E, S, C> {
+        let offset = g.s.to_offset(a);
+        Edges {
+            graph: g,
+            node: a,
+            state: if offset.is_ok() {
+                0
+            } else {
+                S::Axis::DIRECTED_COUNT
+            },
+            offset: offset.unwrap_or_else(|_| unsafe { unreachable_debug_checked() }),
+        }
+    }
+
+    unsafe fn new_unchecked(g: &'a LatticeGraph<N, E, S>, a: C) -> Edges<N, E, S, C> {
+        let offset = g.s.to_offset(a);
+        Edges {
+            graph: g,
+            node: a,
+            state: 0,
+            offset: offset.unwrap_or_else(|_| unreachable_debug_checked()),
+        }
+    }
+}
+
 impl<'a, N, E, S, C, D, A> Iterator for Edges<'a, N, E, S, C>
 where
     C: Copy,
@@ -81,7 +113,7 @@ where
     type Item = EdgeReference<'a, C, E, D, A>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while self.state < S::Axis::DIRECTED_COUNT {
+        while self.state < A::DIRECTED_COUNT {
             unsafe {
                 let d = D::dir_from_index_unchecked(self.state);
                 let n = self.graph.s.move_coord(self.node, d.clone());
@@ -91,12 +123,9 @@ where
                     let (nx, ne) = if A::is_forward_direction(&d) {
                         (self.offset, st)
                     } else {
-                        (
-                            self.graph.s.to_offset_unchecked(target),
-                            st - S::Axis::COUNT,
-                        )
+                        (self.graph.s.to_offset_unchecked(target), st - A::COUNT)
                     };
-                    debug_assert_eq!(S::Axis::from_direction(d.clone()).to_index(), ne);
+                    debug_assert_eq!(A::from_direction(d.clone()).to_index(), ne);
                     //let ne = S::Axis::from_direction(d.clone()).to_index();
                     let e = &self
                         .graph
@@ -143,14 +172,7 @@ where
     type Edges = Edges<'a, N, E, S, C>;
 
     fn edges(self, a: Self::NodeId) -> Self::Edges {
-        let offset = self.s.to_offset(a);
-
-        Edges {
-            graph: self,
-            node: a,
-            state: 0,
-            offset: offset.unwrap_or_else(|_| unsafe { unreachable_debug_checked() }),
-        }
+        Edges::new(self, a)
     }
 }
 
@@ -181,7 +203,8 @@ where
             if self.index < self.g.s.node_count() {
                 let x = self.g.s.from_index(self.index);
                 self.index += 1;
-                self.e = Some(self.g.edges(x));
+                //self.e = Some(self.g.edges(x));
+                self.e = Some(unsafe { Edges::new_unchecked(self.g, x) });
             } else {
                 return None;
             }

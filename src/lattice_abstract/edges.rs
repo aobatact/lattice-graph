@@ -64,7 +64,7 @@ where
 
 /// Edges connected to a node. See [`edges`][`IntoEdges::edges`].
 #[derive(Debug)]
-pub struct Edges<'a, N, E, S, C> {
+pub struct Edges<'a, N, E, S: Shape, C> {
     graph: &'a LatticeGraph<N, E, S>,
     node: C,
     offset: Offset,
@@ -177,7 +177,7 @@ where
 }
 
 /// Iterator for all edges of [`LatticeGraph`]. See [`IntoEdgeReferences`](`IntoEdgeReferences::edge_references`).
-pub struct EdgeReferences<'a, N, E, S, C> {
+pub struct EdgeReferences<'a, N, E, S: Shape, C> {
     g: &'a LatticeGraph<N, E, S>,
     e: Option<Edges<'a, N, E, S, C>>,
     index: usize,

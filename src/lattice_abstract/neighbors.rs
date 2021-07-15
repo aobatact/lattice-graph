@@ -6,13 +6,13 @@ use super::*;
 
 /// Neighbors of the node. See [`neighbors`](`IntoNeighbors::neighbors`).
 #[derive(Debug)]
-pub struct Neighbors<'a, N, E, S, C> {
+pub struct Neighbors<'a, N, E, S: Shape, C> {
     graph: &'a LatticeGraph<N, E, S>,
     node: C,
     state: usize,
 }
 
-impl<'a, N, E, S, C> Neighbors<'a, N, E, S, C> {
+impl<'a, N, E, S: Shape, C> Neighbors<'a, N, E, S, C> {
     pub(crate) fn new(graph: &'a LatticeGraph<N, E, S>, node: C) -> Self {
         Self {
             graph,

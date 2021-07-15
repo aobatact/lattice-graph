@@ -5,10 +5,10 @@ use crate::{fixedvec2d::*, unreachable_debug_checked};
 use fixedbitset::FixedBitSet;
 use petgraph::{
     data::{DataMap, DataMapMut},
-    visit::{Data, GraphBase, GraphProp, NodeCount, VisitMap, Visitable},
+    visit::{Data, GraphBase, GraphProp, IntoNodeIdentifiers, NodeCount, VisitMap, Visitable},
     EdgeType,
 };
-use std::{marker::PhantomData, mem::MaybeUninit, num::NonZeroUsize, usize};
+use std::{marker::PhantomData, mem::MaybeUninit, num::NonZeroUsize, ptr::drop_in_place};
 mod edges;
 pub use edges::*;
 mod neighbors;
@@ -23,7 +23,7 @@ pub mod square;
 /// Abstract Lattice Graph.
 /// It holds the node and edge weight data.
 /// The actural behaviour is dependent on [`Shape`](`shapes::Shape`).
-pub struct LatticeGraph<N, E, S> {
+pub struct LatticeGraph<N, E, S: Shape> {
     nodes: FixedVec2D<N>,
     edges: Vec<FixedVec2D<E>>,
     s: S,
@@ -175,10 +175,34 @@ impl<N, E, S: Shape> LatticeGraph<MaybeUninit<N>, MaybeUninit<E>, S> {
     ```
     */
     pub unsafe fn assume_init(self) -> LatticeGraph<N, E, S> {
+        let md = std::mem::ManuallyDrop::new(self);
         LatticeGraph {
-            nodes: self.nodes.assume_init(),
-            edges: self.edges.into_iter().map(|e| e.assume_init()).collect(),
-            s: self.s,
+            nodes: core::ptr::read(&md.nodes).assume_init(),
+            edges: core::ptr::read(&md.edges)
+                .into_iter()
+                .map(|e| e.assume_init())
+                .collect(),
+            s: core::ptr::read(&md.s),
+        }
+    }
+}
+
+impl<N, E, S: Shape> Drop for LatticeGraph<N, E, S> {
+    fn drop(&mut self) {
+        if std::mem::needs_drop::<E>() {
+            let ni = self.node_identifiers();
+            let s = &self.s;
+            let e = &mut self.edges;
+            unsafe {
+                for (di, edges) in e.drain(..).enumerate() {
+                    let dir = S::Axis::from_index_unchecked(di).foward();
+                    for (coord, mut e) in ni.clone().zip(edges.into_raw()) {
+                        if s.move_coord(coord, dir.clone()).is_ok() {
+                            drop_in_place(&mut e);
+                        }
+                    }
+                }
+            }
         }
     }
 }

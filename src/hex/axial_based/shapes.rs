@@ -44,7 +44,7 @@ where
 impl<S: Copy + Eq> Coordinate for HexAxial<S> {}
 
 /// Defines wheter the hex graph is `flat-top` or `point-top` and is odd or even.
-pub trait HexAxialShapeBase: OE + RQ {
+pub trait HexAxialShapeBase: OE + RQ + Clone {
     type Axis: Axis;
     unsafe fn move_coord_unchecked(
         coord: HexAxial,

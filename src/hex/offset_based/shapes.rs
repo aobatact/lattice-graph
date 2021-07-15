@@ -30,7 +30,7 @@ impl HexOffset {
 
 impl Coordinate for HexOffset {}
 /// Defines wheter the hex graph is `flat-top` or `point-top` and is odd or even.
-pub trait HexOffsetShapeBase {
+pub trait HexOffsetShapeBase: Clone {
     type Axis: Axis;
     fn move_coord(
         horizontal: usize,

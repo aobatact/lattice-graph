@@ -36,7 +36,7 @@ impl<S: shapes::Shape> FusedIterator for NodeIndices<S> {}
 
 impl<S: shapes::Shape> ExactSizeIterator for NodeIndices<S> {}
 
-impl<'a, N, E, S: Shape + Clone> IntoNodeIdentifiers for &'a LatticeGraph<N, E, S> {
+impl<'a, N, E, S: Shape> IntoNodeIdentifiers for &'a LatticeGraph<N, E, S> {
     type NodeIdentifiers = NodeIndices<S>;
 
     fn node_identifiers(self) -> Self::NodeIdentifiers {
@@ -48,7 +48,7 @@ impl<'a, N, E, S: Shape + Clone> IntoNodeIdentifiers for &'a LatticeGraph<N, E, 
 }
 
 /// Iterate all nodes of [`LatticeGraph`]. See [`node_references`](`IntoNodeReferences::node_references`).
-pub struct NodeReferences<'a, N, E, S> {
+pub struct NodeReferences<'a, N, E, S: Shape> {
     graph: &'a LatticeGraph<N, E, S>,
     index: usize,
 }

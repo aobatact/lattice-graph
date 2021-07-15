@@ -401,6 +401,7 @@ impl Axis for DirectedSquareDiagonalAxis {
 }
 
 /// Shape for lattice graph with Square and Diagonal Edge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SquareDiagonalShape<E = Undirected> {
     h: usize,
     v: usize,

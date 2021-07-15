@@ -7,7 +7,7 @@ use crate::unreachable_debug_checked;
 
 /// Shape of the 2d lattice.
 /// It decides the behavior of the coordinate.
-pub trait Shape {
+pub trait Shape: Clone {
     /// Axis of the lattice.
     type Axis: Axis;
     /// Coordinate of the lattice graph.

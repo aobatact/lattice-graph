@@ -320,6 +320,7 @@ impl RQ for EvenQ {
 
 /// Marker to show the graph have loop.
 pub trait LoopMarker {}
+/// No loop marker.
 impl LoopMarker for () {}
 
 ///Marker for E-W direction Loop.

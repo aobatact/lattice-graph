@@ -8,7 +8,9 @@ use crate::unreachable_debug_checked;
 /// Shape of the 2d lattice.
 /// It decides the behavior of the coordinate.
 pub trait Shape {
+    /// Axis of the lattice.
     type Axis: Axis;
+    /// Coordinate of the lattice graph.
     type Coordinate: Coordinate;
     /// Error to return when [`to_offset`](`Shape::to_offset`) fails.
     /// Should set [`Infallible`](`core::convert::Infallible`) when the graph is looped and never to fail.
@@ -227,6 +229,8 @@ pub trait Axis: Copy + PartialEq {
     fn foward(self) -> Self::Direction;
     /// To backward direction. It reverses when Axis is `DIRECTED`.
     fn backward(self) -> Self::Direction;
+    /// Check the direction is forward for this axis.
+    /// Returns true if the direction is `DIRECTED` is `true`, or the index of the axis and direction matches.
     fn is_forward_direction(dir: &Self::Direction) -> bool {
         Self::DIRECTED || dir.dir_to_index() == Self::from_direction(dir.clone()).to_index()
     }
@@ -237,8 +241,11 @@ pub trait Axis: Copy + PartialEq {
 /// Direction of axis. It tells which direction is connected to node.
 pub trait AxisDirection: Clone {
     /// Check this match whith [`Axis`]. It will always return true when `Axis` is directed.
+    #[deprecated(note = "Use Axis::is_forward_direction instead.")]
     fn is_forward(&self) -> bool;
     /// Check this doesn't match whith [`Axis`]. It will always return false when `Axis` is directed.
+    #[deprecated(note = "Use !Axis::is_forward_direction instead.")]
+    #[allow(deprecated)]
     fn is_backward(&self) -> bool {
         !self.is_forward()
     }

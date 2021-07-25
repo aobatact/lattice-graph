@@ -10,7 +10,7 @@ use petgraph::{
 };
 use std::{marker::PhantomData, mem::MaybeUninit, num::NonZeroUsize, ptr::drop_in_place};
 mod edges;
-pub use edges::*;
+pub use edges::{EdgeReference, EdgeReferences, Edges};
 mod neighbors;
 pub use neighbors::*;
 mod nodes;
@@ -135,8 +135,7 @@ impl<N, E, S: Shape + Default> LatticeGraph<N, E, S> {
         Self::new(S::default())
     }
 
-    /// Creates a graph with node and edge weight data set to [`default`](`Default::default`)   
-    /// Creates a graph with uninitalized node and edge weight data with [`Shape`] from default.  
+    /// Creates a graph with uninitalized node and edge weight data with [`Shape`] from default.
     /// It is extremely unsafe so should use with [`MaybeUninit`](`core::mem::MaybeUninit`) and use [`assume_init`](`Self::assume_init`).
     pub unsafe fn new_uninit_s() -> Self {
         Self::new_uninit(S::default())
@@ -309,6 +308,60 @@ impl<N, E, S: Shape> DataMapMut for LatticeGraph<N, E, S> {
         } else {
             None
         }
+    }
+}
+
+impl<N, E, S: Shape> LatticeGraph<N, E, S> {
+    pub unsafe fn node_weight_unchecked(
+        self: &Self,
+        id: <LatticeGraph<N, E, S> as GraphBase>::NodeId,
+    ) -> &<LatticeGraph<N, E, S> as Data>::NodeWeight {
+        let offset = self.s.to_offset_unchecked(id);
+        // SAFETY : offset must be checked in `to_offset`
+        let nodes = self.nodes.ref_2d();
+
+        nodes
+            .get_unchecked(offset.horizontal)
+            .get_unchecked(offset.vertical)
+    }
+
+    pub unsafe fn edge_weight_unchecked(
+        self: &Self,
+        id: <LatticeGraph<N, E, S> as GraphBase>::EdgeId,
+    ) -> &<LatticeGraph<N, E, S> as Data>::EdgeWeight {
+        let offset = self.s.to_offset_unchecked(id.0);
+        let ax = id.1.to_index();
+        self.edges
+            .get_unchecked(ax)
+            .ref_2d()
+            .get_unchecked(offset.horizontal)
+            .get_unchecked(offset.vertical)
+    }
+
+    pub unsafe fn node_weight_mut_unchecked(
+        self: &mut Self,
+        id: <LatticeGraph<N, E, S> as GraphBase>::NodeId,
+    ) -> &mut <LatticeGraph<N, E, S> as Data>::NodeWeight {
+        let offset = self.s.to_offset_unchecked(id);
+        // SAFETY : offset must be checked in `to_offset`
+        let nodes = self.nodes.mut_2d();
+
+        nodes
+            .get_unchecked_mut(offset.horizontal)
+            .get_unchecked_mut(offset.vertical)
+    }
+
+    pub unsafe fn edge_weight_mut_unchecked(
+        self: &mut Self,
+        id: <LatticeGraph<N, E, S> as GraphBase>::EdgeId,
+    ) -> &mut <LatticeGraph<N, E, S> as Data>::EdgeWeight {
+        let offset = self.s.to_offset_unchecked(id.0);
+        let ax = id.1.to_index();
+        self.edges
+            .get_unchecked_mut(ax)
+            .mut_2d()
+            .get_unchecked_mut(offset.horizontal)
+            .get_unchecked_mut(offset.vertical)
     }
 }
 

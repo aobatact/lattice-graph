@@ -63,22 +63,39 @@ where
 }
 
 /// Edges connected to a node. See [`edges`][`IntoEdges::edges`].
+// Type parameter `C` is to derive `Debug`. (I don't want to impl manually).
 #[derive(Debug)]
-pub struct Edges<'a, N, E, S: Shape, C> {
+pub struct Edges<'a, N, E, S: Shape, C = <S as Shape>::Coordinate, Dt = UnDirMarker> {
     graph: &'a LatticeGraph<N, E, S>,
     node: C,
     offset: Offset,
     state: usize,
+    directed: Dt,
 }
 
-impl<'a, N, E, S, C, D, A> Edges<'a, N, E, S, C>
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub struct DirMarker;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub struct UnDirMarker;
+pub trait DtMarker {
+    const DIRECTED: bool;
+}
+impl DtMarker for DirMarker {
+    const DIRECTED: bool = true;
+}
+impl DtMarker for UnDirMarker {
+    const DIRECTED: bool = false;
+}
+
+impl<'a, N, E, S, C, D, A, Dt> Edges<'a, N, E, S, C, Dt>
 where
     C: Copy,
     S: Shape<Coordinate = C, Axis = A>,
     A: Axis<Direction = D>,
-    D: AxisDirection + Clone,
+    D: AxisDirection,
+    Dt: Default,
 {
-    fn new(g: &'a LatticeGraph<N, E, S>, a: C) -> Edges<N, E, S, C> {
+    fn new(g: &'a LatticeGraph<N, E, S>, a: C) -> Edges<N, E, S, C, Dt> {
         let offset = g.s.to_offset(a);
         Edges {
             graph: g,
@@ -86,34 +103,43 @@ where
             state: if offset.is_ok() {
                 0
             } else {
-                S::Axis::DIRECTED_COUNT
+                S::Axis::UNDIRECTED_COUNT
             },
             offset: offset.unwrap_or_else(|_| unsafe { unreachable_debug_checked() }),
+            directed: Dt::default(),
         }
     }
 
-    unsafe fn new_unchecked(g: &'a LatticeGraph<N, E, S>, a: C) -> Edges<N, E, S, C> {
+    unsafe fn new_unchecked(g: &'a LatticeGraph<N, E, S>, a: C) -> Edges<N, E, S, C, Dt> {
         let offset = g.s.to_offset(a);
         Edges {
             graph: g,
             node: a,
             state: 0,
             offset: offset.unwrap_or_else(|_| unreachable_debug_checked()),
+            directed: Dt::default(),
         }
     }
 }
 
-impl<'a, N, E, S, C, D, A> Iterator for Edges<'a, N, E, S, C>
+impl<'a, N, E, S, C, D, A, Dt> Iterator for Edges<'a, N, E, S, C, Dt>
 where
     C: Copy,
     S: Shape<Coordinate = C, Axis = A>,
     A: Axis<Direction = D>,
-    D: AxisDirection + Clone,
+    D: AxisDirection,
+    Dt: DtMarker,
 {
     type Item = EdgeReference<'a, C, E, D, A>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while self.state < A::DIRECTED_COUNT {
+        while self.state
+            < if Dt::DIRECTED {
+                A::COUNT
+            } else {
+                A::UNDIRECTED_COUNT
+            }
+        {
             unsafe {
                 let d = D::dir_from_index_unchecked(self.state);
                 let n = self.graph.s.move_coord(self.node, d.clone());
@@ -148,17 +174,19 @@ where
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let x = S::Axis::DIRECTED_COUNT - self.state;
+        let x = if Dt::DIRECTED {
+            A::COUNT
+        } else {
+            A::UNDIRECTED_COUNT
+        } - self.state;
         (0, Some(x))
     }
 }
 
-impl<'a, N, E, S, C, D> FusedIterator for Edges<'a, N, E, S, C>
+impl<'a, N, E, S, C, Dt> FusedIterator for Edges<'a, N, E, S, C, Dt>
 where
-    C: Copy,
-    S: Shape<Coordinate = C>,
-    S::Axis: Axis<Direction = D>,
-    D: AxisDirection + Clone,
+    Self: Iterator,
+    S: Shape,
 {
 }
 
@@ -169,7 +197,7 @@ where
     A: Axis<Direction = D>,
     D: AxisDirection + Copy,
 {
-    type Edges = Edges<'a, N, E, S, C>;
+    type Edges = Edges<'a, N, E, S, C, UnDirMarker>;
 
     fn edges(self, a: Self::NodeId) -> Self::Edges {
         Edges::new(self, a)
@@ -177,9 +205,11 @@ where
 }
 
 /// Iterator for all edges of [`LatticeGraph`]. See [`IntoEdgeReferences`](`IntoEdgeReferences::edge_references`).
-pub struct EdgeReferences<'a, N, E, S: Shape, C> {
+// Type parameter `C` is to derive `Debug`. (I don't want to impl manually).
+#[derive(Debug)]
+pub struct EdgeReferences<'a, N, E, S: Shape, C = <S as Shape>::Coordinate> {
     g: &'a LatticeGraph<N, E, S>,
-    e: Option<Edges<'a, N, E, S, C>>,
+    e: Option<Edges<'a, N, E, S, C, DirMarker>>,
     index: usize,
 }
 
@@ -213,7 +243,7 @@ where
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         let node_len = self.g.node_count() - self.index;
-        let maxlen = node_len * S::Axis::DIRECTED_COUNT
+        let maxlen = node_len * S::Axis::UNDIRECTED_COUNT
             + self
                 .e
                 .as_ref()

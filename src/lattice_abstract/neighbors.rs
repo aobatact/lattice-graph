@@ -32,7 +32,7 @@ where
     type Item = C;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while self.state < S::Axis::DIRECTED_COUNT {
+        while self.state < S::Axis::UNDIRECTED_COUNT {
             unsafe {
                 let d = D::dir_from_index_unchecked(self.state);
                 let n = self.graph.s.move_coord(self.node, d.clone());
@@ -46,7 +46,7 @@ where
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let x = S::Axis::DIRECTED_COUNT - self.state;
+        let x = S::Axis::UNDIRECTED_COUNT - self.state;
         (0, Some(x))
     }
 }

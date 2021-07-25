@@ -67,14 +67,16 @@ pub trait Shape: Clone {
     fn vertical_edge_size(&self, _axis: Self::Axis) -> usize {
         self.vertical()
     }
-    /// Move coordinate to the next coordinate for the direction.
+    /// Move coordinates to the next coordinate in the direction.
     /// Coordinate should be a valid coordinate and should be checked before using `move_coord`.
+    /// This is because the target coordinate might be valid even thought the souce coord is invalid,
+    /// and some code validate the direction by moveing the coord.
     fn move_coord(
         &self,
         coord: Self::Coordinate,
         dir: <Self::Axis as Axis>::Direction,
     ) -> Result<Self::Coordinate, Self::CoordinateMoveError>;
-    /// Move coordinate to the next coordinate for the direction.
+    /// Move coordinates to the next coordinate in the direction.
     /// Caller should be sure that the source and the target coord is valid coord.
     unsafe fn move_coord_unchecked(
         &self,
@@ -85,10 +87,7 @@ pub trait Shape: Clone {
             .unwrap_or_else(|_| unreachable_debug_checked())
     }
     ///Check whether two coordinate is in neighbor.
-    fn is_neighbor(&self, a: Self::Coordinate, b: Self::Coordinate) -> bool
-    where
-        Self::Coordinate: PartialEq,
-    {
+    fn is_neighbor(&self, a: Self::Coordinate, b: Self::Coordinate) -> bool {
         self.get_direction(a, b).is_some()
     }
     ///Get direction if two coordiante is in neighbor.
@@ -96,13 +95,10 @@ pub trait Shape: Clone {
         &self,
         source: Self::Coordinate,
         target: Self::Coordinate,
-    ) -> Option<<Self::Axis as Axis>::Direction>
-    where
-        Self::Coordinate: PartialEq,
-    {
+    ) -> Option<<Self::Axis as Axis>::Direction> {
         let a = source;
         let b = target;
-        for i in 0..<Self::Axis as Axis>::DIRECTED_COUNT {
+        for i in 0..<Self::Axis as Axis>::UNDIRECTED_COUNT {
             let d = unsafe { <Self::Axis as Axis>::Direction::dir_from_index_unchecked(i) };
             let c = self.move_coord(a, d.clone());
             if let Ok(c) = c {
@@ -202,8 +198,8 @@ pub trait Axis: Copy + PartialEq {
     const COUNT: usize;
     /// Whether it is Directed or not.
     const DIRECTED: bool;
-    /// If this axis is not directed, it is doubled, otherwise same as `COUNT`.
-    const DIRECTED_COUNT: usize = if Self::DIRECTED {
+    /// Number of direction. If this axis is not directed, it is `COUNT * 2`, otherwise `COUNT`.
+    const UNDIRECTED_COUNT: usize = if Self::DIRECTED {
         Self::COUNT
     } else {
         Self::COUNT * 2
@@ -277,13 +273,15 @@ where
     }
 }
 
-/// Default Implimention of [`AxisDirection`] when [`Axis::DIRECTED`] is false.
+/// Implimention of [`AxisDirection`] when [`Axis::DIRECTED`] is false.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[deprecated]
 pub enum Direction<T> {
     Foward(T),
     Backward(T),
 }
 
+#[allow(deprecated)]
 impl<T: Axis> AxisDirection for Direction<T> {
     fn is_forward(&self) -> bool {
         match self {

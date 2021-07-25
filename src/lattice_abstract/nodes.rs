@@ -60,7 +60,7 @@ impl<'a, N, E, S: Shape> Iterator for NodeReferences<'a, N, E, S> {
         if self.index < self.graph.s.node_count() {
             let x = self.graph.s.from_index(self.index);
             self.index += 1;
-            Some((x, self.graph.node_weight(x).unwrap()))
+            Some((x, unsafe { self.graph.node_weight_unchecked(x) }))
         } else {
             None
         }

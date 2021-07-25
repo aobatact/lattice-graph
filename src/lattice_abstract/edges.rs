@@ -1,6 +1,6 @@
 use std::iter::FusedIterator;
 
-use petgraph::visit::{EdgeRef, IntoEdgeReferences, IntoEdges};
+use petgraph::visit::{EdgeRef, IntoEdgeReferences, IntoEdges, IntoEdgesDirected};
 
 use super::*;
 
@@ -65,7 +65,7 @@ where
 /// Edges connected to a node. See [`edges`][`IntoEdges::edges`].
 // Type parameter `C` is to derive `Debug`. (I don't want to impl manually).
 #[derive(Debug)]
-pub struct Edges<'a, N, E, S: Shape, C = <S as Shape>::Coordinate, Dt = UnDirMarker> {
+pub struct Edges<'a, N, E, S: Shape, C = <S as Shape>::Coordinate, Dt = AxisDirMarker> {
     graph: &'a LatticeGraph<N, E, S>,
     node: C,
     offset: Offset,
@@ -74,17 +74,54 @@ pub struct Edges<'a, N, E, S: Shape, C = <S as Shape>::Coordinate, Dt = UnDirMar
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-pub struct DirMarker;
+pub struct AxisMarker;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-pub struct UnDirMarker;
+pub struct AxisDirMarker;
 pub trait DtMarker {
     const DIRECTED: bool;
+    // trick to be used in [`IntoEdgesDirected`]
+    #[inline]
+    unsafe fn get_raw_id<S: Shape>(
+        &self,
+        s: &S,
+        d: &<<S as Shape>::Axis as Axis>::Direction,
+        source: Offset,
+        target: <S as Shape>::Coordinate,
+        st: usize,
+    ) -> (Offset, usize) {
+        if <S as Shape>::Axis::is_forward_direction(d) {
+            (source, st)
+        } else {
+            (
+                s.to_offset_unchecked(target),
+                st - <S as Shape>::Axis::COUNT,
+            )
+        }
+    }
 }
-impl DtMarker for DirMarker {
+
+impl DtMarker for AxisMarker {
     const DIRECTED: bool = true;
 }
-impl DtMarker for UnDirMarker {
+impl DtMarker for AxisDirMarker {
     const DIRECTED: bool = false;
+}
+
+impl DtMarker for petgraph::Direction {
+    const DIRECTED: bool = false;
+    unsafe fn get_raw_id<S: Shape>(
+        &self,
+        s: &S,
+        d: &<<S as Shape>::Axis as Axis>::Direction,
+        source: Offset,
+        target: <S as Shape>::Coordinate,
+        st: usize,
+    ) -> (Offset, usize) {
+        match self{
+            petgraph::EdgeDirection::Outgoing => AxisDirMarker.get_raw_id(s, d, source, target, st),
+            petgraph::EdgeDirection::Incoming => todo!(),
+        }
+    }
 }
 
 impl<'a, N, E, S, C, D, A, Dt> Edges<'a, N, E, S, C, Dt>
@@ -93,9 +130,15 @@ where
     S: Shape<Coordinate = C, Axis = A>,
     A: Axis<Direction = D>,
     D: AxisDirection,
-    Dt: Default,
 {
-    fn new(g: &'a LatticeGraph<N, E, S>, a: C) -> Edges<N, E, S, C, Dt> {
+    fn new(g: &'a LatticeGraph<N, E, S>, a: C) -> Edges<N, E, S, C, Dt>
+    where
+        Dt: Default,
+    {
+        Self::new_d(g, a, Dt::default())
+    }
+
+    fn new_d(g: &'a LatticeGraph<N, E, S>, a: C, d: Dt) -> Edges<N, E, S, C, Dt> {
         let offset = g.s.to_offset(a);
         Edges {
             graph: g,
@@ -106,11 +149,14 @@ where
                 S::Axis::UNDIRECTED_COUNT
             },
             offset: offset.unwrap_or_else(|_| unsafe { unreachable_debug_checked() }),
-            directed: Dt::default(),
+            directed: d,
         }
     }
 
-    unsafe fn new_unchecked(g: &'a LatticeGraph<N, E, S>, a: C) -> Edges<N, E, S, C, Dt> {
+    unsafe fn new_unchecked(g: &'a LatticeGraph<N, E, S>, a: C) -> Edges<N, E, S, C, Dt>
+    where
+        Dt: Default,
+    {
         let offset = g.s.to_offset(a);
         Edges {
             graph: g,
@@ -146,20 +192,12 @@ where
                 let st = self.state;
                 self.state += 1;
                 if let Ok(target) = n {
-                    let (nx, ne) = if A::is_forward_direction(&d) {
-                        (self.offset, st)
-                    } else {
-                        (self.graph.s.to_offset_unchecked(target), st - A::COUNT)
-                    };
+                    let (nx, ne) =
+                        self.directed
+                            .get_raw_id(&self.graph.s, &d, self.offset, target, st);
                     debug_assert_eq!(A::from_direction(d.clone()).to_index(), ne);
                     //let ne = S::Axis::from_direction(d.clone()).to_index();
-                    let e = &self
-                        .graph
-                        .edges
-                        .get_unchecked(ne)
-                        .ref_2d()
-                        .get_unchecked(nx.horizontal)
-                        .get_unchecked(nx.vertical);
+                    let e = self.graph.edge_weight_unchecked_raw((nx, ne));
                     return Some(EdgeReference {
                         source_id: self.node,
                         target_id: target,
@@ -197,10 +235,24 @@ where
     A: Axis<Direction = D>,
     D: AxisDirection + Copy,
 {
-    type Edges = Edges<'a, N, E, S, C, UnDirMarker>;
+    type Edges = Edges<'a, N, E, S, C, AxisDirMarker>;
 
     fn edges(self, a: Self::NodeId) -> Self::Edges {
         Edges::new(self, a)
+    }
+}
+
+impl<'a, N, E, S, C, D, A> IntoEdgesDirected for &'a LatticeGraph<N, E, S>
+where
+    C: Copy,
+    S: Shape<Coordinate = C, Axis = A>,
+    A: Axis<Direction = D>,
+    D: AxisDirection + Copy,
+{
+    type EdgesDirected = Edges<'a, N, E, S, C, petgraph::Direction>;
+
+    fn edges_directed(self, a: Self::NodeId, dir: petgraph::Direction) -> Self::EdgesDirected {
+        Edges::new_d(self, a, dir)
     }
 }
 
@@ -209,7 +261,7 @@ where
 #[derive(Debug)]
 pub struct EdgeReferences<'a, N, E, S: Shape, C = <S as Shape>::Coordinate> {
     g: &'a LatticeGraph<N, E, S>,
-    e: Option<Edges<'a, N, E, S, C, DirMarker>>,
+    e: Option<Edges<'a, N, E, S, C, AxisMarker>>,
     index: usize,
 }
 

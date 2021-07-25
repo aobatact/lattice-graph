@@ -312,25 +312,44 @@ impl<N, E, S: Shape> DataMapMut for LatticeGraph<N, E, S> {
 }
 
 impl<N, E, S: Shape> LatticeGraph<N, E, S> {
+    #[doc(hidden)]
+    #[inline]
     pub unsafe fn node_weight_unchecked(
         self: &Self,
         id: <LatticeGraph<N, E, S> as GraphBase>::NodeId,
     ) -> &<LatticeGraph<N, E, S> as Data>::NodeWeight {
         let offset = self.s.to_offset_unchecked(id);
         // SAFETY : offset must be checked in `to_offset`
-        let nodes = self.nodes.ref_2d();
+        self.node_weight_unchecked_raw(offset)
+    }
 
-        nodes
+    #[doc(hidden)]
+    pub unsafe fn node_weight_unchecked_raw(
+        self: &Self,
+        offset: Offset,
+    ) -> &<LatticeGraph<N, E, S> as Data>::NodeWeight {
+        self.nodes
+            .ref_2d()
             .get_unchecked(offset.horizontal)
             .get_unchecked(offset.vertical)
     }
 
+    #[doc(hidden)]
+    #[inline]
     pub unsafe fn edge_weight_unchecked(
         self: &Self,
         id: <LatticeGraph<N, E, S> as GraphBase>::EdgeId,
     ) -> &<LatticeGraph<N, E, S> as Data>::EdgeWeight {
         let offset = self.s.to_offset_unchecked(id.0);
         let ax = id.1.to_index();
+        self.edge_weight_unchecked_raw((offset, ax))
+    }
+
+    #[doc(hidden)]
+    pub unsafe fn edge_weight_unchecked_raw(
+        self: &Self,
+        (offset, ax): (Offset, usize),
+    ) -> &<LatticeGraph<N, E, S> as Data>::EdgeWeight {
         self.edges
             .get_unchecked(ax)
             .ref_2d()
@@ -338,6 +357,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
             .get_unchecked(offset.vertical)
     }
 
+    #[doc(hidden)]
     pub unsafe fn node_weight_mut_unchecked(
         self: &mut Self,
         id: <LatticeGraph<N, E, S> as GraphBase>::NodeId,
@@ -351,6 +371,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
             .get_unchecked_mut(offset.vertical)
     }
 
+    #[doc(hidden)]
     pub unsafe fn edge_weight_mut_unchecked(
         self: &mut Self,
         id: <LatticeGraph<N, E, S> as GraphBase>::EdgeId,

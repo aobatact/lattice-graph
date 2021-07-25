@@ -1,6 +1,6 @@
 use std::iter::FusedIterator;
 
-use petgraph::visit::{GetAdjacencyMatrix, IntoNeighbors};
+use petgraph::visit::{GetAdjacencyMatrix, IntoNeighbors, IntoNeighborsDirected};
 
 use super::*;
 
@@ -70,6 +70,20 @@ where
     type Neighbors = Neighbors<'a, N, E, S, C>;
 
     fn neighbors(self: Self, a: Self::NodeId) -> Self::Neighbors {
+        Neighbors::new(self, a)
+    }
+}
+
+impl<'a, N, E, S, C, D> IntoNeighborsDirected for &'a LatticeGraph<N, E, S>
+where
+    C: Copy,
+    S: Shape<Coordinate = C>,
+    S::Axis: Axis<Direction = D>,
+    D: AxisDirection + Clone,
+{
+    type NeighborsDirected = Neighbors<'a, N, E, S, C>;
+
+    fn neighbors_directed(self: Self, a: Self::NodeId, _d: petgraph::Direction) -> Self::Neighbors {
         Neighbors::new(self, a)
     }
 }

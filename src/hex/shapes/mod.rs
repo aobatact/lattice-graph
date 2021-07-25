@@ -192,6 +192,10 @@ impl Axis for AxisQ {
         let i = dir.dir_to_index();
         unsafe { Self::from_index_unchecked(if i < Self::COUNT { i } else { i - Self::COUNT }) }
     }
+
+    fn is_forward_direction(dir: &Self::Direction) -> bool {
+        dir.dir_to_index() < Self::COUNT
+    }
 }
 
 /// Flat top Directed Hex Direction.

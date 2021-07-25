@@ -42,11 +42,10 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
             FixedVec2D::<N>::new_uninit(NonZeroUsize::new(s.horizontal()).unwrap(), s.vertical());
         let ac = S::Axis::COUNT;
         let mut edges = Vec::with_capacity(ac);
-        for i in 0..ac {
-            let a = S::Axis::from_index_unchecked(i);
+        for _i in 0..ac {
             edges.push(FixedVec2D::<E>::new_uninit(
-                NonZeroUsize::new(s.horizontal_edge_size(a.clone())).unwrap(),
-                s.vertical_edge_size(a),
+                NonZeroUsize::new(s.horizontal()).unwrap(),
+                s.vertical(),
             ))
         }
         Self { nodes, edges, s }
@@ -254,6 +253,9 @@ impl<N, E, S: Shape> DataMap for LatticeGraph<N, E, S> {
         let offset = self.s.to_offset(id.0);
         let ax = id.1.to_index();
         if let Ok(offset) = offset {
+            if !self.s.move_coord(id.0, id.1.foward()).is_ok() {
+                return None;
+            }
             unsafe {
                 self.edges
                     .get_unchecked(ax)
@@ -294,6 +296,9 @@ impl<N, E, S: Shape> DataMapMut for LatticeGraph<N, E, S> {
         let offset = self.s.to_offset(id.0);
         let ax = id.1.to_index();
         if let Ok(offset) = offset {
+            if !self.s.move_coord(id.0, id.1.foward()).is_ok() {
+                return None;
+            }
             unsafe {
                 self.edges
                     .get_unchecked_mut(ax)

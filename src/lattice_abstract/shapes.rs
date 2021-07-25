@@ -58,20 +58,24 @@ pub trait Shape: Clone {
     }
 
     /// Edge count of horizontal. May differ by the axis info.
+    #[deprecated]
     fn horizontal_edge_size(&self, _axis: Self::Axis) -> usize {
         self.horizontal()
     }
     /// Edge count of vertical. May differ by the axis info.
+    #[deprecated]
     fn vertical_edge_size(&self, _axis: Self::Axis) -> usize {
         self.vertical()
     }
-    /// Move coordinate to direction.
+    /// Move coordinate to the next coordinate for the direction.
+    /// Coordinate should be a valid coordinate and should be checked before using `move_coord`.
     fn move_coord(
         &self,
         coord: Self::Coordinate,
         dir: <Self::Axis as Axis>::Direction,
     ) -> Result<Self::Coordinate, Self::CoordinateMoveError>;
-    /// Move coordinate to direction.
+    /// Move coordinate to the next coordinate for the direction.
+    /// Caller should be sure that the source and the target coord is valid coord.
     unsafe fn move_coord_unchecked(
         &self,
         coord: Self::Coordinate,
@@ -80,14 +84,14 @@ pub trait Shape: Clone {
         self.move_coord(coord, dir)
             .unwrap_or_else(|_| unreachable_debug_checked())
     }
-    ///Check whether coordinate is in neighbor.
+    ///Check whether two coordinate is in neighbor.
     fn is_neighbor(&self, a: Self::Coordinate, b: Self::Coordinate) -> bool
     where
         Self::Coordinate: PartialEq,
     {
         self.get_direction(a, b).is_some()
     }
-    ///Get direction if two coordiante is neighbor.
+    ///Get direction if two coordiante is in neighbor.
     fn get_direction(
         &self,
         source: Self::Coordinate,
@@ -135,14 +139,6 @@ impl<S: Shape> Shape for &S {
 
     fn vertical(&self) -> usize {
         (*self).vertical()
-    }
-
-    fn horizontal_edge_size(&self, axis: Self::Axis) -> usize {
-        (*self).horizontal_edge_size(axis)
-    }
-
-    fn vertical_edge_size(&self, axis: Self::Axis) -> usize {
-        (*self).vertical_edge_size(axis)
     }
 
     fn move_coord(
@@ -334,50 +330,60 @@ pub struct Offset {
 }
 
 impl Offset {
+    /// Create a new offset.
     pub fn new(h: usize, v: usize) -> Self {
         Offset {
             horizontal: h.into(),
             vertical: v.into(),
         }
     }
+    /// Get a horizontal.
     pub fn horizontal(&self) -> usize {
         self.horizontal
     }
+    /// Get a vertical.
     pub fn vertical(&self) -> usize {
         self.vertical
     }
-    pub fn add_x(&self, x: usize) -> Self {
+    #[inline]
+    pub(crate) fn add_x(&self, x: usize) -> Self {
         Offset::new(self.horizontal + x, self.vertical)
     }
-    pub fn add_y(&self, y: usize) -> Self {
+    #[inline]
+    pub(crate) fn add_y(&self, y: usize) -> Self {
         Offset::new(self.horizontal, self.vertical + y)
     }
-    pub fn set_x(&self, x: usize) -> Self {
+    #[inline]
+    pub(crate) fn set_x(&self, x: usize) -> Self {
         Offset::new(x, self.vertical)
     }
-    pub fn set_y(&self, y: usize) -> Self {
-        Offset::new(self.horizontal, y)
-    }
-    pub fn sub_x(&self, x: usize) -> Option<Self> {
+    // pub(crate) fn set_y(&self, y: usize) -> Self {
+    //     Offset::new(self.horizontal, y)
+    // }
+    #[inline]
+    pub(crate) fn sub_x(&self, x: usize) -> Option<Self> {
         Some(Offset::new(self.horizontal.checked_sub(x)?, self.vertical))
     }
-    pub fn sub_y(&self, y: usize) -> Option<Self> {
+    #[inline]
+    pub(crate) fn sub_y(&self, y: usize) -> Option<Self> {
         Some(Offset::new(self.horizontal, self.vertical.checked_sub(y)?))
     }
-    pub unsafe fn sub_x_unchecked(&self, x: usize) -> Self {
-        Offset::new(self.horizontal - x, self.vertical)
-    }
-    pub unsafe fn sub_y_unchecked(&self, y: usize) -> Self {
-        Offset::new(self.horizontal, self.vertical - y)
-    }
-    pub fn check_x(&self, x_max: usize) -> Option<Self> {
+    // pub(crate) unsafe fn sub_x_unchecked(&self, x: usize) -> Self {
+    //     Offset::new(self.horizontal - x, self.vertical)
+    // }
+    // pub(crate) unsafe fn sub_y_unchecked(&self, y: usize) -> Self {
+    //     Offset::new(self.horizontal, self.vertical - y)
+    // }
+    #[inline]
+    pub(crate) fn check_x(&self, x_max: usize) -> Option<Self> {
         if self.horizontal < x_max {
             Some(*self)
         } else {
             None
         }
     }
-    pub fn check_y(&self, y_max: usize) -> Option<Self> {
+    #[inline]
+    pub(crate) fn check_y(&self, y_max: usize) -> Option<Self> {
         if self.vertical < y_max {
             Some(*self)
         } else {

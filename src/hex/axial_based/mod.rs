@@ -1,6 +1,7 @@
 /*!
 Module for Hex Graph with axial coordinates.
 
+
 ## Example
 [`HexGraph`]`<N, E,`[`OddR`](`super::shapes::OddR`)`>`
 ```text
@@ -80,6 +81,7 @@ mod tests {
     use rstest::*;
     type C = HexAxial;
     type Hex5x5 = HexGraphConst<C, (C, AxisR), OddR, 5, 5>;
+    type Hex5x5EQ = HexGraphConst<C, (C, AxisQ), EvenQ, 5, 5>;
     type Hex5x5Lew = HexGraphConstLoopEW<C, (C, AxisR), OddR, 5, 5>;
 
     #[fixture]
@@ -88,11 +90,24 @@ mod tests {
     }
     #[fixture]
     fn hexgraph_oddr55_lew() -> Hex5x5Lew {
-        Hex5x5Lew::new_with(HexAxialShape::default(), |x| (x), |n, d| Some((n, d)))
+        Hex5x5Lew::new_with_s(|x| (x), |n, d| Some((n, d)))
+    }
+    #[fixture]
+    fn hexgraph_evenq55() -> Hex5x5EQ {
+        Hex5x5EQ::new_with_s(|x| (x), |n, d| Some((n, d)))
     }
     #[rstest]
     fn gen_oddr(hexgraph_oddr55: Hex5x5) {
         let graph = hexgraph_oddr55;
+        for i in 0..graph.node_count() {
+            let x = graph.from_index(i);
+            assert_eq!(Some(&x), graph.node_weight(x));
+        }
+        assert_eq!(0, mem::size_of_val(graph.shape()))
+    }
+    #[rstest]
+    fn gen_evenq(hexgraph_evenq55: Hex5x5EQ) {
+        let graph = hexgraph_evenq55;
         for i in 0..graph.node_count() {
             let x = graph.from_index(i);
             assert_eq!(Some(&x), graph.node_weight(x));

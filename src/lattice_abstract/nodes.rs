@@ -6,7 +6,7 @@ use petgraph::visit::{
 
 use super::*;
 
-/// Iterate all index of [`LatticeGraph`]. See [`node_identifiers`](`IntoNodeIdentifiers::node_identifiers`).
+/// Iterate all index of [`LatticeGraph`]. See [`IntoNodeIdentifiers`].
 #[derive(Clone, Debug)]
 pub struct NodeIndices<S> {
     index: usize,
@@ -36,7 +36,7 @@ impl<S: shapes::Shape> FusedIterator for NodeIndices<S> {}
 
 impl<S: shapes::Shape> ExactSizeIterator for NodeIndices<S> {}
 
-impl<'a, N, E, S: Shape + Clone> IntoNodeIdentifiers for &'a LatticeGraph<N, E, S> {
+impl<'a, N, E, S: Shape> IntoNodeIdentifiers for &'a LatticeGraph<N, E, S> {
     type NodeIdentifiers = NodeIndices<S>;
 
     fn node_identifiers(self) -> Self::NodeIdentifiers {
@@ -47,8 +47,8 @@ impl<'a, N, E, S: Shape + Clone> IntoNodeIdentifiers for &'a LatticeGraph<N, E, 
     }
 }
 
-/// Iterate all nodes of [`LatticeGraph`]. See [`node_references`](`IntoNodeReferences::node_references`).
-pub struct NodeReferences<'a, N, E, S> {
+/// Iterate all nodes of [`LatticeGraph`]. See [`IntoNodeReferences`].
+pub struct NodeReferences<'a, N, E, S: Shape> {
     graph: &'a LatticeGraph<N, E, S>,
     index: usize,
 }
@@ -60,7 +60,7 @@ impl<'a, N, E, S: Shape> Iterator for NodeReferences<'a, N, E, S> {
         if self.index < self.graph.s.node_count() {
             let x = self.graph.s.from_index(self.index);
             self.index += 1;
-            Some((x, self.graph.node_weight(x).unwrap()))
+            Some((x, unsafe { self.graph.node_weight_unchecked(x) }))
         } else {
             None
         }
@@ -71,7 +71,7 @@ impl<'a, N, E, S: Shape> FusedIterator for NodeReferences<'a, N, E, S> {}
 
 impl<'a, N, E, S: Shape> ExactSizeIterator for NodeReferences<'a, N, E, S> {}
 
-impl<'a, N, E, S: Shape + Clone> IntoNodeReferences for &'a LatticeGraph<N, E, S> {
+impl<'a, N, E, S: Shape> IntoNodeReferences for &'a LatticeGraph<N, E, S> {
     type NodeRef = (<S as Shape>::Coordinate, &'a N);
 
     type NodeReferences = NodeReferences<'a, N, E, S>;

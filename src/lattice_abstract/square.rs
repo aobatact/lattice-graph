@@ -24,7 +24,7 @@ impl Axis for SquareAxis {
     const COUNT: usize = 2;
     const DIRECTED: bool = false;
     type Direction = DirectedSquareAxis;
-    const DIRECTED_COUNT: usize = if Self::DIRECTED {
+    const UNDIRECTED_COUNT: usize = if Self::DIRECTED {
         Self::COUNT
     } else {
         Self::COUNT * 2
@@ -277,7 +277,7 @@ pub enum SquareDiagonalAxis {
 impl Axis for SquareDiagonalAxis {
     const COUNT: usize = 4;
     const DIRECTED: bool = false;
-    const DIRECTED_COUNT: usize = if Self::DIRECTED {
+    const UNDIRECTED_COUNT: usize = if Self::DIRECTED {
         Self::COUNT
     } else {
         Self::COUNT * 2
@@ -338,7 +338,7 @@ pub enum DirectedSquareDiagonalAxis {
 impl Axis for DirectedSquareDiagonalAxis {
     const COUNT: usize = 8;
     const DIRECTED: bool = true;
-    const DIRECTED_COUNT: usize = if Self::DIRECTED {
+    const UNDIRECTED_COUNT: usize = if Self::DIRECTED {
         Self::COUNT
     } else {
         Self::COUNT * 2
@@ -401,6 +401,7 @@ impl Axis for DirectedSquareDiagonalAxis {
 }
 
 /// Shape for lattice graph with Square and Diagonal Edge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SquareDiagonalShape<E = Undirected> {
     h: usize,
     v: usize,

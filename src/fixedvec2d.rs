@@ -19,11 +19,11 @@ pub struct FixedVec2D<T> {
 impl<T> FixedVec2D<T> {
     /// Creates a array2d with a vec.
     /// Returns [`None`] if `h * v != vec.len()`
-    pub fn from_raw(h: NonZeroUsize, v: usize, vec: Vec<T>) -> Option<Self> {
+    pub unsafe fn from_raw(h: NonZeroUsize, v: usize, vec: Vec<T>) -> Option<Self> {
         if h.get() * v != vec.len() {
             None
         } else {
-            Some(unsafe { Self::from_raw_unchecked(h, v, vec) })
+            Some(Self::from_raw_unchecked(h, v, vec))
         }
     }
 

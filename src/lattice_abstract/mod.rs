@@ -5,12 +5,12 @@ use crate::{fixedvec2d::*, unreachable_debug_checked};
 use fixedbitset::FixedBitSet;
 use petgraph::{
     data::{DataMap, DataMapMut},
-    visit::{Data, GraphBase, GraphProp, NodeCount, VisitMap, Visitable},
+    visit::{Data, GraphBase, GraphProp, IntoNodeIdentifiers, NodeCount, VisitMap, Visitable},
     EdgeType,
 };
-use std::{marker::PhantomData, mem::MaybeUninit, num::NonZeroUsize, usize};
+use std::{marker::PhantomData, mem::MaybeUninit, num::NonZeroUsize, ptr::drop_in_place};
 mod edges;
-pub use edges::*;
+pub use edges::{EdgeReference, EdgeReferences, Edges, EdgesDirected};
 mod neighbors;
 pub use neighbors::*;
 mod nodes;
@@ -23,7 +23,7 @@ pub mod square;
 /// Abstract Lattice Graph.
 /// It holds the node and edge weight data.
 /// The actural behaviour is dependent on [`Shape`](`shapes::Shape`).
-pub struct LatticeGraph<N, E, S> {
+pub struct LatticeGraph<N, E, S: Shape> {
     nodes: FixedVec2D<N>,
     edges: Vec<FixedVec2D<E>>,
     s: S,
@@ -31,6 +31,7 @@ pub struct LatticeGraph<N, E, S> {
 
 impl<N, E, S: Shape> LatticeGraph<N, E, S> {
     /// Creates a graph from raw data.
+    #[doc(hidden)]
     pub unsafe fn new_raw(nodes: FixedVec2D<N>, edges: Vec<FixedVec2D<E>>, s: S) -> Self {
         Self { nodes, edges, s }
     }
@@ -42,11 +43,10 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
             FixedVec2D::<N>::new_uninit(NonZeroUsize::new(s.horizontal()).unwrap(), s.vertical());
         let ac = S::Axis::COUNT;
         let mut edges = Vec::with_capacity(ac);
-        for i in 0..ac {
-            let a = S::Axis::from_index_unchecked(i);
+        for _i in 0..ac {
             edges.push(FixedVec2D::<E>::new_uninit(
-                NonZeroUsize::new(s.horizontal_edge_size(a.clone())).unwrap(),
-                s.vertical_edge_size(a),
+                NonZeroUsize::new(s.horizontal()).unwrap(),
+                s.vertical(),
             ))
         }
         Self { nodes, edges, s }
@@ -136,8 +136,7 @@ impl<N, E, S: Shape + Default> LatticeGraph<N, E, S> {
         Self::new(S::default())
     }
 
-    /// Creates a graph with node and edge weight data set to [`default`](`Default::default`)   
-    /// Creates a graph with uninitalized node and edge weight data with [`Shape`] from default.  
+    /// Creates a graph with uninitalized node and edge weight data with [`Shape`] from default.
     /// It is extremely unsafe so should use with [`MaybeUninit`](`core::mem::MaybeUninit`) and use [`assume_init`](`Self::assume_init`).
     pub unsafe fn new_uninit_s() -> Self {
         Self::new_uninit(S::default())
@@ -175,10 +174,34 @@ impl<N, E, S: Shape> LatticeGraph<MaybeUninit<N>, MaybeUninit<E>, S> {
     ```
     */
     pub unsafe fn assume_init(self) -> LatticeGraph<N, E, S> {
+        let md = std::mem::ManuallyDrop::new(self);
         LatticeGraph {
-            nodes: self.nodes.assume_init(),
-            edges: self.edges.into_iter().map(|e| e.assume_init()).collect(),
-            s: self.s,
+            nodes: core::ptr::read(&md.nodes).assume_init(),
+            edges: core::ptr::read(&md.edges)
+                .into_iter()
+                .map(|e| e.assume_init())
+                .collect(),
+            s: core::ptr::read(&md.s),
+        }
+    }
+}
+
+impl<N, E, S: Shape> Drop for LatticeGraph<N, E, S> {
+    fn drop(&mut self) {
+        if std::mem::needs_drop::<E>() {
+            let ni = self.node_identifiers();
+            let s = &self.s;
+            let e = &mut self.edges;
+            unsafe {
+                for (di, edges) in e.drain(..).enumerate() {
+                    let dir = S::Axis::from_index_unchecked(di).foward();
+                    for (coord, mut e) in ni.clone().zip(edges.into_raw()) {
+                        if s.move_coord(coord, dir.clone()).is_ok() {
+                            drop_in_place(&mut e);
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -230,6 +253,9 @@ impl<N, E, S: Shape> DataMap for LatticeGraph<N, E, S> {
         let offset = self.s.to_offset(id.0);
         let ax = id.1.to_index();
         if let Ok(offset) = offset {
+            if !self.s.move_coord(id.0, id.1.foward()).is_ok() {
+                return None;
+            }
             unsafe {
                 self.edges
                     .get_unchecked(ax)
@@ -270,6 +296,9 @@ impl<N, E, S: Shape> DataMapMut for LatticeGraph<N, E, S> {
         let offset = self.s.to_offset(id.0);
         let ax = id.1.to_index();
         if let Ok(offset) = offset {
+            if !self.s.move_coord(id.0, id.1.foward()).is_ok() {
+                return None;
+            }
             unsafe {
                 self.edges
                     .get_unchecked_mut(ax)
@@ -280,6 +309,81 @@ impl<N, E, S: Shape> DataMapMut for LatticeGraph<N, E, S> {
         } else {
             None
         }
+    }
+}
+
+impl<N, E, S: Shape> LatticeGraph<N, E, S> {
+    #[doc(hidden)]
+    #[inline]
+    pub unsafe fn node_weight_unchecked(
+        self: &Self,
+        id: <LatticeGraph<N, E, S> as GraphBase>::NodeId,
+    ) -> &<LatticeGraph<N, E, S> as Data>::NodeWeight {
+        let offset = self.s.to_offset_unchecked(id);
+        // SAFETY : offset must be checked in `to_offset`
+        self.node_weight_unchecked_raw(offset)
+    }
+
+    #[doc(hidden)]
+    pub unsafe fn node_weight_unchecked_raw(
+        self: &Self,
+        offset: Offset,
+    ) -> &<LatticeGraph<N, E, S> as Data>::NodeWeight {
+        self.nodes
+            .ref_2d()
+            .get_unchecked(offset.horizontal)
+            .get_unchecked(offset.vertical)
+    }
+
+    #[doc(hidden)]
+    #[inline]
+    pub unsafe fn edge_weight_unchecked(
+        self: &Self,
+        id: <LatticeGraph<N, E, S> as GraphBase>::EdgeId,
+    ) -> &<LatticeGraph<N, E, S> as Data>::EdgeWeight {
+        let offset = self.s.to_offset_unchecked(id.0);
+        let ax = id.1.to_index();
+        self.edge_weight_unchecked_raw((offset, ax))
+    }
+
+    #[doc(hidden)]
+    pub unsafe fn edge_weight_unchecked_raw(
+        self: &Self,
+        (offset, ax): (Offset, usize),
+    ) -> &<LatticeGraph<N, E, S> as Data>::EdgeWeight {
+        self.edges
+            .get_unchecked(ax)
+            .ref_2d()
+            .get_unchecked(offset.horizontal)
+            .get_unchecked(offset.vertical)
+    }
+
+    #[doc(hidden)]
+    pub unsafe fn node_weight_mut_unchecked(
+        self: &mut Self,
+        id: <LatticeGraph<N, E, S> as GraphBase>::NodeId,
+    ) -> &mut <LatticeGraph<N, E, S> as Data>::NodeWeight {
+        let offset = self.s.to_offset_unchecked(id);
+        // SAFETY : offset must be checked in `to_offset`
+        let nodes = self.nodes.mut_2d();
+
+        nodes
+            .get_unchecked_mut(offset.horizontal)
+            .get_unchecked_mut(offset.vertical)
+    }
+
+    #[doc(hidden)]
+    pub unsafe fn edge_weight_mut_unchecked(
+        self: &mut Self,
+        id: <LatticeGraph<N, E, S> as GraphBase>::EdgeId,
+    ) -> &mut <LatticeGraph<N, E, S> as Data>::EdgeWeight {
+        let offset = self.s.to_offset_unchecked(id.0);
+        let ax = id.1.to_index();
+        self.edges
+            .get_unchecked_mut(ax)
+            .mut_2d()
+            .get_unchecked_mut(offset.horizontal)
+            .get_unchecked_mut(offset.vertical)
     }
 }
 
@@ -304,7 +408,7 @@ pub struct VisMap<S> {
 }
 
 impl<S: Shape> VisMap<S> {
-    pub fn new(s: S) -> Self {
+    pub(crate) fn new(s: S) -> Self {
         let h = s.horizontal();
         let v = s.vertical();
         let mut vec = Vec::with_capacity(h);

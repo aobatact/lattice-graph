@@ -1,18 +1,18 @@
 use std::iter::FusedIterator;
 
-use petgraph::visit::{GetAdjacencyMatrix, IntoNeighbors};
+use petgraph::visit::{GetAdjacencyMatrix, IntoNeighbors, IntoNeighborsDirected};
 
 use super::*;
 
-/// Neighbors of the node. See [`neighbors`](`IntoNeighbors::neighbors`).
+/// Neighbors of the node. See [`IntoNeighbors`].
 #[derive(Debug)]
-pub struct Neighbors<'a, N, E, S, C> {
+pub struct Neighbors<'a, N, E, S: Shape, C> {
     graph: &'a LatticeGraph<N, E, S>,
     node: C,
     state: usize,
 }
 
-impl<'a, N, E, S, C> Neighbors<'a, N, E, S, C> {
+impl<'a, N, E, S: Shape, C> Neighbors<'a, N, E, S, C> {
     pub(crate) fn new(graph: &'a LatticeGraph<N, E, S>, node: C) -> Self {
         Self {
             graph,
@@ -32,7 +32,7 @@ where
     type Item = C;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while self.state < S::Axis::DIRECTED_COUNT {
+        while self.state < S::Axis::UNDIRECTED_COUNT {
             unsafe {
                 let d = D::dir_from_index_unchecked(self.state);
                 let n = self.graph.s.move_coord(self.node, d.clone());
@@ -46,7 +46,7 @@ where
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let x = S::Axis::DIRECTED_COUNT - self.state;
+        let x = S::Axis::UNDIRECTED_COUNT - self.state;
         (0, Some(x))
     }
 }
@@ -70,6 +70,20 @@ where
     type Neighbors = Neighbors<'a, N, E, S, C>;
 
     fn neighbors(self: Self, a: Self::NodeId) -> Self::Neighbors {
+        Neighbors::new(self, a)
+    }
+}
+
+impl<'a, N, E, S, C, D> IntoNeighborsDirected for &'a LatticeGraph<N, E, S>
+where
+    C: Copy,
+    S: Shape<Coordinate = C>,
+    S::Axis: Axis<Direction = D>,
+    D: AxisDirection + Clone,
+{
+    type NeighborsDirected = Neighbors<'a, N, E, S, C>;
+
+    fn neighbors_directed(self: Self, a: Self::NodeId, _d: petgraph::Direction) -> Self::Neighbors {
         Neighbors::new(self, a)
     }
 }

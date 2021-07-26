@@ -62,7 +62,7 @@ where
     }
 }
 
-/// Edges connected to a node. See [`edges`][`IntoEdges::edges`].
+/// Edges connected to a node. See [`IntoEdges`].
 // Type parameter `C` is to derive `Debug`. (I don't want to impl manually).
 #[derive(Debug)]
 pub struct Edges<'a, N, E, S: Shape, C = <S as Shape>::Coordinate, Dt = AxisDirMarker> {
@@ -73,10 +73,13 @@ pub struct Edges<'a, N, E, S: Shape, C = <S as Shape>::Coordinate, Dt = AxisDirM
     directed: Dt,
 }
 
+/// Marker Used for [`Edges`] inside the [`IntoEdgeReferences`]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct AxisMarker;
+/// Marker Used for [`Edges`] as [`IntoEdges`]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct AxisDirMarker;
+/// Marker for [`Edges`].
 pub trait DtMarker {
     const DIRECTED: bool;
     // trick to be used in [`IntoEdgesDirected`]
@@ -98,6 +101,10 @@ pub trait DtMarker {
             )
         }
     }
+    #[inline(always)]
+    fn need_reverse(&self) -> bool {
+        false
+    }
 }
 
 impl DtMarker for AxisMarker {
@@ -107,8 +114,10 @@ impl DtMarker for AxisDirMarker {
     const DIRECTED: bool = false;
 }
 
+/// [`petgraph::Direction`] as marker for [`Edges`] used in [`IntoEdgesDirected`].
 impl DtMarker for petgraph::Direction {
     const DIRECTED: bool = false;
+    // const MAYREVERSE: bool = true;
     unsafe fn get_raw_id<S: Shape>(
         &self,
         s: &S,
@@ -117,10 +126,19 @@ impl DtMarker for petgraph::Direction {
         target: <S as Shape>::Coordinate,
         st: usize,
     ) -> (Offset, usize) {
-        match self{
-            petgraph::EdgeDirection::Outgoing => AxisDirMarker.get_raw_id(s, d, source, target, st),
-            petgraph::EdgeDirection::Incoming => todo!(),
+        match (self, <S as Shape>::Axis::DIRECTED) {
+            (petgraph::EdgeDirection::Incoming, true) => {
+                let da = <S as Shape>::Axis::from_direction(d.clone())
+                    .backward()
+                    .dir_to_index();
+                let o = s.to_offset_unchecked(target);
+                (o, da)
+            }
+            _ => AxisDirMarker.get_raw_id(s, d, source, target, st),
         }
+    }
+    fn need_reverse(&self) -> bool {
+        self == &petgraph::Direction::Incoming
     }
 }
 
@@ -198,9 +216,14 @@ where
                     debug_assert_eq!(A::from_direction(d.clone()).to_index(), ne);
                     //let ne = S::Axis::from_direction(d.clone()).to_index();
                     let e = self.graph.edge_weight_unchecked_raw((nx, ne));
+                    let (source_id, target_id) = if self.directed.need_reverse() {
+                        (target, self.node)
+                    } else {
+                        (self.node, target)
+                    };
                     return Some(EdgeReference {
-                        source_id: self.node,
-                        target_id: target,
+                        source_id,
+                        target_id,
                         edge_weight: e,
                         direction: d,
                         axis: PhantomData,
@@ -242,6 +265,9 @@ where
     }
 }
 
+/// Edges connected to a node with [`Direction`](`petgraph::Direction`). See [`IntoEdgesDirected`].
+pub type EdgesDirected<'a, N, E, S> =
+    Edges<'a, N, E, S, <S as Shape>::Coordinate, petgraph::Direction>;
 impl<'a, N, E, S, C, D, A> IntoEdgesDirected for &'a LatticeGraph<N, E, S>
 where
     C: Copy,
@@ -249,7 +275,7 @@ where
     A: Axis<Direction = D>,
     D: AxisDirection + Copy,
 {
-    type EdgesDirected = Edges<'a, N, E, S, C, petgraph::Direction>;
+    type EdgesDirected = EdgesDirected<'a, N, E, S>;
 
     fn edges_directed(self, a: Self::NodeId, dir: petgraph::Direction) -> Self::EdgesDirected {
         Edges::new_d(self, a, dir)

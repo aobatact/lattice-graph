@@ -4,7 +4,7 @@ use petgraph::visit::{GetAdjacencyMatrix, IntoNeighbors, IntoNeighborsDirected};
 
 use super::*;
 
-/// Neighbors of the node. See [`neighbors`](`IntoNeighbors::neighbors`).
+/// Neighbors of the node. See [`IntoNeighbors`].
 #[derive(Debug)]
 pub struct Neighbors<'a, N, E, S: Shape, C> {
     graph: &'a LatticeGraph<N, E, S>,

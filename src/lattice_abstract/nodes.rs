@@ -6,7 +6,7 @@ use petgraph::visit::{
 
 use super::*;
 
-/// Iterate all index of [`LatticeGraph`]. See [`node_identifiers`](`IntoNodeIdentifiers::node_identifiers`).
+/// Iterate all index of [`LatticeGraph`]. See [`IntoNodeIdentifiers`].
 #[derive(Clone, Debug)]
 pub struct NodeIndices<S> {
     index: usize,
@@ -47,7 +47,7 @@ impl<'a, N, E, S: Shape> IntoNodeIdentifiers for &'a LatticeGraph<N, E, S> {
     }
 }
 
-/// Iterate all nodes of [`LatticeGraph`]. See [`node_references`](`IntoNodeReferences::node_references`).
+/// Iterate all nodes of [`LatticeGraph`]. See [`IntoNodeReferences`].
 pub struct NodeReferences<'a, N, E, S: Shape> {
     graph: &'a LatticeGraph<N, E, S>,
     index: usize,
@@ -71,7 +71,7 @@ impl<'a, N, E, S: Shape> FusedIterator for NodeReferences<'a, N, E, S> {}
 
 impl<'a, N, E, S: Shape> ExactSizeIterator for NodeReferences<'a, N, E, S> {}
 
-impl<'a, N, E, S: Shape + Clone> IntoNodeReferences for &'a LatticeGraph<N, E, S> {
+impl<'a, N, E, S: Shape> IntoNodeReferences for &'a LatticeGraph<N, E, S> {
     type NodeRef = (<S as Shape>::Coordinate, &'a N);
 
     type NodeReferences = NodeReferences<'a, N, E, S>;

@@ -10,7 +10,7 @@ use petgraph::{
 };
 use std::{marker::PhantomData, mem::MaybeUninit, num::NonZeroUsize, ptr::drop_in_place};
 mod edges;
-pub use edges::{EdgeReference, EdgeReferences, Edges};
+pub use edges::{EdgeReference, EdgeReferences, Edges, EdgesDirected};
 mod neighbors;
 pub use neighbors::*;
 mod nodes;
@@ -31,6 +31,7 @@ pub struct LatticeGraph<N, E, S: Shape> {
 
 impl<N, E, S: Shape> LatticeGraph<N, E, S> {
     /// Creates a graph from raw data.
+    #[doc(hidden)]
     pub unsafe fn new_raw(nodes: FixedVec2D<N>, edges: Vec<FixedVec2D<E>>, s: S) -> Self {
         Self { nodes, edges, s }
     }

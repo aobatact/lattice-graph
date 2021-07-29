@@ -72,17 +72,17 @@ impl<T> FixedVec2D<T> {
     ```
     */
     pub fn new<F: FnMut(usize, usize) -> T>(h: NonZeroUsize, v: usize, mut f: F) -> Self {
-        let mut ar = unsafe { Self::new_uninit(h, v) };
+        let mut ar = unsafe { FixedVec2D::<MaybeUninit<T>>::new_uninit(h, v) };
         let s2d = ar.mut_2d();
         for i in 0..h.get() {
             unsafe {
                 let si = s2d.get_unchecked_mut(i);
                 for j in 0..v {
-                    core::ptr::write(si.get_unchecked_mut(j), (&mut f)(i, j));
+                    *si.get_unchecked_mut(j) = MaybeUninit::new((&mut f)(i, j));
                 }
             }
         }
-        ar
+        unsafe { ar.assume_init() }
     }
 
     /// Returns the horizontal size.
@@ -161,6 +161,40 @@ impl<T> FixedVec2D<T> {
             std::hint::unreachable_unchecked()
         })
     }
+
+    /**
+    Drop the heads vec and forget values.
+    This is to drop the values manually in `FixedVec2D`.
+    Should drop the values first and than use this method.
+    ```
+    # use lattice_graph::fixedvec2d::*;
+    # use std::num::NonZeroUsize;
+    # use std::sync::atomic::*;
+    struct Flag{ pub drop_count : AtomicUsize }
+    impl Drop for Flag {
+        fn drop(&mut self) {
+            assert_eq!(self.drop_count.fetch_add(1, Ordering::SeqCst), 0);
+        }
+    }
+
+    let mut vec = FixedVec2D::<Flag>::new(
+        NonZeroUsize::new(4).unwrap(),
+        3,
+        |i,j| Flag{ drop_count : AtomicUsize::new(0) }
+    );
+
+    // manually drops
+    vec.mut_1d().iter_mut().for_each(|f| unsafe{ std::ptr::drop_in_place(f) });
+    // forget
+    unsafe { vec.forget_values() };
+    ```
+    */
+    pub unsafe fn forget_values(&mut self) {
+        let mut v = self.into_raw_inner(true);
+        v.set_len(0);
+        drop(v);
+        std::ptr::write(self, Self::new_uninit(NonZeroUsize::new_unchecked(1), 0));
+    }
 }
 
 impl<T> FixedVec2D<MaybeUninit<T>> {
@@ -187,6 +221,9 @@ impl<T> FixedVec2D<MaybeUninit<T>> {
         }
     }
 }
+
+unsafe impl<T: Sync> Sync for FixedVec2D<T> {}
+unsafe impl<T: Send> Send for FixedVec2D<T> {}
 
 impl<T: Clone> Clone for FixedVec2D<T> {
     fn clone(&self) -> Self {

@@ -58,42 +58,17 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
         N: Default,
         E: Default,
     {
-        unsafe {
-            let mut uninit = Self::new_uninit(s);
-            if std::mem::needs_drop::<N>() {
-                uninit
-                    .nodes
-                    .mut_1d()
-                    .iter_mut()
-                    .for_each(|x| std::ptr::write(x, N::default()));
-            } else {
-                uninit.nodes.mut_1d().fill_with(|| N::default());
-            }
-            if std::mem::needs_drop::<E>() {
-                uninit
-                    .edges
-                    .iter_mut()
-                    .map(|e| e.mut_1d())
-                    .flatten()
-                    .for_each(|e| std::ptr::write(e, E::default()));
-            } else {
-                let _ = uninit
-                    .edges
-                    .iter_mut()
-                    .for_each(|e| e.mut_1d().fill_with(|| E::default()));
-            }
-            uninit
-        }
+        Self::new_with(s, |_| N::default(), |_, _| Some(E::default()))
     }
 
     /// Creates a graph with node and edge weight data from the coordinate.
     pub fn new_with<FN, FE>(s: S, mut n: FN, mut e: FE) -> Self
     where
-        S: Clone,
         FN: FnMut(S::Coordinate) -> N,
-        FE: FnMut(S::Coordinate, S::Axis) -> Option<E>,
+        FE: FnMut(S::Coordinate, S::Axis) -> Option<E>, // change to E ?
     {
-        let mut uninit = unsafe { Self::new_uninit(s.clone()) };
+        let mut uninit = unsafe { Self::new_uninit(s) };
+        let s = &uninit.s;
         let nodes = uninit.nodes.mut_1d();
         let edges = &mut uninit.edges;
         for i in 0..s.node_count() {
@@ -188,6 +163,7 @@ impl<N, E, S: Shape> LatticeGraph<MaybeUninit<N>, MaybeUninit<E>, S> {
 
 impl<N, E, S: Shape> Drop for LatticeGraph<N, E, S> {
     fn drop(&mut self) {
+        // if e is drop type, drop manually to prevent dropping for invalid (uninitialized) edges.
         if std::mem::needs_drop::<E>() {
             let ni = self.node_identifiers();
             let s = &self.s;

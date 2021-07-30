@@ -6,7 +6,7 @@ use super::*;
 
 /// Neighbors of the node. See [`IntoNeighbors`].
 #[derive(Debug)]
-pub struct Neighbors<'a, N, E, S: Shape, C> {
+pub struct Neighbors<'a, N, E, S: Shape, C = <S as Shape>::Coordinate> {
     graph: &'a LatticeGraph<N, E, S>,
     node: C,
     state: usize,
@@ -60,28 +60,26 @@ where
 {
 }
 
-impl<'a, N, E, S, C, D> IntoNeighbors for &'a LatticeGraph<N, E, S>
+impl<'a, N, E, S, D> IntoNeighbors for &'a LatticeGraph<N, E, S>
 where
-    C: Copy,
-    S: Shape<Coordinate = C>,
+    S: Shape,
     S::Axis: Axis<Direction = D>,
     D: AxisDirection + Clone,
 {
-    type Neighbors = Neighbors<'a, N, E, S, C>;
+    type Neighbors = Neighbors<'a, N, E, S>;
 
     fn neighbors(self: Self, a: Self::NodeId) -> Self::Neighbors {
         Neighbors::new(self, a)
     }
 }
 
-impl<'a, N, E, S, C, D> IntoNeighborsDirected for &'a LatticeGraph<N, E, S>
+impl<'a, N, E, S, D> IntoNeighborsDirected for &'a LatticeGraph<N, E, S>
 where
-    C: Copy,
-    S: Shape<Coordinate = C>,
+    S: Shape,
     S::Axis: Axis<Direction = D>,
     D: AxisDirection + Clone,
 {
-    type NeighborsDirected = Neighbors<'a, N, E, S, C>;
+    type NeighborsDirected = Neighbors<'a, N, E, S>;
 
     fn neighbors_directed(self: Self, a: Self::NodeId, _d: petgraph::Direction) -> Self::Neighbors {
         Neighbors::new(self, a)

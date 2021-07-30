@@ -258,7 +258,7 @@ where
     A: Axis<Direction = D>,
     D: AxisDirection + Copy,
 {
-    type Edges = Edges<'a, N, E, S, C, AxisDirMarker>;
+    type Edges = Edges<'a, N, E, S>;
 
     fn edges(self, a: Self::NodeId) -> Self::Edges {
         Edges::new(self, a)
@@ -348,7 +348,7 @@ where
     D: AxisDirection + Copy,
 {
     type EdgeRef = EdgeReference<'a, C, E, D, A>;
-    type EdgeReferences = EdgeReferences<'a, N, E, S, C>;
+    type EdgeReferences = EdgeReferences<'a, N, E, S>;
 
     fn edge_references(self) -> Self::EdgeReferences {
         EdgeReferences {

@@ -12,7 +12,7 @@ pub use square::SquareGraph;
 pub mod hex;
 pub mod lattice_abstract;
 
-#[inline]
+#[inline(always)]
 pub(crate) unsafe fn unreachable_debug_checked<T>() -> T {
     if cfg!(debug_assertion) {
         unreachable!()

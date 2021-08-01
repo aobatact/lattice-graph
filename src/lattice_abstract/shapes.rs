@@ -44,7 +44,7 @@ pub trait Shape: Clone {
     /// Covert coordinate to index.
     fn to_index(&self, coord: Self::Coordinate) -> Option<usize> {
         let offset = self.to_offset(coord);
-        offset.map(|o| self.offset_to_index(o)).ok()
+        offset.ok().map(|o| self.offset_to_index(o))
     }
     /// Convert index to offset.
     fn index_to_offset(&self, index: usize) -> Offset {

@@ -9,13 +9,12 @@ use crate::{
 
 /// Axial based coordinates for hex graph.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-pub struct HexAxial<S = ()> {
+pub struct HexAxial {
     pub(crate) r: isize,
     pub(crate) q: isize,
-    s: S,
 }
 
-impl<S> HexAxial<S> {
+impl HexAxial {
     /// Get a reference to the hex axial's r.
     pub fn r(&self) -> isize {
         self.r
@@ -27,21 +26,18 @@ impl<S> HexAxial<S> {
     }
 }
 
-impl<S> HexAxial<S>
-where
-    S: Default,
+impl HexAxial
 {
     ///Creates a new Coordinate.
     pub fn new(r: isize, q: isize) -> Self {
         Self {
             q,
             r,
-            s: S::default(),
         }
     }
 }
 
-impl<S: Copy + Eq> Coordinate for HexAxial<S> {}
+impl Coordinate for HexAxial {}
 
 /// Defines wheter the hex graph is `flat-top` or `point-top` and is odd or even.
 pub trait HexAxialShapeBase: OE + RQ + Clone {
@@ -97,9 +93,7 @@ where
     }
 }
 
-fn move_coord_r<S>(coord: HexAxial<S>, dir: AxisDR) -> HexAxial<S>
-where
-    S: Default,
+fn move_coord_r(coord: HexAxial, dir: AxisDR) -> HexAxial
 {
     match dir {
         AxisDR::NE => HexAxial::new(coord.r, coord.q + 1),
@@ -111,9 +105,7 @@ where
     }
 }
 
-fn move_coord_q<S>(coord: HexAxial<S>, dir: AxisDQ) -> HexAxial<S>
-where
-    S: Default,
+fn move_coord_q(coord: HexAxial, dir: AxisDQ) -> HexAxial
 {
     match dir {
         AxisDQ::N => HexAxial::new(coord.r, coord.q + 1),

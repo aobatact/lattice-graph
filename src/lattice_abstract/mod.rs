@@ -30,7 +30,7 @@ pub struct LatticeGraph<N, E, S: Shape> {
 }
 
 impl<N, E, S: Shape> LatticeGraph<N, E, S> {
-    /// Creates a graph from raw data.
+    /// Creates a graph from raw data. This api might change.
     #[doc(hidden)]
     pub unsafe fn new_raw(nodes: FixedVec2D<N>, edges: Vec<FixedVec2D<E>>, s: S) -> Self {
         Self { nodes, edges, s }
@@ -58,14 +58,14 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
         N: Default,
         E: Default,
     {
-        Self::new_with(s, |_| N::default(), |_, _| Some(E::default()))
+        Self::new_with(s, |_| N::default(), |_, _| E::default())
     }
 
     /// Creates a graph with node and edge weight data from the coordinate.
     pub fn new_with<FN, FE>(s: S, mut n: FN, mut e: FE) -> Self
     where
         FN: FnMut(S::Coordinate) -> N,
-        FE: FnMut(S::Coordinate, S::Axis) -> Option<E>, // change to E ?
+        FE: FnMut(S::Coordinate, S::Axis) -> E, // change to E ?
     {
         let mut uninit = unsafe { Self::new_uninit(s) };
         let s = &uninit.s;
@@ -80,16 +80,15 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
                 if s.move_coord(c, a.foward()).is_err() {
                     continue;
                 }
-                if let Some(ex) = e(c, a) {
-                    let t = edges[j]
-                        .mut_2d()
-                        .get_mut(offset.horizontal)
-                        .map(|x| x.get_mut(offset.vertical))
-                        .flatten();
-                    t.map(|x| {
-                        unsafe { std::ptr::write(x, ex) };
-                    });
-                }
+                let ex = e(c, a);
+                let t = edges[j]
+                    .mut_2d()
+                    .get_mut(offset.horizontal)
+                    .map(|x| x.get_mut(offset.vertical))
+                    .flatten();
+                t.map(|x| {
+                    unsafe { std::ptr::write(x, ex) };
+                });
             }
         }
         uninit
@@ -120,9 +119,8 @@ impl<N, E, S: Shape + Default> LatticeGraph<N, E, S> {
     /// Creates a graph with node and edge weight data from the coordinate with [`Shape`] from default.
     pub fn new_with_s<FN, FE>(n: FN, e: FE) -> Self
     where
-        S: Clone,
         FN: FnMut(S::Coordinate) -> N,
-        FE: FnMut(S::Coordinate, S::Axis) -> Option<E>,
+        FE: FnMut(S::Coordinate, S::Axis) -> E,
     {
         Self::new_with(S::default(), n, e)
     }

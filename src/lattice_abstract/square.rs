@@ -567,7 +567,7 @@ mod tests {
                  horizontal: x,
                  vertical: y,
              }),
-             _d| Some((x + 2 * y) as i32),
+             _d| (x + 2 * y) as i32,
         );
         assert_eq!(sq.s.horizontal(), 4);
         assert_eq!(sq.s.vertical(), 3);
@@ -664,7 +664,7 @@ mod tests {
                  horizontal: x,
                  vertical: y,
              }),
-             _d| Some((x + 2 * y) as i32),
+             _d| (x + 2 * y) as i32,
         );
 
         debug_assert!(sq
@@ -696,7 +696,7 @@ mod tests {
                  horizontal: x,
                  vertical: y,
              }),
-             d| { Some((x + 2 * y) as i32 * if d == SquareAxis::X { 1 } else { 3 }) },
+             d| { (x + 2 * y) as i32 * if d == SquareAxis::X { 1 } else { 3 } },
         );
 
         let x = petgraph::algo::astar(

@@ -86,15 +86,15 @@ mod tests {
 
     #[fixture]
     fn hexgraph_oddr55() -> Hex5x5 {
-        Hex5x5::new_with(HexAxialShape::default(), |x| (x), |n, d| Some((n, d)))
+        Hex5x5::new_with(HexAxialShape::default(), |x| (x), |n, d| (n, d))
     }
     #[fixture]
     fn hexgraph_oddr55_lew() -> Hex5x5Lew {
-        Hex5x5Lew::new_with_s(|x| (x), |n, d| Some((n, d)))
+        Hex5x5Lew::new_with_s(|x| (x), |n, d| (n, d))
     }
     #[fixture]
     fn hexgraph_evenq55() -> Hex5x5EQ {
-        Hex5x5EQ::new_with_s(|x| (x), |n, d| Some((n, d)))
+        Hex5x5EQ::new_with_s(|x| (x), |n, d| (n, d))
     }
     #[rstest]
     fn gen_oddr(hexgraph_oddr55: Hex5x5) {

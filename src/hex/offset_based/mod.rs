@@ -46,12 +46,12 @@ mod tests {
 
     #[fixture]
     fn hexgraph_oddr55() -> Hex5x5 {
-        Hex5x5::new_with(HexOffsetShape::default(), |x| (x), |n, d| Some((n, d)))
+        Hex5x5::new_with(HexOffsetShape::default(), |x| (x), |n, d| (n, d))
     }
 
     #[fixture]
     fn hexgraph_oddr55_lew() -> Hex5x5Lew {
-        Hex5x5Lew::new_with(HexOffsetShape::default(), |x| (x), |n, d| Some((n, d)))
+        Hex5x5Lew::new_with(HexOffsetShape::default(), |x| (x), |n, d| (n, d))
     }
 
     #[rstest]

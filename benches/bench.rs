@@ -87,7 +87,7 @@ fn graph_search_inner(c: &mut Criterion, h: u32, v: u32, seed: u64, name: &'stat
         let g = lattice_graph::lattice_abstract::square::SquareGraphAbstract::<_, _>::new_with(
             lattice_graph::lattice_abstract::square::SquareShape::new(h as usize, v as usize),
             |_| (),
-            |o, d| Some(o.0.horizontal() + o.0.vertical() + if d == SquareAxis::X { 0 } else { 1 }),
+            |o, d| o.0.horizontal() + o.0.vertical() + if d == SquareAxis::X { 0 } else { 1 },
         );
         b.iter_with_setup(
             || (&g, (r.gen_range(0..h) as usize, r.gen_range(0..v) as usize)),

@@ -7,6 +7,15 @@ use crate::{
     lattice_abstract::{Axis, Coordinate, Offset, Shape},
 };
 
+pub trait AxialCoord<I = isize>: Clone + Coordinate {
+    ///Creates a new Coordinate.
+    fn new(r: I, q: I) -> Self;
+    /// Get a reference to the hex axial's r.
+    fn r(&self) -> I;
+    /// Get a reference to the hex axial's q.
+    fn q(&self) -> I;
+}
+
 /// Axial based coordinates for hex graph.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct HexAxial {
@@ -26,107 +35,115 @@ impl HexAxial {
     }
 }
 
-impl HexAxial
-{
+impl HexAxial {
     ///Creates a new Coordinate.
     pub fn new(r: isize, q: isize) -> Self {
-        Self {
-            q,
-            r,
-        }
+        Self { q, r }
     }
 }
 
 impl Coordinate for HexAxial {}
+impl AxialCoord for HexAxial {
+    #[inline]
+    fn new(r: isize, q: isize) -> Self {
+        Self::new(r, q)
+    }
+
+    #[inline]
+    fn r(&self) -> isize {
+        self.r
+    }
+
+    #[inline]
+    fn q(&self) -> isize {
+        self.q
+    }
+}
 
 /// Defines wheter the hex graph is `flat-top` or `point-top` and is odd or even.
-pub trait HexAxialShapeBase: OE + RQ + Clone {
+pub trait HexAxialShapeBase<HA: AxialCoord>: OE + RQ + Clone {
     type Axis: Axis;
-    unsafe fn move_coord_unchecked(
-        coord: HexAxial,
-        dir: <Self::Axis as Axis>::Direction,
-    ) -> HexAxial;
+    unsafe fn move_coord_unchecked(coord: HA, dir: <Self::Axis as Axis>::Direction) -> HA;
 }
 
-impl HexAxialShapeBase for OddR {
+impl<HA: AxialCoord> HexAxialShapeBase<HA> for OddR {
     type Axis = AxisR;
 
-    unsafe fn move_coord_unchecked(coord: HexAxial, dir: AxisDR) -> HexAxial {
+    unsafe fn move_coord_unchecked(coord: HA, dir: AxisDR) -> HA {
         move_coord_r(coord, dir)
     }
 }
 
-impl HexAxialShapeBase for EvenR {
+impl<HA: AxialCoord> HexAxialShapeBase<HA> for EvenR {
     type Axis = AxisR;
 
-    unsafe fn move_coord_unchecked(coord: HexAxial, dir: AxisDR) -> HexAxial {
+    unsafe fn move_coord_unchecked(coord: HA, dir: AxisDR) -> HA {
         move_coord_r(coord, dir)
     }
 }
 
-impl HexAxialShapeBase for OddQ {
+impl<HA: AxialCoord> HexAxialShapeBase<HA> for OddQ {
     type Axis = AxisQ;
 
-    unsafe fn move_coord_unchecked(coord: HexAxial, dir: AxisDQ) -> HexAxial {
+    unsafe fn move_coord_unchecked(coord: HA, dir: AxisDQ) -> HA {
         move_coord_q(coord, dir)
     }
 }
 
-impl HexAxialShapeBase for EvenQ {
+impl<HA: AxialCoord> HexAxialShapeBase<HA> for EvenQ {
     type Axis = AxisQ;
 
-    unsafe fn move_coord_unchecked(coord: HexAxial, dir: AxisDQ) -> HexAxial {
+    unsafe fn move_coord_unchecked(coord: HA, dir: AxisDQ) -> HA {
         move_coord_q(coord, dir)
     }
 }
 
-impl<T, A> HexAxialShapeBase for DirectedMarker<T>
+impl<T, A, HA: AxialCoord> HexAxialShapeBase<HA> for DirectedMarker<T>
 where
-    T: HexAxialShapeBase<Axis = A>,
+    T: HexAxialShapeBase<HA, Axis = A>,
     A: Axis,
     A::Direction: Axis<Direction = A::Direction>,
 {
     type Axis = A::Direction;
 
-    unsafe fn move_coord_unchecked(coord: HexAxial, dir: A::Direction) -> HexAxial {
+    unsafe fn move_coord_unchecked(coord: HA, dir: A::Direction) -> HA {
         T::move_coord_unchecked(coord, dir)
     }
 }
 
-fn move_coord_r(coord: HexAxial, dir: AxisDR) -> HexAxial
-{
+fn move_coord_r<HA: AxialCoord>(coord: HA, dir: AxisDR) -> HA {
     match dir {
-        AxisDR::NE => HexAxial::new(coord.r, coord.q + 1),
-        AxisDR::E => HexAxial::new(coord.r + 1, coord.q),
-        AxisDR::SE => HexAxial::new(coord.r + 1, coord.q - 1),
-        AxisDR::SW => HexAxial::new(coord.r, coord.q - 1),
-        AxisDR::W => HexAxial::new(coord.r - 1, coord.q),
-        AxisDR::NW => HexAxial::new(coord.r - 1, coord.q + 1),
+        AxisDR::NE => HA::new(coord.r(), coord.q() + 1),
+        AxisDR::E => HA::new(coord.r() + 1, coord.q()),
+        AxisDR::SE => HA::new(coord.r() + 1, coord.q() - 1),
+        AxisDR::SW => HA::new(coord.r(), coord.q() - 1),
+        AxisDR::W => HA::new(coord.r() - 1, coord.q()),
+        AxisDR::NW => HA::new(coord.r() - 1, coord.q() + 1),
     }
 }
 
-fn move_coord_q(coord: HexAxial, dir: AxisDQ) -> HexAxial
-{
+fn move_coord_q<HA: AxialCoord>(coord: HA, dir: AxisDQ) -> HA {
     match dir {
-        AxisDQ::N => HexAxial::new(coord.r, coord.q + 1),
-        AxisDQ::NE => HexAxial::new(coord.r + 1, coord.q),
-        AxisDQ::SE => HexAxial::new(coord.r + 1, coord.q - 1),
-        AxisDQ::S => HexAxial::new(coord.r, coord.q - 1),
-        AxisDQ::SW => HexAxial::new(coord.r - 1, coord.q),
-        AxisDQ::NW => HexAxial::new(coord.r - 1, coord.q + 1),
+        AxisDQ::N => HA::new(coord.r(), coord.q() + 1),
+        AxisDQ::NE => HA::new(coord.r() + 1, coord.q()),
+        AxisDQ::SE => HA::new(coord.r() + 1, coord.q() - 1),
+        AxisDQ::S => HA::new(coord.r(), coord.q() - 1),
+        AxisDQ::SW => HA::new(coord.r() - 1, coord.q()),
+        AxisDQ::NW => HA::new(coord.r() - 1, coord.q() + 1),
     }
 }
 
 /// Shape for Axial based coordinates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HexAxialShape<ShapeBase, Loop, H = usize, V = usize> {
+pub struct HexAxialShape<ShapeBase, Loop, H = usize, V = usize, HA = HexAxial> {
     h: H,
     v: V,
     l: PhantomData<fn() -> Loop>,
     t: PhantomData<fn() -> ShapeBase>,
+    ha: PhantomData<fn() -> HA>,
 }
 
-impl<ShapeBase, Loop, H, V> HexAxialShape<ShapeBase, Loop, H, V> {
+impl<ShapeBase, Loop, H, V, HA> HexAxialShape<ShapeBase, Loop, H, V, HA> {
     /// Create a new shape.
     pub fn new(h: H, v: V) -> Self {
         Self {
@@ -134,11 +151,12 @@ impl<ShapeBase, Loop, H, V> HexAxialShape<ShapeBase, Loop, H, V> {
             v,
             l: PhantomData,
             t: PhantomData,
+            ha: PhantomData,
         }
     }
 
     #[inline]
-    fn convert<L2>(&self) -> HexAxialShape<ShapeBase, L2, H, V>
+    fn convert<L2>(&self) -> HexAxialShape<ShapeBase, L2, H, V, HA>
     where
         H: Clone,
         V: Clone,
@@ -148,6 +166,7 @@ impl<ShapeBase, Loop, H, V> HexAxialShape<ShapeBase, Loop, H, V> {
             v: self.v.clone(),
             l: PhantomData,
             t: PhantomData,
+            ha: PhantomData,
         }
     }
 }
@@ -164,14 +183,15 @@ impl<T, L, const H: usize, const V: usize> Default for ConstHexAxialShape<T, L, 
     }
 }
 
-impl<B, H, V> Shape for HexAxialShape<B, (), H, V>
+impl<B, H, V, HA> Shape for HexAxialShape<B, (), H, V, HA>
 where
-    B: HexAxialShapeBase,
+    HA: AxialCoord,
+    B: HexAxialShapeBase<HA>,
     H: Clone + Into<usize>,
     V: Clone + Into<usize>,
 {
     type Axis = B::Axis;
-    type Coordinate = HexAxial;
+    type Coordinate = HA;
     type OffsetConvertError = ();
     type CoordinateMoveError = ();
 
@@ -185,18 +205,18 @@ where
 
     fn to_offset(&self, coord: Self::Coordinate) -> Result<Offset, Self::OffsetConvertError> {
         if B::IS_FLAT_TOP {
-            if (coord.r as usize) < self.horizontal() {
-                let v = coord.q + ((coord.r as usize + B::CONVERT_OFFSET) / 2) as isize;
+            if (coord.r() as usize) < self.horizontal() {
+                let v = coord.q() + ((coord.r() as usize + B::CONVERT_OFFSET) / 2) as isize;
                 if (v as usize) < self.vertical() {
-                    return Ok(Offset::new(coord.r as usize, v as usize));
+                    return Ok(Offset::new(coord.r() as usize, v as usize));
                 }
             }
         } else {
-            // coord.q < 0 => (coord.q as usize) > usize::MAX >= self.vertical()
-            if (coord.q as usize) < self.vertical() {
-                let h = coord.r + ((coord.q as usize + B::CONVERT_OFFSET) / 2) as isize;
+            // coord.q() < 0 => (coord.q() as usize) > usize::MAX >= self.vertical()
+            if (coord.q() as usize) < self.vertical() {
+                let h = coord.r() + ((coord.q() as usize + B::CONVERT_OFFSET) / 2) as isize;
                 if (h as usize) < self.horizontal() {
-                    return Ok(Offset::new(h as usize, coord.q as usize));
+                    return Ok(Offset::new(h as usize, coord.q() as usize));
                 }
             }
         }
@@ -205,23 +225,23 @@ where
 
     unsafe fn to_offset_unchecked(&self, coord: Self::Coordinate) -> Offset {
         if B::IS_FLAT_TOP {
-            let v = coord.q + ((coord.r as usize + B::CONVERT_OFFSET) / 2) as isize;
-            Offset::new(coord.r as usize, v as usize)
+            let v = coord.q() + ((coord.r() as usize + B::CONVERT_OFFSET) / 2) as isize;
+            Offset::new(coord.r() as usize, v as usize)
         } else {
-            let h = coord.r + ((coord.q as usize + B::CONVERT_OFFSET) / 2) as isize;
-            Offset::new(h as usize, coord.q as usize)
+            let h = coord.r() + ((coord.q() as usize + B::CONVERT_OFFSET) / 2) as isize;
+            Offset::new(h as usize, coord.q() as usize)
         }
     }
 
     fn from_offset(&self, offset: crate::lattice_abstract::Offset) -> Self::Coordinate {
         if B::IS_FLAT_TOP {
-            HexAxial::new(
+            HA::new(
                 offset.horizontal() as isize,
                 offset.vertical() as isize
                     - ((offset.horizontal() + B::CONVERT_OFFSET) / 2) as isize,
             )
         } else {
-            HexAxial::new(
+            HA::new(
                 offset.horizontal() as isize
                     - ((offset.vertical() + B::CONVERT_OFFSET) / 2) as isize,
                 offset.vertical() as isize,
@@ -259,14 +279,15 @@ where
     }
 }
 
-impl<B, H, V> Shape for HexAxialShape<B, LoopEW, H, V>
+impl<B, H, V, HA> Shape for HexAxialShape<B, LoopEW, H, V, HA>
 where
-    B: HexAxialShapeBase,
+    HA: AxialCoord,
+    B: HexAxialShapeBase<HA>,
     H: Clone + Into<usize>,
     V: Clone + Into<usize>,
 {
     type Axis = B::Axis;
-    type Coordinate = HexAxial;
+    type Coordinate = HA;
     type OffsetConvertError = ();
     type CoordinateMoveError = ();
 
@@ -306,25 +327,26 @@ where
         coord: Self::Coordinate,
         dir: <Self::Axis as Axis>::Direction,
     ) -> Result<Self::Coordinate, Self::CoordinateMoveError> {
-        let mut c = unsafe { B::move_coord_unchecked(coord, dir) };
-        let q = c.q;
+        let c = unsafe { B::move_coord_unchecked(coord, dir) };
+        let q = c.q();
         if (q as usize) >= self.vertical() {
             return Err(());
         }
         let min = -((q + B::CONVERT_OFFSET as isize) / 2);
         let h = self.horizontal() as isize;
-        if c.r < min {
+        let mut r = c.r();
+        if r < min {
             while {
-                c.r += h;
-                c.r < min
+                r += h;
+                r < min
             } {}
         } else {
             let max = h - min;
-            while c.r >= max {
-                c.r -= h;
+            while r >= max {
+                r -= h;
             }
         }
 
-        Ok(c)
+        Ok(HA::new(r, q))
     }
 }

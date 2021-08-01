@@ -5,17 +5,17 @@ Module for Hex Graph with axial coordinates.
 ## Example
 [`HexGraph`]`<N, E,`[`OddR`](`super::shapes::OddR`)`>`
 ```text
-(-1, 1) - (0, 2)        (NW)   NE
+(-1, 2) - (0, 2)        (NW)   NE
     \    /    \            \   /
     (0, 1)  - (1, 1)  (W) -  C -  E
     /    \    /            /   \
 (0, 0) - (1, 0)        (SW)     SE
 ```
-[`HexGraph`]`<N, E,`[`EvenR`](`super::shapes::OddR`)`>`
+[`HexGraph`]`<N, E,`[`EvenR`](`super::shapes::EvenR`)`>`
 ```text
-    (-1, 1) - (0, 2)     (NW)  NE
+    (1, 2) - (0, 2)     (NW)  NE
     /    \    /            \   /
-(0, 1) - (1, 1)       (W) -  C -  E
+(-1, 1) - (0, 1)      (W) -  C -  E
     \    /    \            /   \
     (0, 0) - (1, 0)     (SW)    SE
 ```
@@ -31,16 +31,16 @@ Module for Hex Graph with axial coordinates.
 ```
 [`HexGraph`]`<N, E,`[`EvenQ`](`super::shapes::EvenQ`)`>`
 ```text
-(0, 1)   (2, 1)           N
+(0, 1)   (2, 0)           N
   |  \    /  |      (NW)  |   NE
-  |  (1,  1) |         \  |  /
+  |  (1,  0) |         \  |  /
   |  /  |  \ |            C
-(0, 0)  | (2, 0)       /  |  \
-     \  |  /        (SW)  |  SE
-     (1,  0)             (S)
+(0, 0)  | (2, -1)       /  |  \
+     \  |  /         (SW)  |  SE
+     (1, -1)              (S)
 ```
 */
-mod shapes;
+pub(crate) mod shapes;
 pub use super::shapes::*;
 pub use crate::lattice_abstract::shapes::*;
 use crate::lattice_abstract::LatticeGraph;

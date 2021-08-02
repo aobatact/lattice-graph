@@ -1,6 +1,6 @@
 # lattice-graph
 
-[![Doc](https://docs.rs/lattice-graph/badge.svg)](https://docs.rs/lattice-graph)
+[![Doc](https://docs.rs/lattice-graph/badge.svg)](https://docs.rs/lattice-graph) 
 [![Crate](https://img.shields.io/crates/v/lattice-graph.svg)](https://crates.io/crates/lattice-graph)
 
 Extention library for [petgraph](https://crates.io/crates/petgraph).

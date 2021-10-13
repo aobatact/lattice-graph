@@ -1,49 +1,4 @@
-/*!
-Module to use [`hex2d`] as Coordinate of Hex Graph.
-
-This Module is to use [`hex2d`] as Coordinate of Hex Graph.
-The behavior is almost same as [`axial_based`](`super::axial_based`).
-
-Currently this [`HexShape`](`HexShape`) doesn't use [`hex2d::Direction`]
-as [`Axis`] or [`AxisDirection`](`crate::lattice_abstract::shapes::AxisDirection`)
-to reuse the implemention with [`axial_based`](`super::axial_based`).
-So it isn't perfectly integrate with it, so I might make another
-`Shape` and `Graph` if I have time.
-*/
-
-use super::{
-    axial_based::{shapes::AxialCoord, HexAxialShape},
-    shapes::{AxisDQ, AxisDR, OddR},
-};
-use crate::{
-    lattice_abstract::{shapes::Axis, LatticeGraph},
-    unreachable_debug_checked,
-};
-#[cfg(feature = "const-generic-wrap")]
-use const_generic_wrap::WrapUSIZE;
-use hex2d::Integer;
-
-impl<I: Integer> crate::lattice_abstract::shapes::Coordinate for hex2d::Coordinate<I> {}
-impl<I: Integer> AxialCoord for hex2d::Coordinate<I> {
-    fn new(r: isize, q: isize) -> Self {
-        Self::new(
-            I::from_isize(r).unwrap_or_else(|| unsafe { unreachable_debug_checked() }),
-            I::from_isize(q).unwrap_or_else(|| unsafe { unreachable_debug_checked() }),
-        )
-    }
-
-    fn r(&self) -> isize {
-        self.x
-            .to_isize()
-            .unwrap_or_else(|| unsafe { unreachable_debug_checked() })
-    }
-
-    fn q(&self) -> isize {
-        self.y
-            .to_isize()
-            .unwrap_or_else(|| unsafe { unreachable_debug_checked() })
-    }
-}
+use super::*;
 
 /// Shape for [`Coordinate`](`hex2d::Coordinate`)
 pub type HexShape<B, L, I = i32, H = usize, V = usize> =
@@ -138,21 +93,21 @@ mod tests {
     #[case(C::new(0, 0),IntoIter::new([C::new(0, 1), C::new(1, 0)]) )]
     #[case(C::new(4, 0),IntoIter::new([C::new(4, 1), C::new(3, 0), C::new(3, 1)]) )]
     #[case(C::new(1, 1),IntoIter::new([
-        C::new(1, 2),
-        C::new(2, 1),
-        C::new(2, 0),
-        C::new(1, 0),
-        C::new(0, 1),
-        C::new(0, 2),
-    ]) )]
+    C::new(1, 2),
+    C::new(2, 1),
+    C::new(2, 0),
+    C::new(1, 0),
+    C::new(0, 1),
+    C::new(0, 2),
+]) )]
     #[case(C::new(1, 2),IntoIter::new([
-        C::new(1, 3),
-        C::new(2, 2),
-        C::new(2, 1),
-        C::new(1, 1),
-        C::new(0, 2),
-        C::new(0, 3),
-    ]) )]
+    C::new(1, 3),
+    C::new(2, 2),
+    C::new(2, 1),
+    C::new(1, 1),
+    C::new(0, 2),
+    C::new(0, 3),
+]) )]
     fn neighbors_oddr(
         hexgraph_oddr55: Hex5x5,
         #[case] target: C,

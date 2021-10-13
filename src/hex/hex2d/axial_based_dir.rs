@@ -1,5 +1,26 @@
 use super::*;
 
+impl<I: Integer> AxialCoord for hex2d::Coordinate<I> {
+    fn new(r: isize, q: isize) -> Self {
+        Self::new(
+            I::from_isize(r).unwrap_or_else(|| unsafe { unreachable_debug_checked() }),
+            I::from_isize(q).unwrap_or_else(|| unsafe { unreachable_debug_checked() }),
+        )
+    }
+
+    fn r(&self) -> isize {
+        self.x
+            .to_isize()
+            .unwrap_or_else(|| unsafe { unreachable_debug_checked() })
+    }
+
+    fn q(&self) -> isize {
+        self.y
+            .to_isize()
+            .unwrap_or_else(|| unsafe { unreachable_debug_checked() })
+    }
+}
+
 /// Shape for [`Coordinate`](`hex2d::Coordinate`)
 pub type HexShape<B, L, I = i32, H = usize, V = usize> =
     HexAxialShape<B, L, H, V, hex2d::Coordinate<I>>;

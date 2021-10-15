@@ -13,13 +13,14 @@ repository = "https://github.com/aobatact/lattice-graph"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = [ "const-generic-wrap", "hex2d" ]
+default = [ "const-generic-wrap", "hex2d", "serde" ]
 
 [dependencies]
 petgraph = { version = "0.5", default-features = false }
 fixedbitset = "0.2"
 const-generic-wrap = { version = "0.3", default-features = false, optional = true }
 hex2d = {version = "1.0", default-features = false, optional = true }
+serde = {version = "1.0", optional = true }
 
 [dev-dependencies]
 criterion = "0.3.4"

@@ -301,6 +301,113 @@ impl<T> IndexMut<(usize, usize)> for FixedVec2D<T> {
     }
 }
 
+#[cfg(feature = "serde")]
+mod serde_support {
+    use std::marker::PhantomData;
+
+    use super::*;
+    use serde::de::Visitor;
+    use serde::ser::SerializeStruct;
+    use serde::*;
+    impl<T: Serialize> Serialize for FixedVec2D<T> {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            let mut s = serializer.serialize_struct("fixedvec_2d", 3)?;
+            s.serialize_field("h_size", &self.h_size())?;
+            s.serialize_field("v_size", &self.v_size())?;
+            s.serialize_field("data", self.ref_1d())?;
+            s.end()
+        }
+    }
+
+    impl<'de, T: Deserialize<'de>> Deserialize<'de> for FixedVec2D<T> {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            enum Field {
+                HSize,
+                VSize,
+                Data,
+            }
+            const FIELDS: &'static [&'static str] = &["h_size", "v_size", "data"];
+
+            impl<'de> Deserialize<'de> for Field {
+                fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+                where
+                    D: Deserializer<'de>,
+                {
+                    struct FieldVisitor;
+                    impl<'de> Visitor<'de> for FieldVisitor {
+                        type Value = Field;
+
+                        fn expecting(
+                            &self,
+                            formatter: &mut std::fmt::Formatter,
+                        ) -> std::fmt::Result {
+                            formatter.write_str("`h_size`,`v_size`, or `data`")
+                        }
+
+                        fn visit_str<E>(self, value: &str) -> Result<Field, E>
+                        where
+                            E: de::Error,
+                        {
+                            match value {
+                                "h_size" => Ok(Field::HSize),
+                                "v_size" => Ok(Field::VSize),
+                                "data" => Ok(Field::Data),
+                                _ => Err(de::Error::unknown_field(value, FIELDS)),
+                            }
+                        }
+                    }
+
+                    deserializer.deserialize_identifier(FieldVisitor)
+                }
+            }
+
+            struct FixedVec2DVisitor<T>(PhantomData<T>);
+            impl<'de, T: Deserialize<'de>> Visitor<'de> for FixedVec2DVisitor<T> {
+                type Value = FixedVec2D<T>;
+
+                fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                    formatter.write_str("struct FixedVec2D")
+                }
+
+                fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+                where
+                    A: de::SeqAccess<'de>,
+                {
+                    let h_size = seq
+                        .next_element()?
+                        .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                    let v_size = seq
+                        .next_element()?
+                        .ok_or_else(|| de::Error::invalid_length(1, &self))?;
+                    let data = seq
+                        .next_element()?
+                        .ok_or_else(|| de::Error::invalid_length(2, &self))?;
+                    unsafe { FixedVec2D::from_raw(h_size, v_size, data) }.ok_or_else(|| {
+                        de::Error::invalid_value(
+                            de::Unexpected::Other("invalid data length"),
+                            &&*format!("{}", h_size.get() * v_size),
+                        )
+                    })
+                }
+
+                fn visit_map<A>(self, map: A) -> Result<Self::Value, A::Error>
+                where
+                        A: de::MapAccess<'de>, {
+                    
+                }
+            }
+
+            deserializer.deserialize_struct("FixedVec2d", FIELDS, FixedVec2DVisitor(PhantomData))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     type Nz = std::num::NonZeroUsize;

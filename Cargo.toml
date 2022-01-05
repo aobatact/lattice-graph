@@ -25,7 +25,7 @@ hex2d = {version = "1.0", default-features = false, optional = true }
 criterion = "0.3.4"
 rand = "0.8.0"
 const-generic-wrap = { version = "0.3"}
-rstest = "0.10.0"
+rstest = "0.12.0"
 
 [[bench]]
 name = "bench"

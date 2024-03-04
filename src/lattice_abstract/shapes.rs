@@ -38,7 +38,7 @@ pub trait Shape: Clone {
     fn offset_to_coordinate(&self, offset: Offset) -> Self::Coordinate;
 
     /// Convert coordinate from index.
-    fn from_index(&self, index: usize) -> Self::Coordinate {
+    fn index_to_coordinate(&self, index: usize) -> Self::Coordinate {
         self.offset_to_coordinate(self.index_to_offset(index))
     }
     /// Covert coordinate to index.
@@ -157,8 +157,8 @@ impl<S: Shape> Shape for &S {
         (*self).node_count()
     }
 
-    fn from_index(&self, index: usize) -> Self::Coordinate {
-        (*self).from_index(index)
+    fn index_to_coordinate(&self, index: usize) -> Self::Coordinate {
+        (*self).index_to_coordinate(index)
     }
 
     fn to_index(&self, coord: Self::Coordinate) -> Option<usize> {

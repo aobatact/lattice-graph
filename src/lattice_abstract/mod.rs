@@ -49,6 +49,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
                 s.vertical(),
             ))
         }
+        debug_assert_eq!(edges.len(), S::Axis::COUNT);
         Self { nodes, edges, s }
     }
 
@@ -75,13 +76,13 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
             let offset = s.index_to_offset(i);
             let c = s.offset_to_coordinate(offset);
             unsafe { std::ptr::write(nodes.get_unchecked_mut(i), n(c)) }
-            for j in 0..S::Axis::COUNT {
+            for (j, edge) in edges.iter_mut().enumerate() {
                 let a = unsafe { <S::Axis as Axis>::from_index_unchecked(j) };
                 if s.move_coord(c, a.foward()).is_err() {
                     continue;
                 }
                 let ex = e(c, a);
-                let t = edges[j]
+                let t = edge
                     .mut_2d()
                     .get_mut(offset.horizontal)
                     .and_then(|x| x.get_mut(offset.vertical));

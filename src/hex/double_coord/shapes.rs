@@ -73,64 +73,64 @@ fn move_coord_r(
     h_max: usize,
     v_max: usize,
 ) -> Option<DoubleCoord> {
-    loop {
+    'outer: {
         let mut coord = coord;
         match dir {
             AxisDR::NE => {
                 coord.h += 1;
                 if coord.h >= h_max {
-                    break;
+                    break 'outer;
                 }
                 coord.v += 1;
                 if coord.v >= v_max {
-                    break;
+                    break 'outer;
                 }
             }
             AxisDR::E => {
                 coord.h += 2;
                 if coord.h >= h_max {
-                    break;
+                    break 'outer;
                 }
             }
             AxisDR::SE => {
                 coord.h += 1;
                 if coord.h >= h_max {
-                    break;
+                    break 'outer;
                 }
                 if let Some(x) = coord.v.checked_sub(1) {
                     coord.v = x;
                 } else {
-                    break;
+                    break 'outer;
                 }
             }
             AxisDR::SW => {
                 if let Some(x) = coord.h.checked_sub(1) {
                     coord.h = x;
                 } else {
-                    break;
+                    break 'outer;
                 }
                 if let Some(x) = coord.v.checked_sub(1) {
                     coord.v = x;
                 } else {
-                    break;
+                    break 'outer;
                 }
             }
             AxisDR::W => {
                 if let Some(x) = coord.h.checked_sub(2) {
                     coord.h = x;
                 } else {
-                    break;
+                    break 'outer;
                 }
             }
             AxisDR::NW => {
                 if let Some(x) = coord.h.checked_sub(1) {
                     coord.h = x;
                 } else {
-                    break;
+                    break 'outer;
                 }
                 coord.v += 1;
                 if coord.v >= v_max {
-                    break;
+                    break 'outer;
                 }
             }
         }

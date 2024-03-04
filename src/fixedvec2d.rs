@@ -54,6 +54,7 @@ impl<T> FixedVec2D<T> {
     ///
     /// # Safety
     /// Should not use the value inside before init.
+    #[allow(clippy::uninit_vec)]
     pub unsafe fn new_uninit(h: NonZeroUsize, v: usize) -> Self {
         let len = h.get() * v;
         let mut vec = Vec::<T>::with_capacity(len);
@@ -158,6 +159,7 @@ impl<T> FixedVec2D<T> {
     }
 
     #[inline]
+    #[allow(clippy::mut_from_ref)]
     unsafe fn head_mut(&self) -> &mut [T] {
         self.heads.as_ref().as_mut().unwrap_or_else(|| {
             debug_assert!(false, "heads should not be empty");

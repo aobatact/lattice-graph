@@ -578,12 +578,9 @@ mod tests {
             sq.edge_weight(((0, 2).into(), SquareAxis::X).into()),
             Some(&4)
         );
-        assert_eq!(sq.edge_weight(((0, 2).into(), SquareAxis::Y).into()), None);
-        assert_eq!(sq.edge_weight(((3, 0).into(), SquareAxis::X).into()), None);
-        assert_eq!(
-            sq.edge_weight(((3, 0).into(), SquareAxis::Y).into()),
-            Some(&3)
-        );
+        assert_eq!(sq.edge_weight(((0, 2).into(), SquareAxis::Y)), None);
+        assert_eq!(sq.edge_weight(((3, 0).into(), SquareAxis::X)), None);
+        assert_eq!(sq.edge_weight(((3, 0).into(), SquareAxis::Y)), Some(&3));
     }
 
     #[test]
@@ -602,7 +599,6 @@ mod tests {
         );
         let mut count = 0;
         for (i, x) in sq.node_identifiers().enumerate() {
-            let x = x;
             let x2 = sq.to_index(x);
             assert_eq!(x2, i);
             let x3 = sq.from_index(x2);
@@ -709,7 +705,7 @@ mod tests {
             (2, 1).into(),
             |x| x == (0, 0),
             |e| *e.weight(),
-            |x| (x.0.horizontal as i32 - 0).abs() + (x.0.vertical as i32 - 0).abs(),
+            |x| (x.0.horizontal as i32).abs() + (x.0.vertical as i32).abs(),
         );
         assert!(x.is_some());
         let (d, p) = x.unwrap();

@@ -18,7 +18,7 @@ impl<S: shapes::Shape> Iterator for NodeIndices<S> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.s.node_count() {
-            let x = self.s.from_index(self.index);
+            let x = self.s.index_to_coordinate(self.index);
             self.index += 1;
             Some(x)
         } else {
@@ -58,7 +58,7 @@ impl<'a, N, E, S: Shape> Iterator for NodeReferences<'a, N, E, S> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.graph.s.node_count() {
-            let x = self.graph.s.from_index(self.index);
+            let x = self.graph.s.index_to_coordinate(self.index);
             self.index += 1;
             Some((x, unsafe { self.graph.node_weight_unchecked(x) }))
         } else {
@@ -100,7 +100,7 @@ impl<N, E, S: Shape> NodeIndexable for LatticeGraph<N, E, S> {
     }
 
     fn from_index(&self, i: usize) -> Self::NodeId {
-        self.s.from_index(i)
+        self.s.index_to_coordinate(i)
     }
 }
 

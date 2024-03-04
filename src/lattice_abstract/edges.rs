@@ -309,7 +309,7 @@ where
                 }
             }
             if self.index < self.g.s.node_count() {
-                let x = self.g.s.from_index(self.index);
+                let x = self.g.s.index_to_coordinate(self.index);
                 self.index += 1;
                 //self.e = Some(self.g.edges(x));
                 self.e = Some(unsafe { Edges::new_unchecked(self.g, x) });

@@ -12,7 +12,8 @@ use petgraph::{
     Undirected,
 };
 use std::{
-    iter::FusedIterator, marker::PhantomData, num::NonZeroUsize, ops::Range, slice::Iter, usize,
+    iter::FusedIterator, marker::PhantomData, mem::MaybeUninit, num::NonZeroUsize, ops::Range,
+    slice::Iter, usize,
 };
 
 mod edges;
@@ -79,9 +80,7 @@ pub enum DefaultShape {}
 impl Shape for DefaultShape {
     type SizeInfo = ();
     #[inline]
-    fn get_sizeinfo(_h: usize, _v: usize) -> Self::SizeInfo {
-        
-    }
+    fn get_sizeinfo(_h: usize, _v: usize) -> Self::SizeInfo {}
 }
 /// Marker that the graph does loops in horizontal axis.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -201,17 +200,26 @@ where
             let vv = &mut vref[hi];
             for vi in 0..mv {
                 unsafe {
-                    core::ptr::write(nv.get_unchecked_mut(vi), fnode(hi, vi));
-                    core::ptr::write(hv.get_unchecked_mut(vi), fedge(hi, vi, Axis::Horizontal));
-                    core::ptr::write(vv.get_unchecked_mut(vi), fedge(hi, vi, Axis::Vertical));
+                    core::ptr::write(nv.get_unchecked_mut(vi), MaybeUninit::new(fnode(hi, vi)));
+                    core::ptr::write(
+                        hv.get_unchecked_mut(vi),
+                        MaybeUninit::new(fedge(hi, vi, Axis::Horizontal)),
+                    );
+                    core::ptr::write(
+                        vv.get_unchecked_mut(vi),
+                        MaybeUninit::new(fedge(hi, vi, Axis::Vertical)),
+                    );
                 }
             }
             if !<S as Shape>::LOOP_VERTICAL {
                 unsafe {
-                    core::ptr::write(nv.get_unchecked_mut(v - 1), fnode(hi, v - 1));
+                    core::ptr::write(
+                        nv.get_unchecked_mut(v - 1),
+                        MaybeUninit::new(fnode(hi, v - 1)),
+                    );
                     core::ptr::write(
                         hv.get_unchecked_mut(v - 1),
-                        fedge(hi, v - 1, Axis::Horizontal),
+                        MaybeUninit::new(fedge(hi, v - 1, Axis::Horizontal)),
                     );
                 }
             }
@@ -221,15 +229,29 @@ where
             let vv = &mut vref[h - 1];
             for hi in 0..mv {
                 unsafe {
-                    core::ptr::write(nv.get_unchecked_mut(hi), fnode(h - 1, hi));
-                    core::ptr::write(vv.get_unchecked_mut(hi), fedge(h - 1, hi, Axis::Vertical));
+                    core::ptr::write(nv.get_unchecked_mut(hi), MaybeUninit::new(fnode(h - 1, hi)));
+                    core::ptr::write(
+                        vv.get_unchecked_mut(hi),
+                        MaybeUninit::new(fedge(h - 1, hi, Axis::Vertical)),
+                    );
                 }
             }
             if !<S as Shape>::LOOP_VERTICAL {
-                unsafe { core::ptr::write(nv.get_unchecked_mut(v - 1), fnode(h - 1, v - 1)) };
+                unsafe {
+                    core::ptr::write(
+                        nv.get_unchecked_mut(v - 1),
+                        MaybeUninit::new(fnode(h - 1, v - 1)),
+                    )
+                };
             }
         }
-        unsafe { Self::new_raw(nodes, horizontal, vertical) }
+        unsafe {
+            Self::new_raw(
+                nodes.assume_init(),
+                horizontal.assume_init(),
+                vertical.assume_init(),
+            )
+        }
     }
 
     /// Check the size of nodes and edges.

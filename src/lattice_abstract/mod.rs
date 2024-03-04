@@ -38,7 +38,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
 
     /// Creates a graph with uninitalized node and edge weight data.
     /// It is extremely unsafe so should use with [`MaybeUninit`](`core::mem::MaybeUninit`) and use [`assume_init`](`Self::assume_init`).
-    pub unsafe fn new_uninit(s: S) -> Self {
+    pub unsafe fn new_uninit(s: S) -> LatticeGraph<MaybeUninit<N>, MaybeUninit<E>, S> {
         let nodes =
             FixedVec2D::<N>::new_uninit(NonZeroUsize::new(s.horizontal()).unwrap(), s.vertical());
         let ac = S::Axis::COUNT;
@@ -50,7 +50,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
             ))
         }
         debug_assert_eq!(edges.len(), S::Axis::COUNT);
-        Self { nodes, edges, s }
+        LatticeGraph { nodes, edges, s }
     }
 
     /// Creates a graph with node and edge weight data set to [`default`](`Default::default`).
@@ -75,7 +75,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
         for i in 0..s.node_count() {
             let offset = s.index_to_offset(i);
             let c = s.offset_to_coordinate(offset);
-            unsafe { std::ptr::write(nodes.get_unchecked_mut(i), n(c)) }
+            unsafe { std::ptr::write(nodes.get_unchecked_mut(i), MaybeUninit::new(n(c))) }
             for (j, edge) in edges.iter_mut().enumerate() {
                 let a = unsafe { <S::Axis as Axis>::from_index_unchecked(j) };
                 if s.move_coord(c, a.foward()).is_err() {
@@ -87,11 +87,11 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
                     .get_mut(offset.horizontal)
                     .and_then(|x| x.get_mut(offset.vertical));
                 if let Some(x) = t {
-                    unsafe { std::ptr::write(x, ex) };
+                    unsafe { std::ptr::write(x, MaybeUninit::new(ex)) };
                 }
             }
         }
-        uninit
+        unsafe { uninit.assume_init() }
     }
 
     /// Get a reference to the lattice graph's s.
@@ -112,7 +112,7 @@ impl<N, E, S: Shape + Default> LatticeGraph<N, E, S> {
 
     /// Creates a graph with uninitalized node and edge weight data with [`Shape`] from default.
     /// It is extremely unsafe so should use with [`MaybeUninit`](`core::mem::MaybeUninit`) and use [`assume_init`](`Self::assume_init`).
-    pub unsafe fn new_uninit_s() -> Self {
+    pub unsafe fn new_uninit_s() -> LatticeGraph<MaybeUninit<N>, MaybeUninit<E>, S> {
         Self::new_uninit(S::default())
     }
 
@@ -133,7 +133,7 @@ impl<N, E, S: Shape> LatticeGraph<MaybeUninit<N>, MaybeUninit<E>, S> {
     # use lattice_graph::hex::axial_based::*;
     # use core::mem::MaybeUninit;
     # use petgraph::data::*;
-    let mut hex = unsafe { HexGraphConst::<MaybeUninit<f32>, MaybeUninit<()>, OddR, 5, 5>::new_uninit_s() };
+    let mut hex = unsafe { HexGraphConst::<f32, (), OddR, 5, 5>::new_uninit_s() };
     for i in 0..5{
         for j in 0..5{
             let offset = Offset::new(i, j);

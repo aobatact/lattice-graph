@@ -49,17 +49,14 @@ impl<T> FixedVec2D<T> {
     }
 
     /// Creates a FixedVec2D without initializing.
-    /// It is unsafe to use it so I recomend to use with [`MaybeUninit`] or just use [`new`](`Self::new`).
-    /// See [`assume_init`](`Self::assume_init`).
     ///
     /// # Safety
     /// Should not use the value inside before init.
-    #[allow(clippy::uninit_vec)]
-    pub unsafe fn new_uninit(h: NonZeroUsize, v: usize) -> Self {
+    pub unsafe fn new_uninit(h: NonZeroUsize, v: usize) -> FixedVec2D<MaybeUninit<T>> {
         let len = h.get() * v;
-        let mut vec = Vec::<T>::with_capacity(len);
+        let mut vec = Vec::<MaybeUninit<T>>::with_capacity(len);
         vec.set_len(len);
-        Self::from_raw_unchecked(h, v, vec)
+        FixedVec2D::from_raw_unchecked(h, v, vec)
     }
 
     /**
@@ -76,7 +73,7 @@ impl<T> FixedVec2D<T> {
     ```
     */
     pub fn new<F: FnMut(usize, usize) -> T>(h: NonZeroUsize, v: usize, mut f: F) -> Self {
-        let mut ar = unsafe { FixedVec2D::<MaybeUninit<T>>::new_uninit(h, v) };
+        let mut ar = unsafe { Self::new_uninit(h, v) };
         let s2d = ar.mut_2d();
         for i in 0..h.get() {
             unsafe {
@@ -198,7 +195,10 @@ impl<T> FixedVec2D<T> {
         let mut v = self.to_raw_inner(true);
         v.set_len(0);
         drop(v);
-        std::ptr::write(self, Self::new_uninit(NonZeroUsize::new_unchecked(1), 0));
+        std::ptr::write(
+            self,
+            Self::new_uninit(NonZeroUsize::new_unchecked(1), 0).assume_init(),
+        );
     }
 }
 
@@ -209,7 +209,7 @@ impl<T> FixedVec2D<MaybeUninit<T>> {
     # use std::mem::MaybeUninit;
     # use std::num::NonZeroUsize;
     # use lattice_graph::fixedvec2d::FixedVec2D;
-    let mut array = unsafe { FixedVec2D::<MaybeUninit<i32>>::new_uninit(NonZeroUsize::new(6).unwrap(),3) };
+    let mut array = unsafe { FixedVec2D::<i32>::new_uninit(NonZeroUsize::new(6).unwrap(),3) };
     for i in 0..6{
         for j in 0..3{
             array.mut_2d()[i][j] = MaybeUninit::new((i + j) as i32);
@@ -375,8 +375,7 @@ mod tests {
 
     #[test]
     fn uninit() {
-        let mut array =
-            unsafe { FixedVec2D::<MaybeUninit<i32>>::new_uninit(Nz::new(6).unwrap(), 3) };
+        let mut array = unsafe { FixedVec2D::<i32>::new_uninit(Nz::new(6).unwrap(), 3) };
         for i in 0..6 {
             for j in 0..3 {
                 array.mut_2d()[i][j] = MaybeUninit::new((i + j) as i32);

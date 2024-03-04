@@ -177,21 +177,21 @@ where
         FE: FnMut(usize, usize, Axis) -> E,
     {
         let nzh = NonZeroUsize::new(h).expect("h must be non zero");
-        let mut nodes = unsafe { FixedVec2D::new_uninit(nzh, v) };
+        let mut nodes = unsafe { FixedVec2D::new_uninit(nzh, NonZeroUsize::new_unchecked(v)) };
         let nodesref = nodes.mut_2d();
         let mh = if <S as Shape>::LOOP_HORIZONTAL {
             nzh
         } else {
             unsafe { NonZeroUsize::new_unchecked(h - 1) }
         };
-        let mut horizontal = unsafe { FixedVec2D::new_uninit(mh, v) };
+        let mut horizontal = unsafe { FixedVec2D::new_uninit(mh, NonZeroUsize::new_unchecked(v)) };
         let href = horizontal.mut_2d();
         let mv = if <S as Shape>::LOOP_VERTICAL {
             v
         } else {
             v - 1
         };
-        let mut vertical = unsafe { FixedVec2D::new_uninit(nzh, mv) };
+        let mut vertical = unsafe { FixedVec2D::new_uninit(nzh, NonZeroUsize::new_unchecked(mv)) };
         let vref = vertical.mut_2d();
 
         for hi in 0..mh.get() {

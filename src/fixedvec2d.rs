@@ -19,31 +19,24 @@ pub struct FixedVec2D<T> {
 impl<T> FixedVec2D<T> {
     /// Creates a array2d with a vec.
     /// Returns [`None`] if `h * v != vec.len()`
-    pub fn from_raw(h: NonZeroUsize, v: usize, vec: Vec<T>) -> Option<Self> {
-        if h.get() * v != vec.len() {
+    pub fn from_raw(h: NonZeroUsize, v: NonZeroUsize, vec: Vec<T>) -> Option<Self> {
+        if h.get() * v.get() != vec.len() {
             None
         } else {
             unsafe { Some(Self::from_raw_unchecked(h, v, vec)) }
         }
     }
 
-    unsafe fn from_raw_unchecked(h: NonZeroUsize, v: usize, vec: Vec<T>) -> Self {
+    unsafe fn from_raw_unchecked(h: NonZeroUsize, v: NonZeroUsize, vec: Vec<T>) -> Self {
         let mut vec = ManuallyDrop::new(vec);
         if mem::size_of::<T>() != 0 {
             vec.shrink_to_fit();
             debug_assert_eq!(vec.len(), vec.capacity());
         }
-        let ptr = vec.as_mut_ptr();
-        let mut hvec = ManuallyDrop::new(Vec::with_capacity(h.get()));
-        let mut pos = 0;
-        for _ in 0..h.get() {
-            hvec.push(slice::from_raw_parts_mut(ptr.add(pos), v));
-            pos += v;
-        }
-        hvec.shrink_to_fit();
-        debug_assert!(mem::size_of::<T>() == 0 || h.get() == hvec.capacity());
+        let hvec = vec.chunks_exact_mut(v.get()).collect::<Box<[_]>>();
+        let ptr = Box::into_raw(hvec);
         Self {
-            heads: NonNull::new_unchecked(hvec.as_mut_ptr()).cast(),
+            heads: NonNull::new_unchecked(ptr).cast(),
             hsize: h,
         }
     }
@@ -52,8 +45,8 @@ impl<T> FixedVec2D<T> {
     ///
     /// # Safety
     /// Should not use the value inside before init.
-    pub unsafe fn new_uninit(h: NonZeroUsize, v: usize) -> FixedVec2D<MaybeUninit<T>> {
-        let len = h.get() * v;
+    pub unsafe fn new_uninit(h: NonZeroUsize, v: NonZeroUsize) -> FixedVec2D<MaybeUninit<T>> {
+        let len = h.get() * v.get();
         let mut vec = Vec::<MaybeUninit<T>>::with_capacity(len);
         vec.set_len(len);
         FixedVec2D::from_raw_unchecked(h, v, vec)
@@ -64,7 +57,7 @@ impl<T> FixedVec2D<T> {
     ```
     # use std::num::NonZeroUsize;
     # use lattice_graph::fixedvec2d::FixedVec2D;
-    let array = FixedVec2D::new(NonZeroUsize::new(5).unwrap(), 2, |h, v| (h, v));
+    let array = FixedVec2D::new(NonZeroUsize::new(5).unwrap(), NonZeroUsize::new(2).unwrap(), |h, v| (h, v));
     for i in 0..5 {
         for j in 0..2 {
             assert_eq!(array.ref_2d()[i][j], (i, j));
@@ -72,13 +65,13 @@ impl<T> FixedVec2D<T> {
     }
     ```
     */
-    pub fn new<F: FnMut(usize, usize) -> T>(h: NonZeroUsize, v: usize, mut f: F) -> Self {
+    pub fn new<F: FnMut(usize, usize) -> T>(h: NonZeroUsize, v: NonZeroUsize, mut f: F) -> Self {
         let mut ar = unsafe { Self::new_uninit(h, v) };
         let s2d = ar.mut_2d();
         for i in 0..h.get() {
             unsafe {
                 let si = s2d.get_unchecked_mut(i);
-                for j in 0..v {
+                for j in 0..v.get() {
                     *si.get_unchecked_mut(j) = MaybeUninit::new(f(i, j));
                 }
             }
@@ -133,7 +126,9 @@ impl<T> FixedVec2D<T> {
     /// Returns the mutable reference of this array.
     #[inline]
     pub fn mut_2d<'a>(&mut self) -> &mut [&'a mut [T]] {
-        unsafe { slice::from_raw_parts_mut(self.heads.cast().as_mut(), self.h_size()) }
+        unsafe {
+            &mut ManuallyDrop::new(Box::from_raw(self.heads.cast::<&mut [&mut [T]]>().as_ptr()))
+        }
     }
 
     /// Returns the underlying [`Vec`] consuming this [`FixedVec2D`]
@@ -181,7 +176,7 @@ impl<T> FixedVec2D<T> {
 
     let mut vec = FixedVec2D::<Flag>::new(
         NonZeroUsize::new(4).unwrap(),
-        3,
+        NonZeroUsize::new(3).unwrap(),
         |i,j| Flag{ drop_count : AtomicUsize::new(0) }
     );
 
@@ -197,7 +192,11 @@ impl<T> FixedVec2D<T> {
         drop(v);
         std::ptr::write(
             self,
-            Self::new_uninit(NonZeroUsize::new_unchecked(1), 0).assume_init(),
+            Self::new_uninit(
+                NonZeroUsize::new_unchecked(1),
+                NonZeroUsize::new_unchecked(1),
+            )
+            .assume_init(),
         );
     }
 }
@@ -209,7 +208,7 @@ impl<T> FixedVec2D<MaybeUninit<T>> {
     # use std::mem::MaybeUninit;
     # use std::num::NonZeroUsize;
     # use lattice_graph::fixedvec2d::FixedVec2D;
-    let mut array = unsafe { FixedVec2D::<i32>::new_uninit(NonZeroUsize::new(6).unwrap(),3) };
+    let mut array = unsafe { FixedVec2D::<i32>::new_uninit(NonZeroUsize::new(6).unwrap(),NonZeroUsize::new(3).unwrap()) };
     for i in 0..6{
         for j in 0..3{
             array.mut_2d()[i][j] = MaybeUninit::new((i + j) as i32);
@@ -236,7 +235,11 @@ impl<T: Clone> Clone for FixedVec2D<T> {
             let vec = self.to_raw_inner(false);
             let vec = ManuallyDrop::new(vec);
             let vec_c = ManuallyDrop::into_inner(vec.clone());
-            Self::from_raw_unchecked(self.hsize, self.v_size(), vec_c)
+            Self::from_raw_unchecked(
+                self.hsize,
+                NonZeroUsize::new_unchecked(self.v_size()),
+                vec_c,
+            )
         }
     }
 }
@@ -314,18 +317,8 @@ mod tests {
     use super::FixedVec2D;
 
     #[test]
-    fn gen_0() {
-        let x = FixedVec2D::new(Nz::new(5).unwrap(), 0, |h, v| (h, v));
-        let ar2d = x.ref_2d();
-        assert_eq!(ar2d.len(), 5);
-        assert_eq!(ar2d.get(0).map(|x| x.len()), Some(0));
-        let ar1d = x.ref_1d();
-        assert_eq!(ar1d.len(), 0);
-    }
-
-    #[test]
     fn gen() {
-        let x = FixedVec2D::new(Nz::new(5).unwrap(), 2, |h, v| (h, v));
+        let x = FixedVec2D::new(Nz::new(5).unwrap(), Nz::new(2).unwrap(), |h, v| (h, v));
         for i in 0..5 {
             for j in 0..2 {
                 assert_eq!(x.ref_2d()[i][j], (i, j));
@@ -335,7 +328,7 @@ mod tests {
 
     #[test]
     fn ref_1d() {
-        let x = FixedVec2D::new(Nz::new(5).unwrap(), 2, |h, v| (h, v));
+        let x = FixedVec2D::new(Nz::new(5).unwrap(), Nz::new(2).unwrap(), |h, v| (h, v));
         for i in 0..5 {
             for j in 0..2 {
                 assert_eq!(x.ref_1d()[j + i * 2], (i, j));
@@ -345,7 +338,7 @@ mod tests {
 
     #[test]
     fn gen_zst() {
-        let x = FixedVec2D::new(Nz::new(5).unwrap(), 2, |_h, _v| ());
+        let x = FixedVec2D::new(Nz::new(5).unwrap(), Nz::new(2).unwrap(), |_h, _v| ());
         for i in 0..5 {
             for j in 0..2 {
                 assert_eq!(x.ref_2d()[i][j], ());
@@ -355,7 +348,7 @@ mod tests {
 
     #[test]
     fn clone() {
-        let x = FixedVec2D::new(Nz::new(5).unwrap(), 2, |h, v| (h, v));
+        let x = FixedVec2D::new(Nz::new(5).unwrap(), Nz::new(2).unwrap(), |h, v| (h, v));
         let mut y = x.clone();
         for i in 0..5 {
             for j in 0..2 {
@@ -375,7 +368,8 @@ mod tests {
 
     #[test]
     fn uninit() {
-        let mut array = unsafe { FixedVec2D::<i32>::new_uninit(Nz::new(6).unwrap(), 3) };
+        let mut array =
+            unsafe { FixedVec2D::<i32>::new_uninit(Nz::new(6).unwrap(), Nz::new(3).unwrap()) };
         for i in 0..6 {
             for j in 0..3 {
                 array.mut_2d()[i][j] = MaybeUninit::new((i + j) as i32);

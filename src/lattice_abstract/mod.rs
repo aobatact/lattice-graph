@@ -39,14 +39,16 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
     /// Creates a graph with uninitalized node and edge weight data.
     /// It is extremely unsafe so should use with [`MaybeUninit`](`core::mem::MaybeUninit`) and use [`assume_init`](`Self::assume_init`).
     pub unsafe fn new_uninit(s: S) -> LatticeGraph<MaybeUninit<N>, MaybeUninit<E>, S> {
-        let nodes =
-            FixedVec2D::<N>::new_uninit(NonZeroUsize::new(s.horizontal()).unwrap(), s.vertical());
+        let nodes = FixedVec2D::<N>::new_uninit(
+            NonZeroUsize::new(s.horizontal()).unwrap(),
+            NonZeroUsize::new(s.vertical()).unwrap(),
+        );
         let ac = S::Axis::COUNT;
         let mut edges = Vec::with_capacity(ac);
         for _i in 0..ac {
             edges.push(FixedVec2D::<E>::new_uninit(
                 NonZeroUsize::new(s.horizontal()).unwrap(),
-                s.vertical(),
+                NonZeroUsize::new(s.vertical()).unwrap(),
             ))
         }
         debug_assert_eq!(edges.len(), S::Axis::COUNT);

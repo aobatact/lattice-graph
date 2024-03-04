@@ -85,21 +85,21 @@ impl<'a, N, E, S: Shape> IntoNodeReferences for &'a LatticeGraph<N, E, S> {
 }
 
 impl<N, E, S: Shape> NodeCount for LatticeGraph<N, E, S> {
-    fn node_count(self: &Self) -> usize {
+    fn node_count(&self) -> usize {
         self.s.node_count()
     }
 }
 
 impl<N, E, S: Shape> NodeIndexable for LatticeGraph<N, E, S> {
-    fn node_bound(self: &Self) -> usize {
+    fn node_bound(&self) -> usize {
         self.s.node_count()
     }
 
-    fn to_index(self: &Self, a: Self::NodeId) -> usize {
+    fn to_index(&self, a: Self::NodeId) -> usize {
         self.s.to_index(a).unwrap()
     }
 
-    fn from_index(self: &Self, i: usize) -> Self::NodeId {
+    fn from_index(&self, i: usize) -> Self::NodeId {
         self.s.from_index(i)
     }
 }

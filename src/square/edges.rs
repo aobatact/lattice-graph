@@ -15,7 +15,7 @@ where
     type EdgeReferences = EdgeReferences<'a, E, Ix, S>;
 
     fn edge_references(self) -> Self::EdgeReferences {
-        EdgeReferences::new(&self)
+        EdgeReferences::new(self)
     }
 }
 
@@ -31,13 +31,7 @@ pub struct EdgeReference<'a, E, Ix: IndexType, S: Shape> {
 
 impl<'a, E, Ix: IndexType, S: Shape> Clone for EdgeReference<'a, E, Ix, S> {
     fn clone(&self) -> Self {
-        Self {
-            edge_id: self.edge_id,
-            edge_weight: self.edge_weight,
-            direction: self.direction,
-            s: self.s,
-            spd: PhantomData,
-        }
+        *self
     }
 }
 
@@ -199,7 +193,7 @@ where
         let n = self.node;
         let s = S::get_sizeinfo(g.horizontal_node_count(), g.vertical_node_count());
         loop {
-            'inner: loop {
+            'inner: {
                 let er = match self.state {
                     0 => {
                         let new_n = if n.horizontal.index() == 0 {
@@ -227,7 +221,7 @@ where
                         }
                     }
                     1 => {
-                        debug_assert!(n.horizontal.index() + 1 <= g.horizontal_node_count());
+                        debug_assert!(n.horizontal.index() < g.horizontal_node_count());
                         if !S::LOOP_HORIZONTAL
                             && n.horizontal.index() + 1 == g.horizontal_node_count()
                         {
@@ -275,7 +269,7 @@ where
                         }
                     }
                     3 => {
-                        debug_assert!(n.vertical.index() + 1 <= g.vertical_node_count());
+                        debug_assert!(n.vertical.index() < g.vertical_node_count());
                         if !S::LOOP_VERTICAL && n.vertical.index() + 1 == g.vertical_node_count() {
                             break 'inner;
                         }
@@ -326,7 +320,7 @@ where
 
     fn edges(self, a: Self::NodeId) -> Self::Edges {
         Edges {
-            g: &self,
+            g: self,
             node: a,
             state: 0,
         }

@@ -80,7 +80,7 @@ impl Shape for DefaultShape {
     type SizeInfo = ();
     #[inline]
     fn get_sizeinfo(_h: usize, _v: usize) -> Self::SizeInfo {
-        ()
+        
     }
 }
 /// Marker that the graph does loops in horizontal axis.
@@ -323,11 +323,11 @@ where
 
     #[inline]
     /// Get the edge reference form node.
-    pub fn get_edge_reference<'a>(
-        &'a self,
+    pub fn get_edge_reference(
+        &self,
         n: NodeIndex<Ix>,
         dir: SquareDirection,
-    ) -> Option<EdgeReference<'a, E, Ix, S>> {
+    ) -> Option<EdgeReference<'_, E, Ix, S>> {
         self.get_edge_id(n, dir).map(|(e, fo)| EdgeReference {
             edge_id: e,
             edge_weight: unsafe {
@@ -426,14 +426,14 @@ impl<N, E, Ix, S> DataMap for SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
 {
-    fn node_weight(self: &Self, id: Self::NodeId) -> Option<&Self::NodeWeight> {
+    fn node_weight(&self, id: Self::NodeId) -> Option<&Self::NodeWeight> {
         self.nodes
             .ref_2d()
             .get(id.horizontal.index())?
             .get(id.vertical.index())
     }
 
-    fn edge_weight(self: &Self, id: Self::EdgeId) -> Option<&Self::EdgeWeight> {
+    fn edge_weight(&self, id: Self::EdgeId) -> Option<&Self::EdgeWeight> {
         match id.axis {
             Axis::Horizontal => &self.horizontal,
             Axis::Vertical => &self.vertical,
@@ -448,14 +448,14 @@ impl<N, E, Ix, S> DataMapMut for SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
 {
-    fn node_weight_mut(self: &mut Self, id: Self::NodeId) -> Option<&mut Self::NodeWeight> {
+    fn node_weight_mut(&mut self, id: Self::NodeId) -> Option<&mut Self::NodeWeight> {
         self.nodes
             .mut_2d()
             .get_mut(id.horizontal.index())?
             .get_mut(id.vertical.index())
     }
 
-    fn edge_weight_mut(self: &mut Self, id: Self::EdgeId) -> Option<&mut Self::EdgeWeight> {
+    fn edge_weight_mut(&mut self, id: Self::EdgeId) -> Option<&mut Self::EdgeWeight> {
         match id.axis {
             Axis::Horizontal => &mut self.horizontal,
             Axis::Vertical => &mut self.vertical,
@@ -505,11 +505,11 @@ where
 {
     type Map = VisMap;
 
-    fn visit_map(self: &Self) -> Self::Map {
+    fn visit_map(&self) -> Self::Map {
         VisMap::new(self.horizontal_node_count(), self.vertical_node_count())
     }
 
-    fn reset_map(self: &Self, map: &mut Self::Map) {
+    fn reset_map(&self, map: &mut Self::Map) {
         map.v.iter_mut().for_each(|x| x.clear())
     }
 }

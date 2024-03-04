@@ -93,8 +93,8 @@ impl<Ix: IndexType> NodeIndex<Ix> {
     /// Returns the manhattan distance
     pub fn distance<T: Into<(usize, usize)>>(&self, target: T) -> usize {
         let target: (usize, usize) = target.into();
-        (self.horizontal.index() as isize - target.0 as isize).abs() as usize
-            + (self.vertical.index() as isize - target.1 as isize).abs() as usize
+        (self.horizontal.index() as isize - target.0 as isize).unsigned_abs()
+            + (self.vertical.index() as isize - target.1 as isize).unsigned_abs()
     }
 
     /// Get the edge from this node. This does not check whether the node is valid in graph.

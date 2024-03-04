@@ -131,7 +131,7 @@ fn move_coord<S: Shape>(
         DirectedSquareAxis::RX => coord.0.sub_x(1),
         DirectedSquareAxis::RY => coord.0.sub_y(1),
     };
-    o.map(|s| SquareOffset(s)).ok_or_else(|| ())
+    o.map(SquareOffset).ok_or(())
 }
 
 impl Shape for SquareShape {
@@ -151,7 +151,7 @@ impl Shape for SquareShape {
     }
 
     #[inline]
-    fn from_offset(&self, offset: Offset) -> Self::Coordinate {
+    fn offset_to_coordinate(&self, offset: Offset) -> Self::Coordinate {
         SquareOffset(offset)
     }
 
@@ -252,7 +252,7 @@ impl Shape for SquareShape<petgraph::Directed> {
         range_check(self, coord)
     }
 
-    fn from_offset(&self, offset: Offset) -> Self::Coordinate {
+    fn offset_to_coordinate(&self, offset: Offset) -> Self::Coordinate {
         SquareOffset(offset)
     }
 
@@ -445,7 +445,7 @@ impl Shape for SquareDiagonalShape {
         coord.0
     }
 
-    fn from_offset(&self, offset: Offset) -> Self::Coordinate {
+    fn offset_to_coordinate(&self, offset: Offset) -> Self::Coordinate {
         SquareOffset(offset)
     }
 
@@ -460,24 +460,21 @@ impl Shape for SquareDiagonalShape {
             DirectedSquareDiagonalAxis::NE => offset
                 .add_x(1)
                 .check_x(self.horizontal())
-                .map(|o| o.add_y(1).check_y(self.vertical()))
-                .flatten(),
+                .and_then(|o| o.add_y(1).check_y(self.vertical())),
             DirectedSquareDiagonalAxis::E => offset.add_x(1).check_x(self.horizontal()),
             DirectedSquareDiagonalAxis::SE => offset
                 .add_x(1)
                 .check_x(self.horizontal())
-                .map(|o| o.sub_y(1))
-                .flatten(),
+                .and_then(|o| o.sub_y(1)),
 
             DirectedSquareDiagonalAxis::S => offset.sub_y(1),
-            DirectedSquareDiagonalAxis::SW => offset.sub_x(1).map(|o| o.sub_y(1)).flatten(),
+            DirectedSquareDiagonalAxis::SW => offset.sub_x(1).and_then(|o| o.sub_y(1)),
             DirectedSquareDiagonalAxis::W => offset.sub_x(1),
             DirectedSquareDiagonalAxis::NW => offset
                 .sub_x(1)
-                .map(|o| o.add_y(1).check_y(self.vertical()))
-                .flatten(),
+                .and_then(|o| o.add_y(1).check_y(self.vertical())),
         }
-        .map(|x| SquareOffset(x))
+        .map(SquareOffset)
         .ok_or(())
     }
 }
@@ -508,7 +505,7 @@ impl Shape for SquareDiagonalShape<Directed> {
         coord.0
     }
 
-    fn from_offset(&self, offset: Offset) -> Self::Coordinate {
+    fn offset_to_coordinate(&self, offset: Offset) -> Self::Coordinate {
         SquareOffset(offset)
     }
 
@@ -523,24 +520,21 @@ impl Shape for SquareDiagonalShape<Directed> {
             DirectedSquareDiagonalAxis::NE => offset
                 .add_x(1)
                 .check_x(self.horizontal())
-                .map(|o| o.add_y(1).check_y(self.vertical()))
-                .flatten(),
+                .and_then(|o| o.add_y(1).check_y(self.vertical())),
             DirectedSquareDiagonalAxis::E => offset.add_x(1).check_x(self.horizontal()),
             DirectedSquareDiagonalAxis::SE => offset
                 .add_x(1)
                 .check_x(self.horizontal())
-                .map(|o| o.sub_y(1))
-                .flatten(),
+                .and_then(|o| o.sub_y(1)),
 
             DirectedSquareDiagonalAxis::S => offset.sub_y(1),
-            DirectedSquareDiagonalAxis::SW => offset.sub_x(1).map(|o| o.sub_y(1)).flatten(),
+            DirectedSquareDiagonalAxis::SW => offset.sub_x(1).and_then(|o| o.sub_y(1)),
             DirectedSquareDiagonalAxis::W => offset.sub_x(1),
             DirectedSquareDiagonalAxis::NW => offset
                 .sub_x(1)
-                .map(|o| o.add_y(1).check_y(self.vertical()))
-                .flatten(),
+                .and_then(|o| o.add_y(1).check_y(self.vertical())),
         }
-        .map(|x| SquareOffset(x))
+        .map(SquareOffset)
         .ok_or(())
     }
 }

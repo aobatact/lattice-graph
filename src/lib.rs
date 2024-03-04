@@ -20,6 +20,8 @@ Use [`hex2d`](`hex2d`) as a
 See [`hex::hex2d`] for details.
 */
 
+#![allow(clippy::missing_safety_doc)]
+
 pub mod fixedvec2d;
 pub mod square;
 pub use square::SquareGraph;

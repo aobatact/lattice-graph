@@ -47,14 +47,12 @@ impl<Ix: IndexType> Iterator for NodeIndices<Ix> {
         if self.v < self.v_max {
             nv = self.v;
             self.v += 1;
+        } else if self.h + 1 < self.h_max {
+            nv = 0;
+            self.v = 1;
+            self.h += 1;
         } else {
-            if self.h + 1 < self.h_max {
-                nv = 0;
-                self.v = 1;
-                self.h += 1;
-            } else {
-                return None;
-            }
+            return None;
         }
         Some(NodeIndex::new(Ix::new(self.h), Ix::new(nv)))
     }
@@ -135,7 +133,7 @@ impl<N, E, Ix, S> NodeCount for SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
 {
-    fn node_count(self: &Self) -> usize {
+    fn node_count(&self) -> usize {
         self.nodes.size()
     }
 }
@@ -144,15 +142,15 @@ impl<N, E, Ix, S> NodeIndexable for SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
 {
-    fn node_bound(self: &Self) -> usize {
+    fn node_bound(&self) -> usize {
         self.nodes.size()
     }
 
-    fn to_index(self: &Self, a: Self::NodeId) -> usize {
+    fn to_index(&self, a: Self::NodeId) -> usize {
         a.horizontal.index() * self.vertical_node_count() + a.vertical.index()
     }
 
-    fn from_index(self: &Self, i: usize) -> Self::NodeId {
+    fn from_index(&self, i: usize) -> Self::NodeId {
         let h = self.vertical_node_count();
         (i / h, i % h).into()
     }

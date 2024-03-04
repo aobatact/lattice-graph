@@ -79,7 +79,7 @@ where
 {
     type Neighbors = Neighbors<Ix, S>;
 
-    fn neighbors(self: Self, a: Self::NodeId) -> Self::Neighbors {
+    fn neighbors(self, a: Self::NodeId) -> Self::Neighbors {
         Neighbors {
             node: a,
             state: 0,

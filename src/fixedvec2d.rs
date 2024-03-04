@@ -19,11 +19,11 @@ pub struct FixedVec2D<T> {
 impl<T> FixedVec2D<T> {
     /// Creates a array2d with a vec.
     /// Returns [`None`] if `h * v != vec.len()`
-    pub unsafe fn from_raw(h: NonZeroUsize, v: usize, vec: Vec<T>) -> Option<Self> {
+    pub fn from_raw(h: NonZeroUsize, v: usize, vec: Vec<T>) -> Option<Self> {
         if h.get() * v != vec.len() {
             None
         } else {
-            Some(Self::from_raw_unchecked(h, v, vec))
+            unsafe { Some(Self::from_raw_unchecked(h, v, vec)) }
         }
     }
 
@@ -51,6 +51,9 @@ impl<T> FixedVec2D<T> {
     /// Creates a FixedVec2D without initializing.
     /// It is unsafe to use it so I recomend to use with [`MaybeUninit`] or just use [`new`](`Self::new`).
     /// See [`assume_init`](`Self::assume_init`).
+    ///
+    /// # Safety
+    /// Should not use the value inside before init.
     pub unsafe fn new_uninit(h: NonZeroUsize, v: usize) -> Self {
         let len = h.get() * v;
         let mut vec = Vec::<T>::with_capacity(len);
@@ -78,7 +81,7 @@ impl<T> FixedVec2D<T> {
             unsafe {
                 let si = s2d.get_unchecked_mut(i);
                 for j in 0..v {
-                    *si.get_unchecked_mut(j) = MaybeUninit::new((&mut f)(i, j));
+                    *si.get_unchecked_mut(j) = MaybeUninit::new(f(i, j));
                 }
             }
         }
@@ -137,12 +140,12 @@ impl<T> FixedVec2D<T> {
 
     /// Returns the underlying [`Vec`] consuming this [`FixedVec2D`]
     pub fn into_raw(self) -> Vec<T> {
-        unsafe { ManuallyDrop::new(self).into_raw_inner(true) }
+        unsafe { ManuallyDrop::new(self).to_raw_inner(true) }
     }
 
     ///Dropping the returned vec will drop the values in [`FixedVec2D`].
     ///Be careful not to accidentaly drops the inner values.
-    unsafe fn into_raw_inner(&self, drop_heads: bool) -> Vec<T> {
+    unsafe fn to_raw_inner(&self, drop_heads: bool) -> Vec<T> {
         let hlen = self.h_size();
         let x = self.head_mut();
         let len = hlen * x.len();
@@ -190,7 +193,7 @@ impl<T> FixedVec2D<T> {
     ```
     */
     pub unsafe fn forget_values(&mut self) {
-        let mut v = self.into_raw_inner(true);
+        let mut v = self.to_raw_inner(true);
         v.set_len(0);
         drop(v);
         std::ptr::write(self, Self::new_uninit(NonZeroUsize::new_unchecked(1), 0));
@@ -228,7 +231,7 @@ unsafe impl<T: Send> Send for FixedVec2D<T> {}
 impl<T: Clone> Clone for FixedVec2D<T> {
     fn clone(&self) -> Self {
         unsafe {
-            let vec = self.into_raw_inner(false);
+            let vec = self.to_raw_inner(false);
             let vec = ManuallyDrop::new(vec);
             let vec_c = ManuallyDrop::into_inner(vec.clone());
             Self::from_raw_unchecked(self.hsize, self.v_size(), vec_c)
@@ -283,7 +286,7 @@ impl<T> AsMut<[T]> for FixedVec2D<T> {
 
 impl<T> Drop for FixedVec2D<T> {
     fn drop(&mut self) {
-        drop(unsafe { self.into_raw_inner(true) })
+        drop(unsafe { self.to_raw_inner(true) })
     }
 }
 

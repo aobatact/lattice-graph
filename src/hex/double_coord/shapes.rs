@@ -145,64 +145,64 @@ fn move_coord_q(
     h_max: usize,
     v_max: usize,
 ) -> Option<DoubleCoord> {
-    loop {
+    'block: {
         let mut coord = coord;
         match dir {
             AxisDQ::N => {
                 coord.v += 2;
                 if coord.v >= v_max {
-                    break;
+                    break 'block;
                 }
             }
             AxisDQ::NE => {
                 coord.h += 1;
                 if coord.h >= h_max {
-                    break;
+                    break 'block;
                 }
                 coord.v += 1;
                 if coord.v >= v_max {
-                    break;
+                    break 'block;
                 }
             }
             AxisDQ::SE => {
                 coord.h += 1;
                 if coord.h >= h_max {
-                    break;
+                    break 'block;
                 }
                 if let Some(x) = coord.v.checked_sub(1) {
                     coord.v = x;
                 } else {
-                    break;
+                    break 'block;
                 }
             }
             AxisDQ::S => {
                 if let Some(x) = coord.v.checked_sub(2) {
                     coord.v = x;
                 } else {
-                    break;
+                    break 'block;
                 }
             }
             AxisDQ::SW => {
                 if let Some(x) = coord.h.checked_sub(1) {
                     coord.h = x;
                 } else {
-                    break;
+                    break 'block;
                 }
                 if let Some(x) = coord.v.checked_sub(1) {
                     coord.v = x;
                 } else {
-                    break;
+                    break 'block;
                 }
             }
             AxisDQ::NW => {
                 if let Some(x) = coord.h.checked_sub(1) {
                     coord.h = x;
                 } else {
-                    break;
+                    break 'block;
                 }
                 coord.v += 1;
                 if coord.v >= v_max {
-                    break;
+                    break 'block;
                 }
             }
         }
@@ -292,7 +292,7 @@ where
         Offset::new(h, v)
     }
 
-    fn from_offset(&self, offset: Offset) -> Self::Coordinate {
+    fn offset_to_coordinate(&self, offset: Offset) -> Self::Coordinate {
         let v = offset.vertical;
         let h = offset.horizontal * 2 + (v & 1);
         DoubleCoord::new(h, v)

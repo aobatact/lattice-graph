@@ -114,13 +114,12 @@ fn move_coord_r(
         (AxisDR::NE, false) => o
             .add_x(1)
             .check_x(horizontal)
-            .map(|o| o.add_y(1).check_y(vertical))
-            .flatten(),
-        (AxisDR::SE, false) => o.add_x(1).check_x(horizontal).map(|o| o.sub_y(1)).flatten(),
-        (AxisDR::SW, true) => o.sub_x(1).map(|o| o.sub_y(1)).flatten(),
-        (AxisDR::NW, true) => o.sub_x(1).map(|o| o.add_y(1).check_y(vertical)).flatten(),
+            .and_then(|o| o.add_y(1).check_y(vertical)),
+        (AxisDR::SE, false) => o.add_x(1).check_x(horizontal).and_then(|o| o.sub_y(1)),
+        (AxisDR::SW, true) => o.sub_x(1).and_then(|o| o.sub_y(1)),
+        (AxisDR::NW, true) => o.sub_x(1).and_then(|o| o.add_y(1).check_y(vertical)),
     }
-    .map(|o| HexOffset(o))
+    .map(HexOffset)
     .ok_or(())
 }
 
@@ -158,7 +157,7 @@ fn move_coord_r_lew(
             .add_y(1)
             .check_y(vertical),
     }
-    .map(|o| HexOffset(o))
+    .map(HexOffset)
     .ok_or(())
 }
 
@@ -242,11 +241,11 @@ fn move_coord_q(
         (AxisDQ::NE, true) | (AxisDQ::NW, false) => o.add_x(1).check_x(horizontal),
         (AxisDQ::SE, true) | (AxisDQ::SW, false) => o.sub_x(1),
         (AxisDQ::NE, false) => o.add_y(1).add_x(1).check_x(horizontal),
-        (AxisDQ::SE, false) => o.add_y(1).sub_x(1).map(|o| o.check_y(vertical)).flatten(),
-        (AxisDQ::SW, true) => o.sub_y(1).map(|o| o.sub_x(1)).flatten(),
-        (AxisDQ::NW, true) => o.sub_y(1).map(|o| o.add_x(1).check_x(horizontal)).flatten(),
+        (AxisDQ::SE, false) => o.add_y(1).sub_x(1).and_then(|o| o.check_y(vertical)),
+        (AxisDQ::SW, true) => o.sub_y(1).and_then(|o| o.sub_x(1)),
+        (AxisDQ::NW, true) => o.sub_y(1).and_then(|o| o.add_x(1).check_x(horizontal)),
     }
-    .map(|o| HexOffset(o))
+    .map(HexOffset)
     .ok_or(())
 }
 
@@ -284,7 +283,7 @@ fn move_coord_q_lew(
             .add_y(1)
             .check_y(vertical),
     }
-    .map(|o| HexOffset(o))
+    .map(HexOffset)
     .ok_or(())
 }
 
@@ -353,7 +352,7 @@ where
         }
     }
 
-    fn from_offset(&self, offset: Offset) -> Self::Coordinate {
+    fn offset_to_coordinate(&self, offset: Offset) -> Self::Coordinate {
         HexOffset(offset)
     }
 
@@ -406,7 +405,7 @@ where
         }
     }
 
-    fn from_offset(&self, offset: Offset) -> Self::Coordinate {
+    fn offset_to_coordinate(&self, offset: Offset) -> Self::Coordinate {
         HexOffset(offset)
     }
 

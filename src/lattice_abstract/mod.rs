@@ -73,7 +73,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
         let edges = &mut uninit.edges;
         for i in 0..s.node_count() {
             let offset = s.index_to_offset(i);
-            let c = s.from_offset(offset);
+            let c = s.offset_to_coordinate(offset);
             unsafe { std::ptr::write(nodes.get_unchecked_mut(i), n(c)) }
             for j in 0..S::Axis::COUNT {
                 let a = unsafe { <S::Axis as Axis>::from_index_unchecked(j) };
@@ -84,11 +84,10 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
                 let t = edges[j]
                     .mut_2d()
                     .get_mut(offset.horizontal)
-                    .map(|x| x.get_mut(offset.vertical))
-                    .flatten();
-                t.map(|x| {
+                    .and_then(|x| x.get_mut(offset.vertical));
+                if let Some(x) = t {
                     unsafe { std::ptr::write(x, ex) };
-                });
+                }
             }
         }
         uninit
@@ -137,7 +136,7 @@ impl<N, E, S: Shape> LatticeGraph<MaybeUninit<N>, MaybeUninit<E>, S> {
     for i in 0..5{
         for j in 0..5{
             let offset = Offset::new(i, j);
-            let coord = hex.shape().from_offset(offset);
+            let coord = hex.shape().offset_to_coordinate(offset);
             if let Some(ref mut n) = hex.node_weight_mut(coord){
                 **n = MaybeUninit::new((i + j) as f32);
             }
@@ -202,7 +201,7 @@ impl<N, E, S: Shape> Data for LatticeGraph<N, E, S> {
 }
 
 impl<N, E, S: Shape> DataMap for LatticeGraph<N, E, S> {
-    fn node_weight(self: &Self, id: Self::NodeId) -> Option<&Self::NodeWeight> {
+    fn node_weight(&self, id: Self::NodeId) -> Option<&Self::NodeWeight> {
         let offset = self.s.to_offset(id);
         // SAFETY : offset must be checked in `to_offset`
         offset
@@ -223,11 +222,11 @@ impl<N, E, S: Shape> DataMap for LatticeGraph<N, E, S> {
             .ok()
     }
 
-    fn edge_weight(self: &Self, id: Self::EdgeId) -> Option<&Self::EdgeWeight> {
+    fn edge_weight(&self, id: Self::EdgeId) -> Option<&Self::EdgeWeight> {
         let offset = self.s.to_offset(id.0);
         let ax = id.1.to_index();
         if let Ok(offset) = offset {
-            if !self.s.move_coord(id.0, id.1.foward()).is_ok() {
+            if self.s.move_coord(id.0, id.1.foward()).is_err() {
                 return None;
             }
             unsafe {
@@ -244,7 +243,7 @@ impl<N, E, S: Shape> DataMap for LatticeGraph<N, E, S> {
 }
 
 impl<N, E, S: Shape> DataMapMut for LatticeGraph<N, E, S> {
-    fn node_weight_mut(self: &mut Self, id: Self::NodeId) -> Option<&mut Self::NodeWeight> {
+    fn node_weight_mut(&mut self, id: Self::NodeId) -> Option<&mut Self::NodeWeight> {
         let offset = self.s.to_offset(id);
 
         // SAFETY : offset must be checked in `to_offset`
@@ -266,11 +265,11 @@ impl<N, E, S: Shape> DataMapMut for LatticeGraph<N, E, S> {
             .ok()
     }
 
-    fn edge_weight_mut(self: &mut Self, id: Self::EdgeId) -> Option<&mut Self::EdgeWeight> {
+    fn edge_weight_mut(&mut self, id: Self::EdgeId) -> Option<&mut Self::EdgeWeight> {
         let offset = self.s.to_offset(id.0);
         let ax = id.1.to_index();
         if let Ok(offset) = offset {
-            if !self.s.move_coord(id.0, id.1.foward()).is_ok() {
+            if self.s.move_coord(id.0, id.1.foward()).is_err() {
                 return None;
             }
             unsafe {
@@ -290,7 +289,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
     #[doc(hidden)]
     #[inline]
     pub unsafe fn node_weight_unchecked(
-        self: &Self,
+        &self,
         id: <LatticeGraph<N, E, S> as GraphBase>::NodeId,
     ) -> &<LatticeGraph<N, E, S> as Data>::NodeWeight {
         let offset = self.s.to_offset_unchecked(id);
@@ -300,7 +299,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
 
     #[doc(hidden)]
     pub unsafe fn node_weight_unchecked_raw(
-        self: &Self,
+        &self,
         offset: Offset,
     ) -> &<LatticeGraph<N, E, S> as Data>::NodeWeight {
         self.nodes
@@ -312,7 +311,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
     #[doc(hidden)]
     #[inline]
     pub unsafe fn edge_weight_unchecked(
-        self: &Self,
+        &self,
         id: <LatticeGraph<N, E, S> as GraphBase>::EdgeId,
     ) -> &<LatticeGraph<N, E, S> as Data>::EdgeWeight {
         let offset = self.s.to_offset_unchecked(id.0);
@@ -322,7 +321,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
 
     #[doc(hidden)]
     pub unsafe fn edge_weight_unchecked_raw(
-        self: &Self,
+        &self,
         (offset, ax): (Offset, usize),
     ) -> &<LatticeGraph<N, E, S> as Data>::EdgeWeight {
         self.edges
@@ -334,7 +333,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
 
     #[doc(hidden)]
     pub unsafe fn node_weight_mut_unchecked(
-        self: &mut Self,
+        &mut self,
         id: <LatticeGraph<N, E, S> as GraphBase>::NodeId,
     ) -> &mut <LatticeGraph<N, E, S> as Data>::NodeWeight {
         let offset = self.s.to_offset_unchecked(id);
@@ -348,7 +347,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
 
     #[doc(hidden)]
     pub unsafe fn edge_weight_mut_unchecked(
-        self: &mut Self,
+        &mut self,
         id: <LatticeGraph<N, E, S> as GraphBase>::EdgeId,
     ) -> &mut <LatticeGraph<N, E, S> as Data>::EdgeWeight {
         let offset = self.s.to_offset_unchecked(id.0);
@@ -404,7 +403,7 @@ impl<S: Shape> VisitMap<S::Coordinate> for VisMap<S> {
     }
 
     fn is_visited(&self, a: &S::Coordinate) -> bool {
-        let offset = self.s.to_offset(a.clone());
+        let offset = self.s.to_offset(*a);
         if let Ok(a) = offset {
             self.v[a.horizontal].contains(a.vertical)
         } else {
@@ -416,11 +415,11 @@ impl<S: Shape> VisitMap<S::Coordinate> for VisMap<S> {
 impl<N, E, S: Shape + Clone> Visitable for LatticeGraph<N, E, S> {
     type Map = VisMap<S>;
 
-    fn visit_map(self: &Self) -> Self::Map {
+    fn visit_map(&self) -> Self::Map {
         VisMap::new(self.s.clone())
     }
 
-    fn reset_map(self: &Self, map: &mut Self::Map) {
+    fn reset_map(&self, map: &mut Self::Map) {
         map.v.iter_mut().for_each(|x| x.clear())
     }
 }

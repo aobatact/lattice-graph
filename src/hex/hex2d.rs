@@ -117,7 +117,6 @@ mod tests {
     use crate::hex::shapes::{AxisR, OddR};
     use petgraph::{data::DataMap, visit::*};
     use rstest::*;
-    use std::array::IntoIter;
     type Hex5x5 = HexGraphConst<C, (C, AxisR), OddR, (), i32, 5, 5>;
 
     #[fixture]
@@ -135,28 +134,28 @@ mod tests {
     }
 
     #[rstest]
-    #[case(C::new(0, 0),IntoIter::new([C::new(0, 1), C::new(1, 0)]) )]
-    #[case(C::new(4, 0),IntoIter::new([C::new(4, 1), C::new(3, 0), C::new(3, 1)]) )]
-    #[case(C::new(1, 1),IntoIter::new([
+    #[case(C::new(0, 0),[C::new(0, 1), C::new(1, 0)] )]
+    #[case(C::new(4, 0),[C::new(4, 1), C::new(3, 0), C::new(3, 1)] )]
+    #[case(C::new(1, 1),[
         C::new(1, 2),
         C::new(2, 1),
         C::new(2, 0),
         C::new(1, 0),
         C::new(0, 1),
         C::new(0, 2),
-    ]) )]
-    #[case(C::new(1, 2),IntoIter::new([
+    ]) ]
+    #[case(C::new(1, 2),[
         C::new(1, 3),
         C::new(2, 2),
         C::new(2, 1),
         C::new(1, 1),
         C::new(0, 2),
         C::new(0, 3),
-    ]) )]
+    ]) ]
     fn neighbors_oddr(
         hexgraph_oddr55: Hex5x5,
         #[case] target: C,
-        #[case] neighbors: impl Iterator<Item = C>,
+        #[case] neighbors: impl IntoIterator<Item = C>,
     ) {
         let graph = hexgraph_oddr55;
         let e = graph.neighbors(target);

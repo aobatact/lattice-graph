@@ -547,11 +547,8 @@ impl Shape for SquareDiagonalShape<Directed> {
 
 #[cfg(test)]
 mod tests {
-    use std::array::IntoIter;
-
-    use petgraph::visit::*;
-
     use super::*;
+    use petgraph::visit::*;
 
     type SquareGraph<N, E> = super::SquareGraphAbstract<N, E>;
 
@@ -637,19 +634,19 @@ mod tests {
         );
 
         let v00 = sq.neighbors((0, 0).into());
-        debug_assert!(v00.eq(IntoIter::new([(1, 0), (0, 1)])));
+        debug_assert!(v00.eq([(1, 0), (0, 1)]));
 
         let v04 = sq.neighbors((0, 4).into());
-        debug_assert!(v04.eq(IntoIter::new([(1, 4), (0, 3)])));
+        debug_assert!(v04.eq([(1, 4), (0, 3)]));
 
         let v20 = sq.neighbors((2, 0).into());
-        debug_assert!(v20.eq(IntoIter::new([(2, 1), (1, 0)])));
+        debug_assert!(v20.eq([(2, 1), (1, 0)]));
 
         let v24 = sq.neighbors((2, 4).into());
-        debug_assert!(v24.eq(IntoIter::new([(1, 4), (2, 3)])));
+        debug_assert!(v24.eq([(1, 4), (2, 3)]));
 
         let v12 = sq.neighbors((1, 2).into());
-        debug_assert!(v12.eq(IntoIter::new([(2, 2), (1, 3), (0, 2), (1, 1)])));
+        debug_assert!(v12.eq([(2, 2), (1, 3), (0, 2), (1, 1)]));
     }
 
     #[test]
@@ -670,7 +667,7 @@ mod tests {
         debug_assert!(sq
             .edges((0, 0).into())
             .map(|e| e.target())
-            .eq(IntoIter::new([(1, 0), (0, 1)])));
+            .eq([(1, 0), (0, 1)]));
 
         debug_assert!(sq.edges((0, 0).into()).map(|e| e.edge_weight).eq(&[0, 0]));
         debug_assert!(sq
@@ -678,10 +675,12 @@ mod tests {
             .map(|e| e.edge_weight)
             .eq(&[3, 3, 2, 1]));
 
-        debug_assert!(sq
-            .edges((1, 2).into())
-            .map(|e| e.target())
-            .eq(IntoIter::new([(2, 2), (1, 3), (0, 2), (1, 1)])));
+        debug_assert!(sq.edges((1, 2).into()).map(|e| e.target()).eq([
+            (2, 2),
+            (1, 3),
+            (0, 2),
+            (1, 1)
+        ]));
     }
 
     #[test]

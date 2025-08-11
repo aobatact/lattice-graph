@@ -28,7 +28,6 @@ rand = "0.8.0"
 const-generic-wrap = { version = "0.3"}
 rstest = "0.12.0"
 
-# Temporarily disabled due to Array2 migration
-# [[bench]]
-# name = "bench"
-# harness = false
+[[bench]]
+name = "bench_ndarray"
+harness = false

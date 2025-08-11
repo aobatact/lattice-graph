@@ -4,6 +4,7 @@ use petgraph::{
 };
 
 use super::*;
+use ndarray;
 
 impl<'a, N, E, Ix, S> IntoNodeIdentifiers for &'a SquareGraph<N, E, Ix, S>
 where
@@ -77,16 +78,16 @@ where
     fn node_references(self) -> Self::NodeReferences {
         NodeReferences {
             indices: self.node_identifiers(),
-            nodes: self.nodes.ref_1d().iter(),
+            nodes: self.nodes.iter(),
         }
     }
 }
 
 /// Iterate all nodes of [`SquareGraph`]. See [`node_references`](`IntoNodeReferences::node_references`).
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct NodeReferences<'a, N, Ix> {
     indices: NodeIndices<Ix>,
-    nodes: Iter<'a, N>,
+    nodes: ndarray::iter::Iter<'a, N, ndarray::Dim<[usize; 2]>>,
 }
 
 impl<'a, N, Ix> Iterator for NodeReferences<'a, N, Ix>
@@ -134,7 +135,7 @@ where
     Ix: IndexType,
 {
     fn node_count(&self) -> usize {
-        self.nodes.size()
+        self.nodes.len()
     }
 }
 
@@ -143,7 +144,7 @@ where
     Ix: IndexType,
 {
     fn node_bound(&self) -> usize {
-        self.nodes.size()
+        self.nodes.len()
     }
 
     fn to_index(&self, a: Self::NodeId) -> usize {

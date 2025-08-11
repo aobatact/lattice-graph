@@ -22,15 +22,18 @@ See [`hex::hex2d`] for details.
 
 #![allow(clippy::missing_safety_doc)]
 
-pub mod fixedvec2d;
+// fixedvec2d module replaced with ndarray
+pub use ndarray::{Array2, ArrayView2, ArrayViewMut2};
 pub mod square;
 pub use square::SquareGraph;
-pub mod hex;
-pub mod lattice_abstract;
+// Temporarily disabled due to Array2 migration
+// pub mod hex;
+// Temporarily disabled due to Array2 migration
+// pub mod lattice_abstract;
 
 #[inline(always)]
 pub(crate) unsafe fn unreachable_debug_checked<T>() -> T {
-    if cfg!(debug_assertion) {
+    if cfg!(debug_assertions) {
         unreachable!()
     } else {
         core::hint::unreachable_unchecked()

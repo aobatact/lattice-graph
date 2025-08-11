@@ -1,7 +1,8 @@
 //! Module for Abstract 2D Lattice Graph. It is used inside by other lattice graph in other modules like [`hex`](`crate::hex`).
 //! Use it when you want to define your own lattice graph, or to use the concreate visit iterator structs for traits in [`visit`](`petgraph::visit`).
 
-use crate::{fixedvec2d::*, unreachable_debug_checked};
+use crate::unreachable_debug_checked;
+use ndarray::Array2;
 use fixedbitset::FixedBitSet;
 use petgraph::{
     data::{DataMap, DataMapMut},
@@ -24,15 +25,15 @@ pub mod square;
 /// It holds the node and edge weight data.
 /// The actural behaviour is dependent on [`Shape`](`shapes::Shape`).
 pub struct LatticeGraph<N, E, S: Shape> {
-    nodes: FixedVec2D<N>,
-    edges: Vec<FixedVec2D<E>>,
+    nodes: Array2<N>,
+    edges: Vec<Array2<E>>,
     s: S,
 }
 
 impl<N, E, S: Shape> LatticeGraph<N, E, S> {
     /// Creates a graph from raw data. This api might change.
     #[doc(hidden)]
-    pub unsafe fn new_raw(nodes: FixedVec2D<N>, edges: Vec<FixedVec2D<E>>, s: S) -> Self {
+    pub unsafe fn new_raw(nodes: Array2<N>, edges: Vec<Array2<E>>, s: S) -> Self {
         Self { nodes, edges, s }
     }
 

@@ -1,4 +1,5 @@
 use super::*;
+use ndarray::Array2;
 use petgraph::{
     graph::IndexType,
     visit::{EdgeRef, IntoEdgeReferences, IntoEdges},
@@ -95,8 +96,8 @@ impl<'a, E: Copy, Ix: IndexType, S: Shape> EdgeRef for EdgeReference<'a, E, Ix, 
 /// Iterator for all edges of [`SquareGraph`]. See [`IntoEdgeReferences`](`IntoEdgeReferences::edge_references`).
 #[derive(Clone, Debug)]
 pub struct EdgeReferences<'a, E, Ix: IndexType, S> {
-    horizontal: &'a FixedVec2D<E>,
-    vertical: &'a FixedVec2D<E>,
+    horizontal: &'a Array2<E>,
+    vertical: &'a Array2<E>,
     nodes: NodeIndices<Ix>,
     prv: Option<NodeIndex<Ix>>,
     s: PhantomData<S>,
@@ -132,11 +133,7 @@ where
                         axis: Axis::Horizontal,
                     };
                     self.prv = Some(x);
-                    let ew = self
-                        .horizontal
-                        .ref_2d()
-                        .get(x.horizontal.index())
-                        .map(|he| unsafe { he.get_unchecked(x.vertical.index()) });
+                    let ew = self.horizontal.get((x.horizontal.index(), x.vertical.index()));
                     if let Some(ew) = ew {
                         return Some(EdgeReference {
                             edge_id: e,
@@ -149,12 +146,7 @@ where
                 }
                 Some(x) => {
                     self.prv = None;
-                    let ew = unsafe {
-                        self.vertical
-                            .ref_2d()
-                            .get_unchecked(x.horizontal.index())
-                            .get(x.vertical.index())
-                    };
+                    let ew = self.vertical.get((x.horizontal.index(), x.vertical.index()));
                     if let Some(ew) = ew {
                         return Some(EdgeReference {
                             edge_id: EdgeIndex {
@@ -210,10 +202,7 @@ where
                                 axis: Axis::Horizontal,
                             },
                             edge_weight: unsafe {
-                                g.horizontal
-                                    .ref_2d()
-                                    .get_unchecked(new_n.horizontal.index())
-                                    .get_unchecked(new_n.vertical.index())
+                                g.horizontal.uget((new_n.horizontal.index(), new_n.vertical.index()))
                             },
                             direction: false,
                             s,
@@ -233,10 +222,7 @@ where
                                 axis: Axis::Horizontal,
                             },
                             edge_weight: unsafe {
-                                g.horizontal
-                                    .ref_2d()
-                                    .get_unchecked(n.horizontal.index())
-                                    .get_unchecked(n.vertical.index())
+                                g.horizontal.uget((n.horizontal.index(), n.vertical.index()))
                             },
                             direction: true,
                             s,
@@ -258,10 +244,7 @@ where
                                 axis: Axis::Vertical,
                             },
                             edge_weight: unsafe {
-                                g.vertical
-                                    .ref_2d()
-                                    .get_unchecked(new_n.horizontal.index())
-                                    .get_unchecked(new_n.vertical.index())
+                                g.vertical.uget((new_n.horizontal.index(), new_n.vertical.index()))
                             },
                             direction: false,
                             s,
@@ -279,10 +262,7 @@ where
                                 axis: Axis::Vertical,
                             },
                             edge_weight: unsafe {
-                                g.vertical
-                                    .ref_2d()
-                                    .get_unchecked(n.horizontal.index())
-                                    .get_unchecked(n.vertical.index())
+                                g.vertical.uget((n.horizontal.index(), n.vertical.index()))
                             },
                             direction: true,
                             s,

@@ -36,7 +36,7 @@ impl<S: shapes::Shape> FusedIterator for NodeIndices<S> {}
 
 impl<S: shapes::Shape> ExactSizeIterator for NodeIndices<S> {}
 
-impl<'a, N, E, S: Shape> IntoNodeIdentifiers for &'a LatticeGraph<N, E, S> {
+impl<N, E, S: Shape> IntoNodeIdentifiers for &LatticeGraph<N, E, S> {
     type NodeIdentifiers = NodeIndices<S>;
 
     fn node_identifiers(self) -> Self::NodeIdentifiers {

@@ -11,19 +11,6 @@ use petgraph::{
 };
 use std::{marker::PhantomData, mem::MaybeUninit, ptr::drop_in_place};
 
-/// Extension trait for Array2 to handle MaybeUninit
-trait Array2MaybeUninitExt<T> {
-    /// Assume all elements in the array are initialized
-    unsafe fn assume_init(self) -> Array2<T>;
-}
-
-impl<T> Array2MaybeUninitExt<T> for Array2<MaybeUninit<T>> {
-    unsafe fn assume_init(self) -> Array2<T> {
-        // Transmute the array from Array2<MaybeUninit<T>> to Array2<T>
-        std::mem::transmute::<Array2<MaybeUninit<T>>, Array2<T>>(self)
-    }
-}
-
 mod edges;
 pub use edges::{EdgeReference, EdgeReferences, Edges, EdgesDirected};
 mod neighbors;

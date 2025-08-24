@@ -307,11 +307,11 @@ where
     }
 
     fn is_neighbor(&self, a: Self::Coordinate, b: Self::Coordinate) -> bool {
-        let dif_v = if a.v > b.v { a.v - b.v } else { b.v - a.v };
+        let dif_v = a.v.abs_diff(b.v);
         if dif_v > 1 {
             return false;
         }
-        let dif_h = if a.h > b.h { a.h - b.h } else { b.h - a.h };
+        let dif_h = a.h.abs_diff(b.h);
         // safety : 0 <= dif_v < 2 so only (2, 0) and (1, 1) is true. (not (0, 2))
         dif_h + dif_v == 2
         // match (dif_h, dif_v) {

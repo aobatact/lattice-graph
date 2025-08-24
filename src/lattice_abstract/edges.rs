@@ -149,14 +149,14 @@ where
     A: Axis<Direction = D>,
     D: AxisDirection,
 {
-    fn new(g: &'a LatticeGraph<N, E, S>, a: C) -> Edges<N, E, S, C, Dt>
+    fn new(g: &'a LatticeGraph<N, E, S>, a: C) -> Edges<'a, N, E, S, C, Dt>
     where
         Dt: Default,
     {
         Self::new_d(g, a, Dt::default())
     }
 
-    fn new_d(g: &'a LatticeGraph<N, E, S>, a: C, d: Dt) -> Edges<N, E, S, C, Dt> {
+    fn new_d(g: &'a LatticeGraph<N, E, S>, a: C, d: Dt) -> Edges<'a, N, E, S, C, Dt> {
         let offset = g.s.to_offset(a);
         Edges {
             graph: g,
@@ -171,7 +171,7 @@ where
         }
     }
 
-    unsafe fn new_unchecked(g: &'a LatticeGraph<N, E, S>, a: C) -> Edges<N, E, S, C, Dt>
+    unsafe fn new_unchecked(g: &'a LatticeGraph<N, E, S>, a: C) -> Edges<'a, N, E, S, C, Dt>
     where
         Dt: Default,
     {

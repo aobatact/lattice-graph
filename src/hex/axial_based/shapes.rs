@@ -233,7 +233,7 @@ where
         }
     }
 
-    fn from_offset(&self, offset: crate::lattice_abstract::Offset) -> Self::Coordinate {
+    fn offset_to_coordinate(&self, offset: crate::lattice_abstract::Offset) -> Self::Coordinate {
         if B::IS_FLAT_TOP {
             HA::new(
                 offset.horizontal() as isize,
@@ -310,8 +310,8 @@ where
     }
 
     #[inline]
-    fn from_offset(&self, offset: crate::lattice_abstract::Offset) -> Self::Coordinate {
-        self.convert::<()>().from_offset(offset)
+    fn offset_to_coordinate(&self, offset: crate::lattice_abstract::Offset) -> Self::Coordinate {
+        self.convert::<()>().offset_to_coordinate(offset)
     }
 
     fn horizontal_edge_size(&self, _axis: Self::Axis) -> usize {

@@ -18,7 +18,7 @@ impl<S: shapes::Shape> Iterator for NodeIndices<S> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.s.node_count() {
-            let x = self.s.from_index(self.index);
+            let x = self.s.index_to_coordinate(self.index);
             self.index += 1;
             Some(x)
         } else {
@@ -36,7 +36,7 @@ impl<S: shapes::Shape> FusedIterator for NodeIndices<S> {}
 
 impl<S: shapes::Shape> ExactSizeIterator for NodeIndices<S> {}
 
-impl<'a, N, E, S: Shape> IntoNodeIdentifiers for &'a LatticeGraph<N, E, S> {
+impl<N, E, S: Shape> IntoNodeIdentifiers for &LatticeGraph<N, E, S> {
     type NodeIdentifiers = NodeIndices<S>;
 
     fn node_identifiers(self) -> Self::NodeIdentifiers {
@@ -58,7 +58,7 @@ impl<'a, N, E, S: Shape> Iterator for NodeReferences<'a, N, E, S> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.graph.s.node_count() {
-            let x = self.graph.s.from_index(self.index);
+            let x = self.graph.s.index_to_coordinate(self.index);
             self.index += 1;
             Some((x, unsafe { self.graph.node_weight_unchecked(x) }))
         } else {
@@ -85,22 +85,22 @@ impl<'a, N, E, S: Shape> IntoNodeReferences for &'a LatticeGraph<N, E, S> {
 }
 
 impl<N, E, S: Shape> NodeCount for LatticeGraph<N, E, S> {
-    fn node_count(self: &Self) -> usize {
+    fn node_count(&self) -> usize {
         self.s.node_count()
     }
 }
 
 impl<N, E, S: Shape> NodeIndexable for LatticeGraph<N, E, S> {
-    fn node_bound(self: &Self) -> usize {
+    fn node_bound(&self) -> usize {
         self.s.node_count()
     }
 
-    fn to_index(self: &Self, a: Self::NodeId) -> usize {
+    fn to_index(&self, a: Self::NodeId) -> usize {
         self.s.to_index(a).unwrap()
     }
 
-    fn from_index(self: &Self, i: usize) -> Self::NodeId {
-        self.s.from_index(i)
+    fn from_index(&self, i: usize) -> Self::NodeId {
+        self.s.index_to_coordinate(i)
     }
 }
 

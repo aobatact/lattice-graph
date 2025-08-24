@@ -73,64 +73,64 @@ fn move_coord_r(
     h_max: usize,
     v_max: usize,
 ) -> Option<DoubleCoord> {
-    loop {
+    'outer: {
         let mut coord = coord;
         match dir {
             AxisDR::NE => {
                 coord.h += 1;
                 if coord.h >= h_max {
-                    break;
+                    break 'outer;
                 }
                 coord.v += 1;
                 if coord.v >= v_max {
-                    break;
+                    break 'outer;
                 }
             }
             AxisDR::E => {
                 coord.h += 2;
                 if coord.h >= h_max {
-                    break;
+                    break 'outer;
                 }
             }
             AxisDR::SE => {
                 coord.h += 1;
                 if coord.h >= h_max {
-                    break;
+                    break 'outer;
                 }
                 if let Some(x) = coord.v.checked_sub(1) {
                     coord.v = x;
                 } else {
-                    break;
+                    break 'outer;
                 }
             }
             AxisDR::SW => {
                 if let Some(x) = coord.h.checked_sub(1) {
                     coord.h = x;
                 } else {
-                    break;
+                    break 'outer;
                 }
                 if let Some(x) = coord.v.checked_sub(1) {
                     coord.v = x;
                 } else {
-                    break;
+                    break 'outer;
                 }
             }
             AxisDR::W => {
                 if let Some(x) = coord.h.checked_sub(2) {
                     coord.h = x;
                 } else {
-                    break;
+                    break 'outer;
                 }
             }
             AxisDR::NW => {
                 if let Some(x) = coord.h.checked_sub(1) {
                     coord.h = x;
                 } else {
-                    break;
+                    break 'outer;
                 }
                 coord.v += 1;
                 if coord.v >= v_max {
-                    break;
+                    break 'outer;
                 }
             }
         }
@@ -145,64 +145,64 @@ fn move_coord_q(
     h_max: usize,
     v_max: usize,
 ) -> Option<DoubleCoord> {
-    loop {
+    'block: {
         let mut coord = coord;
         match dir {
             AxisDQ::N => {
                 coord.v += 2;
                 if coord.v >= v_max {
-                    break;
+                    break 'block;
                 }
             }
             AxisDQ::NE => {
                 coord.h += 1;
                 if coord.h >= h_max {
-                    break;
+                    break 'block;
                 }
                 coord.v += 1;
                 if coord.v >= v_max {
-                    break;
+                    break 'block;
                 }
             }
             AxisDQ::SE => {
                 coord.h += 1;
                 if coord.h >= h_max {
-                    break;
+                    break 'block;
                 }
                 if let Some(x) = coord.v.checked_sub(1) {
                     coord.v = x;
                 } else {
-                    break;
+                    break 'block;
                 }
             }
             AxisDQ::S => {
                 if let Some(x) = coord.v.checked_sub(2) {
                     coord.v = x;
                 } else {
-                    break;
+                    break 'block;
                 }
             }
             AxisDQ::SW => {
                 if let Some(x) = coord.h.checked_sub(1) {
                     coord.h = x;
                 } else {
-                    break;
+                    break 'block;
                 }
                 if let Some(x) = coord.v.checked_sub(1) {
                     coord.v = x;
                 } else {
-                    break;
+                    break 'block;
                 }
             }
             AxisDQ::NW => {
                 if let Some(x) = coord.h.checked_sub(1) {
                     coord.h = x;
                 } else {
-                    break;
+                    break 'block;
                 }
                 coord.v += 1;
                 if coord.v >= v_max {
-                    break;
+                    break 'block;
                 }
             }
         }
@@ -292,7 +292,7 @@ where
         Offset::new(h, v)
     }
 
-    fn from_offset(&self, offset: Offset) -> Self::Coordinate {
+    fn offset_to_coordinate(&self, offset: Offset) -> Self::Coordinate {
         let v = offset.vertical;
         let h = offset.horizontal * 2 + (v & 1);
         DoubleCoord::new(h, v)
@@ -307,11 +307,11 @@ where
     }
 
     fn is_neighbor(&self, a: Self::Coordinate, b: Self::Coordinate) -> bool {
-        let dif_v = if a.v > b.v { a.v - b.v } else { b.v - a.v };
+        let dif_v = a.v.abs_diff(b.v);
         if dif_v > 1 {
             return false;
         }
-        let dif_h = if a.h > b.h { a.h - b.h } else { b.h - a.h };
+        let dif_h = a.h.abs_diff(b.h);
         // safety : 0 <= dif_v < 2 so only (2, 0) and (1, 1) is true. (not (0, 2))
         dif_h + dif_v == 2
         // match (dif_h, dif_v) {

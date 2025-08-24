@@ -35,11 +35,11 @@ pub trait Shape: Clone {
             .unwrap_or_else(|_| crate::unreachable_debug_checked())
     }
     /// Convert coordinate from `Offset`.
-    fn from_offset(&self, offset: Offset) -> Self::Coordinate;
+    fn offset_to_coordinate(&self, offset: Offset) -> Self::Coordinate;
 
     /// Convert coordinate from index.
-    fn from_index(&self, index: usize) -> Self::Coordinate {
-        self.from_offset(self.index_to_offset(index))
+    fn index_to_coordinate(&self, index: usize) -> Self::Coordinate {
+        self.offset_to_coordinate(self.index_to_offset(index))
     }
     /// Covert coordinate to index.
     fn to_index(&self, coord: Self::Coordinate) -> Option<usize> {
@@ -125,8 +125,8 @@ impl<S: Shape> Shape for &S {
         (*self).to_offset_unchecked(coord)
     }
 
-    fn from_offset(&self, offset: Offset) -> Self::Coordinate {
-        (*self).from_offset(offset)
+    fn offset_to_coordinate(&self, offset: Offset) -> Self::Coordinate {
+        (*self).offset_to_coordinate(offset)
     }
 
     fn horizontal(&self) -> usize {
@@ -157,8 +157,8 @@ impl<S: Shape> Shape for &S {
         (*self).node_count()
     }
 
-    fn from_index(&self, index: usize) -> Self::Coordinate {
-        (*self).from_index(index)
+    fn index_to_coordinate(&self, index: usize) -> Self::Coordinate {
+        (*self).index_to_coordinate(index)
     }
 
     fn to_index(&self, coord: Self::Coordinate) -> Option<usize> {
@@ -331,8 +331,8 @@ impl Offset {
     /// Create a new offset.
     pub fn new(h: usize, v: usize) -> Self {
         Offset {
-            horizontal: h.into(),
-            vertical: v.into(),
+            horizontal: h,
+            vertical: v,
         }
     }
     /// Get a horizontal.

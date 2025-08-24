@@ -131,7 +131,7 @@ fn move_coord<S: Shape>(
         DirectedSquareAxis::RX => coord.0.sub_x(1),
         DirectedSquareAxis::RY => coord.0.sub_y(1),
     };
-    o.map(|s| SquareOffset(s)).ok_or_else(|| ())
+    o.map(SquareOffset).ok_or(())
 }
 
 impl Shape for SquareShape {
@@ -151,7 +151,7 @@ impl Shape for SquareShape {
     }
 
     #[inline]
-    fn from_offset(&self, offset: Offset) -> Self::Coordinate {
+    fn offset_to_coordinate(&self, offset: Offset) -> Self::Coordinate {
         SquareOffset(offset)
     }
 
@@ -252,7 +252,7 @@ impl Shape for SquareShape<petgraph::Directed> {
         range_check(self, coord)
     }
 
-    fn from_offset(&self, offset: Offset) -> Self::Coordinate {
+    fn offset_to_coordinate(&self, offset: Offset) -> Self::Coordinate {
         SquareOffset(offset)
     }
 
@@ -445,7 +445,7 @@ impl Shape for SquareDiagonalShape {
         coord.0
     }
 
-    fn from_offset(&self, offset: Offset) -> Self::Coordinate {
+    fn offset_to_coordinate(&self, offset: Offset) -> Self::Coordinate {
         SquareOffset(offset)
     }
 
@@ -460,24 +460,21 @@ impl Shape for SquareDiagonalShape {
             DirectedSquareDiagonalAxis::NE => offset
                 .add_x(1)
                 .check_x(self.horizontal())
-                .map(|o| o.add_y(1).check_y(self.vertical()))
-                .flatten(),
+                .and_then(|o| o.add_y(1).check_y(self.vertical())),
             DirectedSquareDiagonalAxis::E => offset.add_x(1).check_x(self.horizontal()),
             DirectedSquareDiagonalAxis::SE => offset
                 .add_x(1)
                 .check_x(self.horizontal())
-                .map(|o| o.sub_y(1))
-                .flatten(),
+                .and_then(|o| o.sub_y(1)),
 
             DirectedSquareDiagonalAxis::S => offset.sub_y(1),
-            DirectedSquareDiagonalAxis::SW => offset.sub_x(1).map(|o| o.sub_y(1)).flatten(),
+            DirectedSquareDiagonalAxis::SW => offset.sub_x(1).and_then(|o| o.sub_y(1)),
             DirectedSquareDiagonalAxis::W => offset.sub_x(1),
             DirectedSquareDiagonalAxis::NW => offset
                 .sub_x(1)
-                .map(|o| o.add_y(1).check_y(self.vertical()))
-                .flatten(),
+                .and_then(|o| o.add_y(1).check_y(self.vertical())),
         }
-        .map(|x| SquareOffset(x))
+        .map(SquareOffset)
         .ok_or(())
     }
 }
@@ -508,7 +505,7 @@ impl Shape for SquareDiagonalShape<Directed> {
         coord.0
     }
 
-    fn from_offset(&self, offset: Offset) -> Self::Coordinate {
+    fn offset_to_coordinate(&self, offset: Offset) -> Self::Coordinate {
         SquareOffset(offset)
     }
 
@@ -523,40 +520,34 @@ impl Shape for SquareDiagonalShape<Directed> {
             DirectedSquareDiagonalAxis::NE => offset
                 .add_x(1)
                 .check_x(self.horizontal())
-                .map(|o| o.add_y(1).check_y(self.vertical()))
-                .flatten(),
+                .and_then(|o| o.add_y(1).check_y(self.vertical())),
             DirectedSquareDiagonalAxis::E => offset.add_x(1).check_x(self.horizontal()),
             DirectedSquareDiagonalAxis::SE => offset
                 .add_x(1)
                 .check_x(self.horizontal())
-                .map(|o| o.sub_y(1))
-                .flatten(),
+                .and_then(|o| o.sub_y(1)),
 
             DirectedSquareDiagonalAxis::S => offset.sub_y(1),
-            DirectedSquareDiagonalAxis::SW => offset.sub_x(1).map(|o| o.sub_y(1)).flatten(),
+            DirectedSquareDiagonalAxis::SW => offset.sub_x(1).and_then(|o| o.sub_y(1)),
             DirectedSquareDiagonalAxis::W => offset.sub_x(1),
             DirectedSquareDiagonalAxis::NW => offset
                 .sub_x(1)
-                .map(|o| o.add_y(1).check_y(self.vertical()))
-                .flatten(),
+                .and_then(|o| o.add_y(1).check_y(self.vertical())),
         }
-        .map(|x| SquareOffset(x))
+        .map(SquareOffset)
         .ok_or(())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::array::IntoIter;
-
-    use petgraph::visit::*;
-
     use super::*;
+    use petgraph::visit::*;
 
     type SquareGraph<N, E> = super::SquareGraphAbstract<N, E>;
 
     #[test]
-    fn gen() {
+    fn gen_test() {
         let sq = SquareGraph::new_with(
             SquareShape::new(4, 3),
             |SquareOffset(Offset {
@@ -587,12 +578,9 @@ mod tests {
             sq.edge_weight(((0, 2).into(), SquareAxis::X).into()),
             Some(&4)
         );
-        assert_eq!(sq.edge_weight(((0, 2).into(), SquareAxis::Y).into()), None);
-        assert_eq!(sq.edge_weight(((3, 0).into(), SquareAxis::X).into()), None);
-        assert_eq!(
-            sq.edge_weight(((3, 0).into(), SquareAxis::Y).into()),
-            Some(&3)
-        );
+        assert_eq!(sq.edge_weight(((0, 2).into(), SquareAxis::Y)), None);
+        assert_eq!(sq.edge_weight(((3, 0).into(), SquareAxis::X)), None);
+        assert_eq!(sq.edge_weight(((3, 0).into(), SquareAxis::Y)), Some(&3));
     }
 
     #[test]
@@ -611,7 +599,6 @@ mod tests {
         );
         let mut count = 0;
         for (i, x) in sq.node_identifiers().enumerate() {
-            let x = x;
             let x2 = sq.to_index(x);
             assert_eq!(x2, i);
             let x3 = sq.from_index(x2);
@@ -637,19 +624,19 @@ mod tests {
         );
 
         let v00 = sq.neighbors((0, 0).into());
-        debug_assert!(v00.eq(IntoIter::new([(1, 0), (0, 1)])));
+        debug_assert!(v00.eq([(1, 0), (0, 1)]));
 
         let v04 = sq.neighbors((0, 4).into());
-        debug_assert!(v04.eq(IntoIter::new([(1, 4), (0, 3)])));
+        debug_assert!(v04.eq([(1, 4), (0, 3)]));
 
         let v20 = sq.neighbors((2, 0).into());
-        debug_assert!(v20.eq(IntoIter::new([(2, 1), (1, 0)])));
+        debug_assert!(v20.eq([(2, 1), (1, 0)]));
 
         let v24 = sq.neighbors((2, 4).into());
-        debug_assert!(v24.eq(IntoIter::new([(1, 4), (2, 3)])));
+        debug_assert!(v24.eq([(1, 4), (2, 3)]));
 
         let v12 = sq.neighbors((1, 2).into());
-        debug_assert!(v12.eq(IntoIter::new([(2, 2), (1, 3), (0, 2), (1, 1)])));
+        debug_assert!(v12.eq([(2, 2), (1, 3), (0, 2), (1, 1)]));
     }
 
     #[test]
@@ -670,7 +657,7 @@ mod tests {
         debug_assert!(sq
             .edges((0, 0).into())
             .map(|e| e.target())
-            .eq(IntoIter::new([(1, 0), (0, 1)])));
+            .eq([(1, 0), (0, 1)]));
 
         debug_assert!(sq.edges((0, 0).into()).map(|e| e.edge_weight).eq(&[0, 0]));
         debug_assert!(sq
@@ -678,10 +665,12 @@ mod tests {
             .map(|e| e.edge_weight)
             .eq(&[3, 3, 2, 1]));
 
-        debug_assert!(sq
-            .edges((1, 2).into())
-            .map(|e| e.target())
-            .eq(IntoIter::new([(2, 2), (1, 3), (0, 2), (1, 1)])));
+        debug_assert!(sq.edges((1, 2).into()).map(|e| e.target()).eq([
+            (2, 2),
+            (1, 3),
+            (0, 2),
+            (1, 1)
+        ]));
     }
 
     #[test]
@@ -716,7 +705,7 @@ mod tests {
             (2, 1).into(),
             |x| x == (0, 0),
             |e| *e.weight(),
-            |x| (x.0.horizontal as i32 - 0).abs() + (x.0.vertical as i32 - 0).abs(),
+            |x| (x.0.horizontal as i32).abs() + (x.0.vertical as i32).abs(),
         );
         assert!(x.is_some());
         let (d, p) = x.unwrap();

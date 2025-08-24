@@ -72,14 +72,14 @@ where
 {
 }
 
-impl<'a, N, E, Ix, S> IntoNeighbors for &'a SquareGraph<N, E, Ix, S>
+impl<N, E, Ix, S> IntoNeighbors for &SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
     S: Shape,
 {
     type Neighbors = Neighbors<Ix, S>;
 
-    fn neighbors(self: Self, a: Self::NodeId) -> Self::Neighbors {
+    fn neighbors(self, a: Self::NodeId) -> Self::Neighbors {
         Neighbors {
             node: a,
             state: 0,
@@ -90,7 +90,7 @@ where
     }
 }
 
-impl<'a, N, E, Ix, S> IntoNeighborsDirected for &'a SquareGraph<N, E, Ix, S>
+impl<N, E, Ix, S> IntoNeighborsDirected for &SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
     S: Shape,

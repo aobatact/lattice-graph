@@ -39,7 +39,6 @@ mod tests {
     use crate::hex::shapes::*;
     use petgraph::{data::DataMap, visit::*};
     use rstest::*;
-    use std::array::IntoIter;
 
     type Hex5x5 = HexGraphConst<HexOffset, (HexOffset, AxisR), OddR, 5, 5>;
     type Hex5x5Lew = HexGraphConstLoopEW<HexOffset, (HexOffset, AxisR), OddR, 5, 5>;
@@ -64,28 +63,28 @@ mod tests {
     }
 
     #[rstest]
-    #[case(HexOffset::new(0, 0), IntoIter::new([HexOffset::new(0, 1), HexOffset::new(1, 0)]) )]
-    #[case(HexOffset::new(4, 0), IntoIter::new([HexOffset::new(4, 1), HexOffset::new(3, 0), HexOffset::new(3, 1)]) )]
-    #[case(HexOffset::new(1, 1), IntoIter::new([
+    #[case(HexOffset::new(0, 0), [HexOffset::new(0, 1), HexOffset::new(1, 0)] )]
+    #[case(HexOffset::new(4, 0), [HexOffset::new(4, 1), HexOffset::new(3, 0), HexOffset::new(3, 1)] )]
+    #[case(HexOffset::new(1, 1), [
         HexOffset::new(2, 2),
         HexOffset::new(2, 1),
         HexOffset::new(2, 0),
         HexOffset::new(1, 0),
         HexOffset::new(0, 1),
         HexOffset::new(1, 2),
-    ]))]
-    #[case(HexOffset::new(1, 2), IntoIter::new([
+    ])]
+    #[case(HexOffset::new(1, 2), [
         HexOffset::new(1, 3),
         HexOffset::new(2, 2),
         HexOffset::new(1, 1),
         HexOffset::new(0, 1),
         HexOffset::new(0, 2),
         HexOffset::new(0, 3),
-    ]))]
+    ])]
     fn neighbors_oddr(
         hexgraph_oddr55: Hex5x5,
         #[case] target: HexOffset,
-        #[case] neighbors: impl Iterator<Item = HexOffset>,
+        #[case] neighbors: impl IntoIterator<Item = HexOffset>,
     ) {
         let graph = hexgraph_oddr55;
         let e = graph.neighbors(target);
@@ -93,14 +92,14 @@ mod tests {
     }
 
     #[rstest]
-    #[case(HexOffset::new(0, 0), IntoIter::new([AxisDR::NE, AxisDR::E,]) )]
-    #[case(HexOffset::new(4, 0), IntoIter::new([AxisDR::NE, AxisDR::W, AxisDR::NW]) )]
-    #[case(HexOffset::new(1, 1), IntoIter::new([AxisDR::NE, AxisDR::E, AxisDR::SE, AxisDR::SW, AxisDR::W, AxisDR::NW]) )]
-    #[case(HexOffset::new(1, 2), IntoIter::new([AxisDR::NE, AxisDR::E, AxisDR::SE, AxisDR::SW, AxisDR::W, AxisDR::NW]) )]
+    #[case(HexOffset::new(0, 0), [AxisDR::NE, AxisDR::E,] )]
+    #[case(HexOffset::new(4, 0), [AxisDR::NE, AxisDR::W, AxisDR::NW] )]
+    #[case(HexOffset::new(1, 1), [AxisDR::NE, AxisDR::E, AxisDR::SE, AxisDR::SW, AxisDR::W, AxisDR::NW] )]
+    #[case(HexOffset::new(1, 2), [AxisDR::NE, AxisDR::E, AxisDR::SE, AxisDR::SW, AxisDR::W, AxisDR::NW] )]
     fn edges_oddr(
         hexgraph_oddr55: Hex5x5,
         #[case] target: HexOffset,
-        #[case] edge_targets: impl Iterator<Item = AxisDR>,
+        #[case] edge_targets: impl IntoIterator<Item = AxisDR>,
     ) {
         let graph = hexgraph_oddr55;
         let e = graph.edges(target).map(|e| e.direction().clone());
@@ -108,36 +107,36 @@ mod tests {
     }
 
     #[rstest]
-    #[case(HexOffset::new(0, 0), IntoIter::new([
+    #[case(HexOffset::new(0, 0), [
         HexOffset::new(0, 1),
         HexOffset::new(1, 0),
         HexOffset::new(4, 0),
-        HexOffset::new(4, 1),]) )]
-    #[case(HexOffset::new(4, 0), IntoIter::new([
+        HexOffset::new(4, 1),]) ]
+    #[case(HexOffset::new(4, 0), [
         HexOffset::new(4, 1),
         HexOffset::new(0, 0),
         HexOffset::new(3, 0),
-        HexOffset::new(3, 1)]) )]
-    #[case(HexOffset::new(1, 1), IntoIter::new([
+        HexOffset::new(3, 1)]) ]
+    #[case(HexOffset::new(1, 1), [
         HexOffset::new(2, 2),
         HexOffset::new(2, 1),
         HexOffset::new(2, 0),
         HexOffset::new(1, 0),
         HexOffset::new(0, 1),
         HexOffset::new(1, 2),
-    ]))]
-    #[case(HexOffset::new(1, 2), IntoIter::new([
+    ])]
+    #[case(HexOffset::new(1, 2), [
         HexOffset::new(1, 3),
         HexOffset::new(2, 2),
         HexOffset::new(1, 1),
         HexOffset::new(0, 1),
         HexOffset::new(0, 2),
         HexOffset::new(0, 3),
-    ]))]
+    ])]
     fn neighbors_oddr_lew(
         hexgraph_oddr55_lew: Hex5x5Lew,
         #[case] target: HexOffset,
-        #[case] neighbors: impl Iterator<Item = HexOffset>,
+        #[case] neighbors: impl IntoIterator<Item = HexOffset>,
     ) {
         let graph = hexgraph_oddr55_lew;
         let e = graph.neighbors(target);

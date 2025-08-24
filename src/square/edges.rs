@@ -1,4 +1,5 @@
 use super::*;
+use ndarray::Array2;
 use petgraph::{
     graph::IndexType,
     visit::{EdgeRef, IntoEdgeReferences, IntoEdges},
@@ -15,7 +16,7 @@ where
     type EdgeReferences = EdgeReferences<'a, E, Ix, S>;
 
     fn edge_references(self) -> Self::EdgeReferences {
-        EdgeReferences::new(&self)
+        EdgeReferences::new(self)
     }
 }
 
@@ -31,13 +32,7 @@ pub struct EdgeReference<'a, E, Ix: IndexType, S: Shape> {
 
 impl<'a, E, Ix: IndexType, S: Shape> Clone for EdgeReference<'a, E, Ix, S> {
     fn clone(&self) -> Self {
-        Self {
-            edge_id: self.edge_id,
-            edge_weight: self.edge_weight,
-            direction: self.direction,
-            s: self.s,
-            spd: PhantomData,
-        }
+        *self
     }
 }
 
@@ -101,8 +96,8 @@ impl<'a, E: Copy, Ix: IndexType, S: Shape> EdgeRef for EdgeReference<'a, E, Ix, 
 /// Iterator for all edges of [`SquareGraph`]. See [`IntoEdgeReferences`](`IntoEdgeReferences::edge_references`).
 #[derive(Clone, Debug)]
 pub struct EdgeReferences<'a, E, Ix: IndexType, S> {
-    horizontal: &'a FixedVec2D<E>,
-    vertical: &'a FixedVec2D<E>,
+    horizontal: &'a Array2<E>,
+    vertical: &'a Array2<E>,
     nodes: NodeIndices<Ix>,
     prv: Option<NodeIndex<Ix>>,
     s: PhantomData<S>,
@@ -140,9 +135,7 @@ where
                     self.prv = Some(x);
                     let ew = self
                         .horizontal
-                        .ref_2d()
-                        .get(x.horizontal.index())
-                        .map(|he| unsafe { he.get_unchecked(x.vertical.index()) });
+                        .get((x.horizontal.index(), x.vertical.index()));
                     if let Some(ew) = ew {
                         return Some(EdgeReference {
                             edge_id: e,
@@ -155,12 +148,9 @@ where
                 }
                 Some(x) => {
                     self.prv = None;
-                    let ew = unsafe {
-                        self.vertical
-                            .ref_2d()
-                            .get_unchecked(x.horizontal.index())
-                            .get(x.vertical.index())
-                    };
+                    let ew = self
+                        .vertical
+                        .get((x.horizontal.index(), x.vertical.index()));
                     if let Some(ew) = ew {
                         return Some(EdgeReference {
                             edge_id: EdgeIndex {
@@ -199,7 +189,7 @@ where
         let n = self.node;
         let s = S::get_sizeinfo(g.horizontal_node_count(), g.vertical_node_count());
         loop {
-            'inner: loop {
+            'inner: {
                 let er = match self.state {
                     0 => {
                         let new_n = if n.horizontal.index() == 0 {
@@ -217,9 +207,7 @@ where
                             },
                             edge_weight: unsafe {
                                 g.horizontal
-                                    .ref_2d()
-                                    .get_unchecked(new_n.horizontal.index())
-                                    .get_unchecked(new_n.vertical.index())
+                                    .uget((new_n.horizontal.index(), new_n.vertical.index()))
                             },
                             direction: false,
                             s,
@@ -227,7 +215,7 @@ where
                         }
                     }
                     1 => {
-                        debug_assert!(n.horizontal.index() + 1 <= g.horizontal_node_count());
+                        debug_assert!(n.horizontal.index() < g.horizontal_node_count());
                         if !S::LOOP_HORIZONTAL
                             && n.horizontal.index() + 1 == g.horizontal_node_count()
                         {
@@ -240,9 +228,7 @@ where
                             },
                             edge_weight: unsafe {
                                 g.horizontal
-                                    .ref_2d()
-                                    .get_unchecked(n.horizontal.index())
-                                    .get_unchecked(n.vertical.index())
+                                    .uget((n.horizontal.index(), n.vertical.index()))
                             },
                             direction: true,
                             s,
@@ -265,9 +251,7 @@ where
                             },
                             edge_weight: unsafe {
                                 g.vertical
-                                    .ref_2d()
-                                    .get_unchecked(new_n.horizontal.index())
-                                    .get_unchecked(new_n.vertical.index())
+                                    .uget((new_n.horizontal.index(), new_n.vertical.index()))
                             },
                             direction: false,
                             s,
@@ -275,7 +259,7 @@ where
                         }
                     }
                     3 => {
-                        debug_assert!(n.vertical.index() + 1 <= g.vertical_node_count());
+                        debug_assert!(n.vertical.index() < g.vertical_node_count());
                         if !S::LOOP_VERTICAL && n.vertical.index() + 1 == g.vertical_node_count() {
                             break 'inner;
                         }
@@ -285,10 +269,7 @@ where
                                 axis: Axis::Vertical,
                             },
                             edge_weight: unsafe {
-                                g.vertical
-                                    .ref_2d()
-                                    .get_unchecked(n.horizontal.index())
-                                    .get_unchecked(n.vertical.index())
+                                g.vertical.uget((n.horizontal.index(), n.vertical.index()))
                             },
                             direction: true,
                             s,
@@ -326,7 +307,7 @@ where
 
     fn edges(self, a: Self::NodeId) -> Self::Edges {
         Edges {
-            g: &self,
+            g: self,
             node: a,
             state: 0,
         }

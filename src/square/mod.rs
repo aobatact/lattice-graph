@@ -1,6 +1,8 @@
 //! Square 2d Lattice Graph. It does not use [`lattice_abstract`](`crate::lattice_abstract`) for historical and performance reason.
 
-use crate::{fixedvec2d::FixedVec2D, unreachable_debug_checked};
+use crate::unreachable_debug_checked;
+use ndarray::Array2;
+
 use fixedbitset::FixedBitSet;
 use petgraph::{
     data::{DataMap, DataMapMut},
@@ -11,9 +13,7 @@ use petgraph::{
     },
     Undirected,
 };
-use std::{
-    iter::FusedIterator, marker::PhantomData, num::NonZeroUsize, ops::Range, slice::Iter, usize,
-};
+use std::{iter::FusedIterator, marker::PhantomData, ops::Range};
 
 mod edges;
 pub use edges::*;
@@ -79,9 +79,7 @@ pub enum DefaultShape {}
 impl Shape for DefaultShape {
     type SizeInfo = ();
     #[inline]
-    fn get_sizeinfo(_h: usize, _v: usize) -> Self::SizeInfo {
-        ()
-    }
+    fn get_sizeinfo(_h: usize, _v: usize) -> Self::SizeInfo {}
 }
 /// Marker that the graph does loops in horizontal axis.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -132,9 +130,9 @@ where
     Ix: IndexType,
 {
     /// `[horizontal][vertical]`
-    nodes: FixedVec2D<N>,
-    horizontal: FixedVec2D<E>, //→
-    vertical: FixedVec2D<E>,   //↑
+    nodes: Array2<N>,
+    horizontal: Array2<E>, //→
+    vertical: Array2<E>,   //↑
     s: PhantomData<fn() -> S>,
     pd: PhantomData<fn() -> Ix>,
 }
@@ -146,11 +144,7 @@ where
 {
     /// Create a `SquareGraph` from raw data.
     /// It only check whether the size of nodes and edges are correct in `debug_assertion`.
-    pub unsafe fn new_raw(
-        nodes: FixedVec2D<N>,
-        horizontal: FixedVec2D<E>,
-        vertical: FixedVec2D<E>,
-    ) -> Self {
+    pub unsafe fn new_raw(nodes: Array2<N>, horizontal: Array2<E>, vertical: Array2<E>) -> Self {
         let s = Self {
             nodes,
             horizontal,
@@ -177,69 +171,58 @@ where
         FN: FnMut(usize, usize) -> N,
         FE: FnMut(usize, usize, Axis) -> E,
     {
-        let nzh = NonZeroUsize::new(h).expect("h must be non zero");
-        let mut nodes = unsafe { FixedVec2D::new_uninit(nzh, v) };
-        let nodesref = nodes.mut_2d();
+        assert!(h > 0, "h must be non zero");
+
+        // Initialize nodes array
+        let mut nodes_vec = Vec::with_capacity(h * v);
+        for hi in 0..h {
+            for vi in 0..v {
+                nodes_vec.push(fnode(hi, vi));
+            }
+        }
+        let nodes = Array2::from_shape_vec((h, v), nodes_vec).expect("Array2 creation failed");
+
+        // Initialize horizontal edges
         let mh = if <S as Shape>::LOOP_HORIZONTAL {
-            nzh
+            h
         } else {
-            unsafe { NonZeroUsize::new_unchecked(h - 1) }
+            h - 1
         };
-        let mut horizontal = unsafe { FixedVec2D::new_uninit(mh, v) };
-        let href = horizontal.mut_2d();
+        let mut horizontal_vec = Vec::with_capacity(mh * v);
+        for hi in 0..mh {
+            for vi in 0..v {
+                horizontal_vec.push(fedge(hi, vi, Axis::Horizontal));
+            }
+        }
+        let horizontal =
+            Array2::from_shape_vec((mh, v), horizontal_vec).expect("Array2 creation failed");
+
+        // Initialize vertical edges
         let mv = if <S as Shape>::LOOP_VERTICAL {
             v
         } else {
             v - 1
         };
-        let mut vertical = unsafe { FixedVec2D::new_uninit(nzh, mv) };
-        let vref = vertical.mut_2d();
-
-        for hi in 0..mh.get() {
-            let nv = &mut nodesref[hi];
-            let hv = &mut href[hi];
-            let vv = &mut vref[hi];
+        let mut vertical_vec = Vec::with_capacity(h * mv);
+        for hi in 0..h {
             for vi in 0..mv {
-                unsafe {
-                    core::ptr::write(nv.get_unchecked_mut(vi), fnode(hi, vi));
-                    core::ptr::write(hv.get_unchecked_mut(vi), fedge(hi, vi, Axis::Horizontal));
-                    core::ptr::write(vv.get_unchecked_mut(vi), fedge(hi, vi, Axis::Vertical));
-                }
-            }
-            if !<S as Shape>::LOOP_VERTICAL {
-                unsafe {
-                    core::ptr::write(nv.get_unchecked_mut(v - 1), fnode(hi, v - 1));
-                    core::ptr::write(
-                        hv.get_unchecked_mut(v - 1),
-                        fedge(hi, v - 1, Axis::Horizontal),
-                    );
-                }
+                vertical_vec.push(fedge(hi, vi, Axis::Vertical));
             }
         }
-        if !<S as Shape>::LOOP_HORIZONTAL {
-            let nv = &mut nodesref[h - 1];
-            let vv = &mut vref[h - 1];
-            for hi in 0..mv {
-                unsafe {
-                    core::ptr::write(nv.get_unchecked_mut(hi), fnode(h - 1, hi));
-                    core::ptr::write(vv.get_unchecked_mut(hi), fedge(h - 1, hi, Axis::Vertical));
-                }
-            }
-            if !<S as Shape>::LOOP_VERTICAL {
-                unsafe { core::ptr::write(nv.get_unchecked_mut(v - 1), fnode(h - 1, v - 1)) };
-            }
-        }
+        let vertical =
+            Array2::from_shape_vec((h, mv), vertical_vec).expect("Array2 creation failed");
+
         unsafe { Self::new_raw(nodes, horizontal, vertical) }
     }
 
     /// Check the size of nodes and edges.
     fn check_gen(&self) -> bool {
-        self.nodes.h_size()
-            == self.horizontal.h_size() + if <S as Shape>::LOOP_HORIZONTAL { 0 } else { 1 }
-            && self.nodes.v_size() == self.horizontal.v_size()
-            && self.nodes.h_size() == self.vertical.h_size()
-            && self.nodes.v_size()
-                == self.vertical.v_size() + if <S as Shape>::LOOP_VERTICAL { 0 } else { 1 }
+        self.nodes.nrows()
+            == self.horizontal.nrows() + if <S as Shape>::LOOP_HORIZONTAL { 0 } else { 1 }
+            && self.nodes.ncols() == self.horizontal.ncols()
+            && self.nodes.nrows() == self.vertical.nrows()
+            && self.nodes.ncols()
+                == self.vertical.ncols() + if <S as Shape>::LOOP_VERTICAL { 0 } else { 1 }
     }
 
     #[inline]
@@ -323,22 +306,21 @@ where
 
     #[inline]
     /// Get the edge reference form node.
-    pub fn get_edge_reference<'a>(
-        &'a self,
+    pub fn get_edge_reference(
+        &self,
         n: NodeIndex<Ix>,
         dir: SquareDirection,
-    ) -> Option<EdgeReference<'a, E, Ix, S>> {
+    ) -> Option<EdgeReference<'_, E, Ix, S>> {
         self.get_edge_id(n, dir).map(|(e, fo)| EdgeReference {
             edge_id: e,
             edge_weight: unsafe {
                 if dir.is_horizontal() {
-                    &self.horizontal
+                    self.horizontal
+                        .uget((e.node.horizontal.index(), e.node.vertical.index()))
                 } else {
-                    &self.vertical
+                    self.vertical
+                        .uget((e.node.horizontal.index(), e.node.vertical.index()))
                 }
-                .ref_2d()
-                .get_unchecked(e.node.horizontal.index())
-                .get_unchecked(e.node.vertical.index())
             },
             direction: fo,
             s: S::get_sizeinfo(self.horizontal_node_count(), self.vertical_node_count()),
@@ -353,42 +335,42 @@ where
 {
     /// Returns the Node count in the horizontal direction.
     pub fn horizontal_node_count(&self) -> usize {
-        self.nodes.h_size()
+        self.nodes.nrows()
     }
 
     /// Returns the Node count in the vertical direction.
     pub fn vertical_node_count(&self) -> usize {
-        self.nodes.v_size()
+        self.nodes.ncols()
     }
 
     /// Get a reference to the nodes. `[horizontal][vertical]`
-    pub fn nodes(&self) -> &[&[N]] {
-        self.nodes.as_ref()
+    pub fn nodes(&self) -> &Array2<N> {
+        &self.nodes
     }
 
     /// Get a reference to the horizontal edges. `[horizontal][vertical]`
-    pub fn horizontal(&self) -> &[&[E]] {
-        self.horizontal.as_ref()
+    pub fn horizontal(&self) -> &Array2<E> {
+        &self.horizontal
     }
 
     /// Get a reference to the vertical edges. `[horizontal][vertical]`
-    pub fn vertical(&self) -> &[&[E]] {
-        self.vertical.as_ref()
+    pub fn vertical(&self) -> &Array2<E> {
+        &self.vertical
     }
 
     /// Get a mutable reference to the nodes. `[horizontal][vertical]`
-    pub fn nodes_mut(&mut self) -> &mut [&mut [N]] {
-        self.nodes.as_mut()
+    pub fn nodes_mut(&mut self) -> &mut Array2<N> {
+        &mut self.nodes
     }
 
     /// Get a mutable reference to the horizontal edges. `[horizontal][vertical]`
-    pub fn horizontal_mut(&mut self) -> &[&mut [E]] {
-        self.horizontal.as_mut()
+    pub fn horizontal_mut(&mut self) -> &mut Array2<E> {
+        &mut self.horizontal
     }
 
     /// Get a mutable reference to the vertical edges.
-    pub fn vertical_mut(&mut self) -> &[&mut [E]] {
-        self.vertical.as_mut()
+    pub fn vertical_mut(&mut self) -> &mut Array2<E> {
+        &mut self.vertical
     }
 }
 
@@ -426,21 +408,16 @@ impl<N, E, Ix, S> DataMap for SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
 {
-    fn node_weight(self: &Self, id: Self::NodeId) -> Option<&Self::NodeWeight> {
-        self.nodes
-            .ref_2d()
-            .get(id.horizontal.index())?
-            .get(id.vertical.index())
+    fn node_weight(&self, id: Self::NodeId) -> Option<&Self::NodeWeight> {
+        self.nodes.get((id.horizontal.index(), id.vertical.index()))
     }
 
-    fn edge_weight(self: &Self, id: Self::EdgeId) -> Option<&Self::EdgeWeight> {
+    fn edge_weight(&self, id: Self::EdgeId) -> Option<&Self::EdgeWeight> {
         match id.axis {
             Axis::Horizontal => &self.horizontal,
             Axis::Vertical => &self.vertical,
         }
-        .ref_2d()
-        .get(id.node.horizontal.index())?
-        .get(id.node.vertical.index())
+        .get((id.node.horizontal.index(), id.node.vertical.index()))
     }
 }
 
@@ -448,21 +425,17 @@ impl<N, E, Ix, S> DataMapMut for SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
 {
-    fn node_weight_mut(self: &mut Self, id: Self::NodeId) -> Option<&mut Self::NodeWeight> {
+    fn node_weight_mut(&mut self, id: Self::NodeId) -> Option<&mut Self::NodeWeight> {
         self.nodes
-            .mut_2d()
-            .get_mut(id.horizontal.index())?
-            .get_mut(id.vertical.index())
+            .get_mut((id.horizontal.index(), id.vertical.index()))
     }
 
-    fn edge_weight_mut(self: &mut Self, id: Self::EdgeId) -> Option<&mut Self::EdgeWeight> {
+    fn edge_weight_mut(&mut self, id: Self::EdgeId) -> Option<&mut Self::EdgeWeight> {
         match id.axis {
             Axis::Horizontal => &mut self.horizontal,
             Axis::Vertical => &mut self.vertical,
         }
-        .mut_2d()
-        .get_mut(id.node.horizontal.index())?
-        .get_mut(id.node.vertical.index())
+        .get_mut((id.node.horizontal.index(), id.node.vertical.index()))
     }
 }
 
@@ -497,6 +470,11 @@ impl<Ix: IndexType> VisitMap<NodeIndex<Ix>> for VisMap {
     fn is_visited(&self, a: &NodeIndex<Ix>) -> bool {
         self.v[a.horizontal.index()].contains(a.vertical.index())
     }
+
+    fn unvisit(&mut self, a: NodeIndex<Ix>) -> bool {
+        self.v[a.horizontal.index()].set(a.vertical.index(), false);
+        true
+    }
 }
 
 impl<N, E, Ix, S> Visitable for SquareGraph<N, E, Ix, S>
@@ -505,11 +483,11 @@ where
 {
     type Map = VisMap;
 
-    fn visit_map(self: &Self) -> Self::Map {
+    fn visit_map(&self) -> Self::Map {
         VisMap::new(self.horizontal_node_count(), self.vertical_node_count())
     }
 
-    fn reset_map(self: &Self, map: &mut Self::Map) {
+    fn reset_map(&self, map: &mut Self::Map) {
         map.v.iter_mut().for_each(|x| x.clear())
     }
 }

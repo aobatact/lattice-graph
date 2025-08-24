@@ -68,7 +68,7 @@ where
 {
     type Neighbors = Neighbors<'a, N, E, S>;
 
-    fn neighbors(self: Self, a: Self::NodeId) -> Self::Neighbors {
+    fn neighbors(self, a: Self::NodeId) -> Self::Neighbors {
         Neighbors::new(self, a)
     }
 }
@@ -81,7 +81,7 @@ where
 {
     type NeighborsDirected = Neighbors<'a, N, E, S>;
 
-    fn neighbors_directed(self: Self, a: Self::NodeId, _d: petgraph::Direction) -> Self::Neighbors {
+    fn neighbors_directed(self, a: Self::NodeId, _d: petgraph::Direction) -> Self::Neighbors {
         Neighbors::new(self, a)
     }
 }
@@ -92,16 +92,9 @@ where
     S: Shape<Coordinate = C>,
 {
     type AdjMatrix = ();
-    fn adjacency_matrix(self: &Self) -> Self::AdjMatrix {
-        ()
-    }
+    fn adjacency_matrix(&self) -> Self::AdjMatrix {}
 
-    fn is_adjacent(
-        self: &Self,
-        _matrix: &Self::AdjMatrix,
-        a: Self::NodeId,
-        b: Self::NodeId,
-    ) -> bool {
+    fn is_adjacent(&self, _matrix: &Self::AdjMatrix, a: Self::NodeId, b: Self::NodeId) -> bool {
         self.s.is_neighbor(a, b)
     }
 }

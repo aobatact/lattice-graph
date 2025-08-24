@@ -20,7 +20,10 @@ Use [`hex2d`](`hex2d`) as a
 See [`hex::hex2d`] for details.
 */
 
-pub mod fixedvec2d;
+#![allow(clippy::missing_safety_doc)]
+
+// fixedvec2d module replaced with ndarray
+pub use ndarray::{Array2, ArrayView2, ArrayViewMut2};
 pub mod square;
 pub use square::SquareGraph;
 pub mod hex;
@@ -28,7 +31,7 @@ pub mod lattice_abstract;
 
 #[inline(always)]
 pub(crate) unsafe fn unreachable_debug_checked<T>() -> T {
-    if cfg!(debug_assertion) {
+    if cfg!(debug_assertions) {
         unreachable!()
     } else {
         core::hint::unreachable_unchecked()

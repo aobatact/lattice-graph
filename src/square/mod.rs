@@ -14,7 +14,7 @@ use petgraph::{
     Undirected,
 };
 use std::{
-    iter::FusedIterator, marker::PhantomData, ops::Range, usize,
+    iter::FusedIterator, marker::PhantomData, ops::Range,
 };
 
 mod edges;

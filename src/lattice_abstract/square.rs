@@ -547,7 +547,7 @@ mod tests {
     type SquareGraph<N, E> = super::SquareGraphAbstract<N, E>;
 
     #[test]
-    fn gen() {
+    fn gen_test() {
         let sq = SquareGraph::new_with(
             SquareShape::new(4, 3),
             |SquareOffset(Offset {

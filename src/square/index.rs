@@ -1,4 +1,3 @@
-use super::*;
 use petgraph::graph::IndexType;
 
 /// Axis of the Square grid.

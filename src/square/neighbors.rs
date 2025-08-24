@@ -72,7 +72,7 @@ where
 {
 }
 
-impl<'a, N, E, Ix, S> IntoNeighbors for &'a SquareGraph<N, E, Ix, S>
+impl<N, E, Ix, S> IntoNeighbors for &SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
     S: Shape,
@@ -90,7 +90,7 @@ where
     }
 }
 
-impl<'a, N, E, Ix, S> IntoNeighborsDirected for &'a SquareGraph<N, E, Ix, S>
+impl<N, E, Ix, S> IntoNeighborsDirected for &SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
     S: Shape,

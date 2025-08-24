@@ -6,7 +6,7 @@ use petgraph::{
 use super::*;
 use ndarray;
 
-impl<'a, N, E, Ix, S> IntoNodeIdentifiers for &'a SquareGraph<N, E, Ix, S>
+impl<N, E, Ix, S> IntoNodeIdentifiers for &SquareGraph<N, E, Ix, S>
 where
     Ix: IndexType,
     Range<Ix>: Iterator<Item = Ix>,

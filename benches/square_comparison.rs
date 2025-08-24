@@ -1,12 +1,13 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use petgraph::algo::astar;
 use petgraph::data::DataMap;
 use petgraph::visit::*;
 use rand::prelude::*;
+use std::hint::black_box;
 
 // Import both square implementations
+use lattice_graph::lattice_abstract::square::{SquareGraphAbstract, SquareOffset, SquareShape};
 use lattice_graph::SquareGraph;
-use lattice_graph::lattice_abstract::square::{SquareGraphAbstract, SquareShape, SquareOffset};
 
 fn creation_comparison(c: &mut Criterion) {
     let mut group = c.benchmark_group("square_creation_comparison");
@@ -35,9 +36,9 @@ fn creation_comparison(c: &mut Criterion) {
                     SquareGraphAbstract::<f32, i32>::new_with(
                         SquareShape::new(black_box(h), black_box(v)),
                         |coord: SquareOffset| {
-                        let (x, y) = (coord.0.horizontal(), coord.0.vertical());
-                        x * v + y
-                    } as f32,
+                            let (x, y) = (coord.0.horizontal(), coord.0.vertical());
+                            x * v + y
+                        } as f32,
                         |_, _| thread_rng().gen_range(1..=10),
                     )
                 })
@@ -53,7 +54,7 @@ fn node_access_comparison(c: &mut Criterion) {
 
     let h = 100;
     let v = 100;
-    
+
     // Create both graph types
     let direct_graph = SquareGraph::<f32, i32>::new_with(
         h,
@@ -65,9 +66,9 @@ fn node_access_comparison(c: &mut Criterion) {
     let abstract_graph = SquareGraphAbstract::<f32, i32>::new_with(
         SquareShape::new(h, v),
         |coord: SquareOffset| {
-                        let (x, y) = (coord.0.horizontal(), coord.0.vertical());
-                        x * v + y
-                    } as f32,
+            let (x, y) = (coord.0.horizontal(), coord.0.vertical());
+            x * v + y
+        } as f32,
         |_, _| thread_rng().gen_range(1..=10),
     );
 
@@ -108,7 +109,7 @@ fn edge_access_comparison(c: &mut Criterion) {
 
     let h = 100;
     let v = 100;
-    
+
     let direct_graph = SquareGraph::<f32, i32>::new_with(
         h,
         v,
@@ -119,9 +120,9 @@ fn edge_access_comparison(c: &mut Criterion) {
     let abstract_graph = SquareGraphAbstract::<f32, i32>::new_with(
         SquareShape::new(h, v),
         |coord: SquareOffset| {
-                        let (x, y) = (coord.0.horizontal(), coord.0.vertical());
-                        x * v + y
-                    } as f32,
+            let (x, y) = (coord.0.horizontal(), coord.0.vertical());
+            x * v + y
+        } as f32,
         |_, _| thread_rng().gen_range(1..=10),
     );
 
@@ -170,7 +171,7 @@ fn neighbors_comparison(c: &mut Criterion) {
 
     let h = 100;
     let v = 100;
-    
+
     let direct_graph = SquareGraph::<f32, i32>::new_with(
         h,
         v,
@@ -181,9 +182,9 @@ fn neighbors_comparison(c: &mut Criterion) {
     let abstract_graph = SquareGraphAbstract::<f32, i32>::new_with(
         SquareShape::new(h, v),
         |coord: SquareOffset| {
-                        let (x, y) = (coord.0.horizontal(), coord.0.vertical());
-                        x * v + y
-                    } as f32,
+            let (x, y) = (coord.0.horizontal(), coord.0.vertical());
+            x * v + y
+        } as f32,
         |_, _| thread_rng().gen_range(1..=10),
     );
 
@@ -223,9 +224,9 @@ fn astar_comparison(c: &mut Criterion) {
         let abstract_graph = SquareGraphAbstract::<f32, i32>::new_with(
             SquareShape::new(h, v),
             |coord: SquareOffset| {
-                        let (x, y) = (coord.0.horizontal(), coord.0.vertical());
-                        x * v + y
-                    } as f32,
+                let (x, y) = (coord.0.horizontal(), coord.0.vertical());
+                x * v + y
+            } as f32,
             |_, _| thread_rng().gen_range(1..=10),
         );
 
@@ -236,7 +237,7 @@ fn astar_comparison(c: &mut Criterion) {
                 use lattice_graph::square::NodeIndex;
                 let start = NodeIndex::new(0usize.into(), 0usize.into());
                 let goal = NodeIndex::new((h - 1).into(), (v - 1).into());
-                
+
                 b.iter(|| {
                     astar(
                         &direct_graph,
@@ -255,7 +256,7 @@ fn astar_comparison(c: &mut Criterion) {
             |b, _| {
                 let start = SquareOffset::from((0, 0));
                 let goal = SquareOffset::from((h - 1, v - 1));
-                
+
                 b.iter(|| {
                     astar(
                         &abstract_graph,
@@ -280,20 +281,16 @@ fn memory_access_comparison(c: &mut Criterion) {
     {
         let h = 10;
         let v = 10;
-        
-        let direct_graph = SquareGraph::<f32, i32>::new_with(
-            h,
-            v,
-            |x, y| (x * v + y) as f32,
-            |_, _, _| 1,
-        );
+
+        let direct_graph =
+            SquareGraph::<f32, i32>::new_with(h, v, |x, y| (x * v + y) as f32, |_, _, _| 1);
 
         let abstract_graph = SquareGraphAbstract::<f32, i32>::new_with(
             SquareShape::new(h, v),
             |coord: SquareOffset| {
-                        let (x, y) = (coord.0.horizontal(), coord.0.vertical());
-                        x * v + y
-                    } as f32,
+                let (x, y) = (coord.0.horizontal(), coord.0.vertical());
+                x * v + y
+            } as f32,
             |_, _| 1,
         );
 
@@ -325,20 +322,16 @@ fn memory_access_comparison(c: &mut Criterion) {
     {
         let h = 500;
         let v = 500;
-        
-        let direct_graph = SquareGraph::<f32, i32>::new_with(
-            h,
-            v,
-            |x, y| (x * v + y) as f32,
-            |_, _, _| 1,
-        );
+
+        let direct_graph =
+            SquareGraph::<f32, i32>::new_with(h, v, |x, y| (x * v + y) as f32, |_, _, _| 1);
 
         let abstract_graph = SquareGraphAbstract::<f32, i32>::new_with(
             SquareShape::new(h, v),
             |coord: SquareOffset| {
-                        let (x, y) = (coord.0.horizontal(), coord.0.vertical());
-                        x * v + y
-                    } as f32,
+                let (x, y) = (coord.0.horizontal(), coord.0.vertical());
+                x * v + y
+            } as f32,
             |_, _| 1,
         );
 

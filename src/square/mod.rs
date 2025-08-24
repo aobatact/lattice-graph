@@ -13,9 +13,7 @@ use petgraph::{
     },
     Undirected,
 };
-use std::{
-    iter::FusedIterator, marker::PhantomData, ops::Range,
-};
+use std::{iter::FusedIterator, marker::PhantomData, ops::Range};
 
 mod edges;
 pub use edges::*;
@@ -146,11 +144,7 @@ where
 {
     /// Create a `SquareGraph` from raw data.
     /// It only check whether the size of nodes and edges are correct in `debug_assertion`.
-    pub unsafe fn new_raw(
-        nodes: Array2<N>,
-        horizontal: Array2<E>,
-        vertical: Array2<E>,
-    ) -> Self {
+    pub unsafe fn new_raw(nodes: Array2<N>, horizontal: Array2<E>, vertical: Array2<E>) -> Self {
         let s = Self {
             nodes,
             horizontal,
@@ -178,7 +172,7 @@ where
         FE: FnMut(usize, usize, Axis) -> E,
     {
         assert!(h > 0, "h must be non zero");
-        
+
         // Initialize nodes array
         let mut nodes_vec = Vec::with_capacity(h * v);
         for hi in 0..h {
@@ -187,30 +181,38 @@ where
             }
         }
         let nodes = Array2::from_shape_vec((h, v), nodes_vec).expect("Array2 creation failed");
-        
+
         // Initialize horizontal edges
-        let mh = if <S as Shape>::LOOP_HORIZONTAL { h } else { h - 1 };
+        let mh = if <S as Shape>::LOOP_HORIZONTAL {
+            h
+        } else {
+            h - 1
+        };
         let mut horizontal_vec = Vec::with_capacity(mh * v);
         for hi in 0..mh {
             for vi in 0..v {
                 horizontal_vec.push(fedge(hi, vi, Axis::Horizontal));
             }
         }
-        let horizontal = Array2::from_shape_vec((mh, v), horizontal_vec).expect("Array2 creation failed");
-        
+        let horizontal =
+            Array2::from_shape_vec((mh, v), horizontal_vec).expect("Array2 creation failed");
+
         // Initialize vertical edges
-        let mv = if <S as Shape>::LOOP_VERTICAL { v } else { v - 1 };
+        let mv = if <S as Shape>::LOOP_VERTICAL {
+            v
+        } else {
+            v - 1
+        };
         let mut vertical_vec = Vec::with_capacity(h * mv);
         for hi in 0..h {
             for vi in 0..mv {
                 vertical_vec.push(fedge(hi, vi, Axis::Vertical));
             }
         }
-        let vertical = Array2::from_shape_vec((h, mv), vertical_vec).expect("Array2 creation failed");
-        
-        unsafe {
-            Self::new_raw(nodes, horizontal, vertical)
-        }
+        let vertical =
+            Array2::from_shape_vec((h, mv), vertical_vec).expect("Array2 creation failed");
+
+        unsafe { Self::new_raw(nodes, horizontal, vertical) }
     }
 
     /// Check the size of nodes and edges.
@@ -313,9 +315,11 @@ where
             edge_id: e,
             edge_weight: unsafe {
                 if dir.is_horizontal() {
-                    self.horizontal.uget((e.node.horizontal.index(), e.node.vertical.index()))
+                    self.horizontal
+                        .uget((e.node.horizontal.index(), e.node.vertical.index()))
                 } else {
-                    self.vertical.uget((e.node.horizontal.index(), e.node.vertical.index()))
+                    self.vertical
+                        .uget((e.node.horizontal.index(), e.node.vertical.index()))
                 }
             },
             direction: fo,
@@ -422,7 +426,8 @@ where
     Ix: IndexType,
 {
     fn node_weight_mut(&mut self, id: Self::NodeId) -> Option<&mut Self::NodeWeight> {
-        self.nodes.get_mut((id.horizontal.index(), id.vertical.index()))
+        self.nodes
+            .get_mut((id.horizontal.index(), id.vertical.index()))
     }
 
     fn edge_weight_mut(&mut self, id: Self::EdgeId) -> Option<&mut Self::EdgeWeight> {
@@ -464,6 +469,11 @@ impl<Ix: IndexType> VisitMap<NodeIndex<Ix>> for VisMap {
 
     fn is_visited(&self, a: &NodeIndex<Ix>) -> bool {
         self.v[a.horizontal.index()].contains(a.vertical.index())
+    }
+
+    fn unvisit(&mut self, a: NodeIndex<Ix>) -> bool {
+        self.v[a.horizontal.index()].set(a.vertical.index(), false);
+        true
     }
 }
 

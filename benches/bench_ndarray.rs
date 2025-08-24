@@ -1,10 +1,11 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use lattice_graph::SquareGraph;
 use ndarray::Array2;
 use petgraph::algo::astar;
 use petgraph::data::DataMap;
 use petgraph::visit::*;
 use rand::prelude::*;
+use std::hint::black_box;
 
 type Graph = SquareGraph<f32, i32>;
 

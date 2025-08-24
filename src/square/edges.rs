@@ -133,7 +133,9 @@ where
                         axis: Axis::Horizontal,
                     };
                     self.prv = Some(x);
-                    let ew = self.horizontal.get((x.horizontal.index(), x.vertical.index()));
+                    let ew = self
+                        .horizontal
+                        .get((x.horizontal.index(), x.vertical.index()));
                     if let Some(ew) = ew {
                         return Some(EdgeReference {
                             edge_id: e,
@@ -146,7 +148,9 @@ where
                 }
                 Some(x) => {
                     self.prv = None;
-                    let ew = self.vertical.get((x.horizontal.index(), x.vertical.index()));
+                    let ew = self
+                        .vertical
+                        .get((x.horizontal.index(), x.vertical.index()));
                     if let Some(ew) = ew {
                         return Some(EdgeReference {
                             edge_id: EdgeIndex {
@@ -202,7 +206,8 @@ where
                                 axis: Axis::Horizontal,
                             },
                             edge_weight: unsafe {
-                                g.horizontal.uget((new_n.horizontal.index(), new_n.vertical.index()))
+                                g.horizontal
+                                    .uget((new_n.horizontal.index(), new_n.vertical.index()))
                             },
                             direction: false,
                             s,
@@ -222,7 +227,8 @@ where
                                 axis: Axis::Horizontal,
                             },
                             edge_weight: unsafe {
-                                g.horizontal.uget((n.horizontal.index(), n.vertical.index()))
+                                g.horizontal
+                                    .uget((n.horizontal.index(), n.vertical.index()))
                             },
                             direction: true,
                             s,
@@ -244,7 +250,8 @@ where
                                 axis: Axis::Vertical,
                             },
                             edge_weight: unsafe {
-                                g.vertical.uget((new_n.horizontal.index(), new_n.vertical.index()))
+                                g.vertical
+                                    .uget((new_n.horizontal.index(), new_n.vertical.index()))
                             },
                             direction: false,
                             s,

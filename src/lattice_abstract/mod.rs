@@ -2,8 +2,8 @@
 //! Use it when you want to define your own lattice graph, or to use the concreate visit iterator structs for traits in [`visit`](`petgraph::visit`).
 
 use crate::unreachable_debug_checked;
-use ndarray::Array2;
 use fixedbitset::FixedBitSet;
+use ndarray::Array2;
 use petgraph::{
     data::{DataMap, DataMapMut},
     visit::{Data, GraphBase, GraphProp, IntoNodeIdentifiers, NodeCount, VisitMap, Visitable},
@@ -41,15 +41,11 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
     /// Creates a graph with uninitalized node and edge weight data.
     /// It is extremely unsafe so should use with [`MaybeUninit`](`core::mem::MaybeUninit`) and use [`assume_init`](`Self::assume_init`).
     pub unsafe fn new_uninit(s: S) -> LatticeGraph<MaybeUninit<N>, MaybeUninit<E>, S> {
-        let nodes =
-            Array2::uninit((s.horizontal(), s.vertical()));
+        let nodes = Array2::uninit((s.horizontal(), s.vertical()));
         let ac = S::Axis::COUNT;
         let mut edges = Vec::with_capacity(ac);
         for _i in 0..ac {
-            edges.push(Array2::uninit((
-                s.horizontal(),
-                s.vertical(),
-            )))
+            edges.push(Array2::uninit((s.horizontal(), s.vertical())))
         }
         debug_assert_eq!(edges.len(), S::Axis::COUNT);
         LatticeGraph { nodes, edges, s }
@@ -84,8 +80,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
                     continue;
                 }
                 let ex = e(c, a);
-                let t = edge
-                    .get_mut((offset.horizontal, offset.vertical));
+                let t = edge.get_mut((offset.horizontal, offset.vertical));
                 if let Some(x) = t {
                     unsafe { std::ptr::write(x, MaybeUninit::new(ex)) };
                 }
@@ -392,6 +387,16 @@ impl<S: Shape> VisitMap<S::Coordinate> for VisMap<S> {
         let offset = self.s.to_offset(*a);
         if let Ok(a) = offset {
             self.v[a.horizontal].contains(a.vertical)
+        } else {
+            false
+        }
+    }
+
+    fn unvisit(&mut self, a: S::Coordinate) -> bool {
+        let offset = self.s.to_offset(a);
+        if let Ok(offset) = offset {
+            self.v[offset.horizontal].set(offset.vertical, false);
+            true
         } else {
             false
         }

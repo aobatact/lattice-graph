@@ -92,16 +92,9 @@ where
     S: Shape<Coordinate = C>,
 {
     type AdjMatrix = ();
-    fn adjacency_matrix(&self) -> Self::AdjMatrix {
-        
-    }
+    fn adjacency_matrix(&self) -> Self::AdjMatrix {}
 
-    fn is_adjacent(
-        &self,
-        _matrix: &Self::AdjMatrix,
-        a: Self::NodeId,
-        b: Self::NodeId,
-    ) -> bool {
+    fn is_adjacent(&self, _matrix: &Self::AdjMatrix, a: Self::NodeId, b: Self::NodeId) -> bool {
         self.s.is_neighbor(a, b)
     }
 }

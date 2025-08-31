@@ -4,8 +4,10 @@
 use super::*;
 use petgraph::{Directed, Undirected};
 
-/// Undirected Square Graph based on [`LatticeGraph`], recommended to use [`SquareGraph`](`crate::SquareGraph`) instead.
-pub type SquareGraphAbstract<N, E> = LatticeGraph<N, E, SquareShape>;
+/// Undirected Square Graph based on [`LatticeGraph`].
+pub type UndirectedSquareGraph<N, E> = LatticeGraph<N, E, SquareShape>;
+#[deprecated = "use `UndirectedSquareGraph` instead"]
+pub type SquareGraphAbstractx<N, E> = UndirectedSquareGraph<N, E>;
 /// Directed Square Graph based on [`LatticeGraph`].
 pub type DirectedSquareGraph<N, E> = LatticeGraph<N, E, SquareShape<Directed>>;
 /// Undirected Square Graph with edge to diagonal direction.
@@ -608,7 +610,7 @@ mod tests {
     use super::*;
     use petgraph::visit::*;
 
-    type SquareGraph<N, E> = super::SquareGraphAbstract<N, E>;
+    type SquareGraph<N, E> = super::UndirectedSquareGraph<N, E>;
 
     #[test]
     fn gen_test() {

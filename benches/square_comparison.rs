@@ -6,7 +6,7 @@ use rand::prelude::*;
 use std::hint::black_box;
 
 // Import abstract square implementation
-use lattice_graph::lattice_abstract::square::{SquareGraphAbstract, SquareOffset, SquareShape};
+use lattice_graph::lattice_abstract::square::{UndirectedSquareGraph, SquareOffset, SquareShape};
 
 fn creation_comparison(c: &mut Criterion) {
     let mut group = c.benchmark_group("square_creation_comparison");
@@ -17,7 +17,7 @@ fn creation_comparison(c: &mut Criterion) {
             &(h, v),
             |b, &(h, v)| {
                 b.iter(|| {
-                    SquareGraphAbstract::<f32, i32>::new_with(
+                    UndirectedSquareGraph::<f32, i32>::new_with(
                         SquareShape::new(black_box(h), black_box(v)),
                         |coord: SquareOffset| {
                             let (x, y) = (coord.0.horizontal(), coord.0.vertical());
@@ -39,7 +39,7 @@ fn node_access_comparison(c: &mut Criterion) {
     let h = 100;
     let v = 100;
 
-    let abstract_graph = SquareGraphAbstract::<f32, i32>::new_with(
+    let abstract_graph = UndirectedSquareGraph::<f32, i32>::new_with(
         SquareShape::new(h, v),
         |coord: SquareOffset| {
             let (x, y) = (coord.0.horizontal(), coord.0.vertical());
@@ -70,7 +70,7 @@ fn edge_access_comparison(c: &mut Criterion) {
     let h = 100;
     let v = 100;
 
-    let abstract_graph = SquareGraphAbstract::<f32, i32>::new_with(
+    let abstract_graph = UndirectedSquareGraph::<f32, i32>::new_with(
         SquareShape::new(h, v),
         |coord: SquareOffset| {
             let (x, y) = (coord.0.horizontal(), coord.0.vertical());
@@ -105,7 +105,7 @@ fn neighbors_comparison(c: &mut Criterion) {
     let h = 100;
     let v = 100;
 
-    let abstract_graph = SquareGraphAbstract::<f32, i32>::new_with(
+    let abstract_graph = UndirectedSquareGraph::<f32, i32>::new_with(
         SquareShape::new(h, v),
         |coord: SquareOffset| {
             let (x, y) = (coord.0.horizontal(), coord.0.vertical());
@@ -130,7 +130,7 @@ fn astar_comparison(c: &mut Criterion) {
     let mut group = c.benchmark_group("square_astar_comparison");
 
     for (h, v) in [(10, 10), (20, 20), (50, 50)] {
-        let abstract_graph = SquareGraphAbstract::<f32, i32>::new_with(
+        let abstract_graph = UndirectedSquareGraph::<f32, i32>::new_with(
             SquareShape::new(h, v),
             |coord: SquareOffset| {
                 let (x, y) = (coord.0.horizontal(), coord.0.vertical());
@@ -171,7 +171,7 @@ fn memory_access_comparison(c: &mut Criterion) {
         let h = 10;
         let v = 10;
 
-        let abstract_graph = SquareGraphAbstract::<f32, i32>::new_with(
+        let abstract_graph = UndirectedSquareGraph::<f32, i32>::new_with(
             SquareShape::new(h, v),
             |coord: SquareOffset| {
                 let (x, y) = (coord.0.horizontal(), coord.0.vertical());
@@ -197,7 +197,7 @@ fn memory_access_comparison(c: &mut Criterion) {
         let h = 500;
         let v = 500;
 
-        let abstract_graph = SquareGraphAbstract::<f32, i32>::new_with(
+        let abstract_graph = UndirectedSquareGraph::<f32, i32>::new_with(
             SquareShape::new(h, v),
             |coord: SquareOffset| {
                 let (x, y) = (coord.0.horizontal(), coord.0.vertical());

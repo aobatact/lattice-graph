@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use lattice_graph::lattice_abstract::square::{SquareGraphAbstract, SquareOffset, SquareShape};
+use lattice_graph::lattice_abstract::square::{UndirectedSquareGraph, SquareOffset, SquareShape};
 use ndarray::Array2;
 use petgraph::algo::astar;
 use petgraph::data::DataMap;
@@ -7,7 +7,7 @@ use petgraph::visit::*;
 use rand::prelude::*;
 use std::hint::black_box;
 
-type Graph = SquareGraphAbstract<f32, i32>;
+type Graph = UndirectedSquareGraph<f32, i32>;
 
 fn astar_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("astar");

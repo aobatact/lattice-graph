@@ -215,12 +215,14 @@ impl<N, E, S: Shape> Data for LatticeGraph<N, E, S> {
 }
 
 impl<N, E, S: Shape> DataMap for LatticeGraph<N, E, S> {
+    #[inline(always)]
     fn node_weight(&self, id: Self::NodeId) -> Option<&Self::NodeWeight> {
         let offset = self.s.to_offset(id).ok()?;
         // SAFETY : offset must be checked in `to_offset`
         Some(unsafe { self.nodes.uget((offset.horizontal, offset.vertical)) })
     }
 
+    #[inline(always)]
     fn edge_weight(&self, id: Self::EdgeId) -> Option<&Self::EdgeWeight> {
         let offset = self.s.to_offset(id.0).ok()?;
         let ax = id.1.to_index();

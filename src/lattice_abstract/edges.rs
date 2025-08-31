@@ -196,6 +196,7 @@ where
 {
     type Item = EdgeReference<'a, C, E, D, A>;
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         while self.state
             < if Dt::DIRECTED {

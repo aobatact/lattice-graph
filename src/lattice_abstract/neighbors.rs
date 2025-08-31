@@ -31,6 +31,7 @@ where
 {
     type Item = C;
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         while self.state < S::Axis::UNDIRECTED_COUNT {
             unsafe {

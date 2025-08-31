@@ -17,6 +17,11 @@ fn create_petgraph_square(h: usize, v: usize) -> (PetGraph, HashMap<(usize, usiz
     let mut graph = Graph::new_undirected();
     let mut coord_to_node = HashMap::new();
     
+    // Pre-allocate capacity for better performance
+    graph.reserve_nodes(h * v);
+    graph.reserve_edges((h - 1) * v + h * (v - 1));
+    coord_to_node.reserve(h * v);
+    
     // Create all nodes first
     for x in 0..h {
         for y in 0..v {
@@ -34,14 +39,16 @@ fn create_petgraph_square(h: usize, v: usize) -> (PetGraph, HashMap<(usize, usiz
             // Right edge
             if x + 1 < h {
                 let right_node = coord_to_node[&(x + 1, y)];
-                let edge_weight = thread_rng().gen_range(1..=10);
+                // Use deterministic weights matching the abstract graph
+                let edge_weight = ((x + y) % 10 + 1) as i32;
                 graph.add_edge(current_node, right_node, edge_weight);
             }
             
             // Down edge
             if y + 1 < v {
                 let down_node = coord_to_node[&(x, y + 1)];
-                let edge_weight = thread_rng().gen_range(1..=10);
+                // Use deterministic weights matching the abstract graph  
+                let edge_weight = ((x + y) % 10 + 1) as i32;
                 graph.add_edge(current_node, down_node, edge_weight);
             }
         }
@@ -226,14 +233,18 @@ fn neighbors_comparison(c: &mut Criterion) {
 fn astar_comparison(c: &mut Criterion) {
     let mut group = c.benchmark_group("square_astar_comparison");
 
-    for (h, v) in [(10, 10), (20, 20), (50, 50)] {
+    for (h, v) in [(10, 10), (20, 20), (50, 50)] {        
         let abstract_graph = UndirectedSquareGraph::<f32, i32>::new_with(
             SquareShape::new(h, v),
             |coord: SquareOffset| {
                 let (x, y) = (coord.0.horizontal(), coord.0.vertical());
-                x * v + y
-            } as f32,
-            |_, _| thread_rng().gen_range(1..=10),
+                (x * v + y) as f32
+            },
+            |coord: SquareOffset, _| {
+                // Use deterministic weights based on coordinate for consistent benchmarking
+                let (x, y) = (coord.0.horizontal(), coord.0.vertical());
+                ((x + y) % 10 + 1) as i32
+            },
         );
 
         let (petgraph, coord_to_node) = create_petgraph_square(h, v);
@@ -251,7 +262,12 @@ fn astar_comparison(c: &mut Criterion) {
                         black_box(start),
                         |finish| finish == black_box(goal),
                         |e| *e.weight() as f32,
-                        |_| 0.0,
+                        |node| {
+                            // Manhattan distance heuristic
+                            let dx = (node.0.horizontal() as i32 - goal.0.horizontal() as i32).abs();
+                            let dy = (node.0.vertical() as i32 - goal.0.vertical() as i32).abs();
+                            (dx + dy) as f32
+                        },
                     )
                 })
             },
@@ -270,7 +286,16 @@ fn astar_comparison(c: &mut Criterion) {
                         black_box(start_node),
                         |finish| finish == black_box(goal_node),
                         |e| *e.weight() as f32,
-                        |_| 0.0,
+                        |node_idx| {
+                            // Same Manhattan distance heuristic as abstract square
+                            // Convert node index back to coordinates (same layout as abstract square)
+                            let index = node_idx.index();
+                            let x = index / v;
+                            let y = index % v;
+                            let dx = (x as i32 - (h - 1) as i32).abs();
+                            let dy = (y as i32 - (v - 1) as i32).abs();
+                            (dx + dy) as f32
+                        },
                     )
                 })
             },

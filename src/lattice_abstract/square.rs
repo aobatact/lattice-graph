@@ -32,12 +32,9 @@ impl Axis for SquareAxis {
         Self::COUNT * 2
     };
 
-    #[inline]
+    #[inline(always)]
     fn to_index(&self) -> usize {
-        match self {
-            SquareAxis::X => 0,
-            SquareAxis::Y => 1,
-        }
+        *self as usize
     }
 
     #[inline]
@@ -94,14 +91,14 @@ impl Axis for SquareAxis {
 pub struct SquareOffset(pub Offset);
 
 impl PartialEq<(usize, usize)> for SquareOffset {
-    #[inline]
+    #[inline(always)]
     fn eq(&self, other: &(usize, usize)) -> bool {
         self.0.horizontal == other.0 && self.0.vertical == other.1
     }
 }
 
 impl From<(usize, usize)> for SquareOffset {
-    #[inline]
+    #[inline(always)]
     fn from(x: (usize, usize)) -> Self {
         SquareOffset(Offset {
             horizontal: x.0,
@@ -132,7 +129,7 @@ impl<E> SquareShape<E> {
     }
 }
 
-#[inline]
+#[inline(always)]
 fn range_check<S: Shape>(s: S, coord: SquareOffset) -> Result<Offset, ()> {
     if coord.0.horizontal < s.horizontal() && coord.0.vertical < s.vertical() {
         Ok(coord.0)
@@ -141,7 +138,7 @@ fn range_check<S: Shape>(s: S, coord: SquareOffset) -> Result<Offset, ()> {
     }
 }
 
-#[inline]
+#[inline(always)]
 fn move_coord<S: Shape>(
     s: S,
     coord: SquareOffset,
@@ -162,27 +159,27 @@ impl Shape for SquareShape {
     type OffsetConvertError = ();
     type CoordinateMoveError = ();
 
-    #[inline]
+    #[inline(always)]
     fn to_offset(&self, coord: Self::Coordinate) -> Result<Offset, ()> {
         range_check(self, coord)
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn to_offset_unchecked(&self, coord: Self::Coordinate) -> Offset {
         coord.0
     }
 
-    #[inline]
+    #[inline(always)]
     fn offset_to_coordinate(&self, offset: Offset) -> Self::Coordinate {
         SquareOffset(offset)
     }
 
-    #[inline]
+    #[inline(always)]
     fn horizontal(&self) -> usize {
         self.h
     }
 
-    #[inline]
+    #[inline(always)]
     fn vertical(&self) -> usize {
         self.v
     }
@@ -205,7 +202,7 @@ impl Shape for SquareShape {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     fn move_coord(&self, coord: SquareOffset, dir: DirectedSquareAxis) -> Result<SquareOffset, ()> {
         move_coord(self, coord, dir)
     }
@@ -229,17 +226,12 @@ impl Axis for DirectedSquareAxis {
     const DIRECTED: bool = true;
     type Direction = Self;
 
-    #[inline]
+    #[inline(always)]
     fn to_index(&self) -> usize {
-        match self {
-            DirectedSquareAxis::X => 0,
-            DirectedSquareAxis::Y => 1,
-            DirectedSquareAxis::RX => 2,
-            DirectedSquareAxis::RY => 3,
-        }
+        *self as usize
     }
 
-    #[inline]
+    #[inline(always)]
     fn from_index(index: usize) -> Option<Self> {
         Some(match index {
             0 => DirectedSquareAxis::X,

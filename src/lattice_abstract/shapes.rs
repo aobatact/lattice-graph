@@ -360,33 +360,35 @@ impl Offset {
         }
     }
     /// Get a horizontal.
+    #[inline(always)]
     pub fn horizontal(&self) -> usize {
         self.horizontal
     }
     /// Get a vertical.
+    #[inline(always)]
     pub fn vertical(&self) -> usize {
         self.vertical
     }
-    #[inline]
+    #[inline(always)]
     pub(crate) fn add_x(&self, x: usize) -> Self {
         Offset::new(self.horizontal + x, self.vertical)
     }
-    #[inline]
+    #[inline(always)]
     pub(crate) fn add_y(&self, y: usize) -> Self {
         Offset::new(self.horizontal, self.vertical + y)
     }
-    #[inline]
+    #[inline(always)]
     pub(crate) fn set_x(&self, x: usize) -> Self {
         Offset::new(x, self.vertical)
     }
     // pub(crate) fn set_y(&self, y: usize) -> Self {
     //     Offset::new(self.horizontal, y)
     // }
-    #[inline]
+    #[inline(always)]
     pub(crate) fn sub_x(&self, x: usize) -> Option<Self> {
         Some(Offset::new(self.horizontal.checked_sub(x)?, self.vertical))
     }
-    #[inline]
+    #[inline(always)]
     pub(crate) fn sub_y(&self, y: usize) -> Option<Self> {
         Some(Offset::new(self.horizontal, self.vertical.checked_sub(y)?))
     }

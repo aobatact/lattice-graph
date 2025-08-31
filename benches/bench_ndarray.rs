@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use lattice_graph::SquareGraph;
+use lattice_graph::lattice_abstract::square::{SquareGraphAbstract, SquareOffset, SquareShape};
 use ndarray::Array2;
 use petgraph::algo::astar;
 use petgraph::data::DataMap;
@@ -7,22 +7,23 @@ use petgraph::visit::*;
 use rand::prelude::*;
 use std::hint::black_box;
 
-type Graph = SquareGraph<f32, i32>;
+type Graph = SquareGraphAbstract<f32, i32>;
 
 fn astar_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("astar");
 
     for (h, v) in [(10, 10), (20, 20), (50, 50)] {
         let graph = Graph::new_with(
-            h,
-            v,
-            |x, y| (x * v + y) as f32,
-            |_x, _y, _axis| thread_rng().gen_range(1..=10),
+            SquareShape::new(h, v),
+            |coord: SquareOffset| {
+                let (x, y) = (coord.0.horizontal(), coord.0.vertical());
+                x * v + y
+            } as f32,
+            |_, _| thread_rng().gen_range(1..=10),
         );
 
-        use lattice_graph::square::NodeIndex;
-        let start = NodeIndex::new(0usize.into(), 0usize.into());
-        let goal = NodeIndex::new((h - 1).into(), (v - 1).into());
+        let start = SquareOffset::from((0, 0));
+        let goal = SquareOffset::from((h - 1, v - 1));
 
         group.bench_function(&format!("{}x{}", h, v), |b| {
             b.iter(|| {
@@ -47,16 +48,18 @@ fn graph_creation_bench(c: &mut Criterion) {
         group.bench_function(&format!("new_{}x{}", h, v), |b| {
             b.iter(|| {
                 Graph::new_with(
-                    black_box(h),
-                    black_box(v),
-                    |x, y| (x * v + y) as f32,
-                    |_, _, _| thread_rng().gen_range(1..=10),
+                    SquareShape::new(black_box(h), black_box(v)),
+                    |coord: SquareOffset| {
+                        let (x, y) = (coord.0.horizontal(), coord.0.vertical());
+                        x * v + y
+                    } as f32,
+                    |_, _| thread_rng().gen_range(1..=10),
                 )
             })
         });
 
         group.bench_function(&format!("default_{}x{}", h, v), |b| {
-            b.iter(|| Graph::new(black_box(h), black_box(v)))
+            b.iter(|| Graph::new(SquareShape::new(black_box(h), black_box(v))))
         });
     }
 
@@ -67,16 +70,17 @@ fn node_access_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("node_access");
 
     let graph = Graph::new_with(
-        100,
-        100,
-        |x, y| (x * 100 + y) as f32,
-        |_, _, _| thread_rng().gen_range(1..=10),
+        SquareShape::new(100, 100),
+        |coord: SquareOffset| {
+            let (x, y) = (coord.0.horizontal(), coord.0.vertical());
+            x * 100 + y
+        } as f32,
+        |_, _| thread_rng().gen_range(1..=10),
     );
 
     group.bench_function("node_weight", |b| {
-        use lattice_graph::square::NodeIndex;
-        let node_id = NodeIndex::new(50usize.into(), 0usize.into()); // 50*100 + 0 = 5000
-        b.iter(|| graph.node_weight(black_box(node_id)))
+        let coord = SquareOffset::from((50, 0));
+        b.iter(|| graph.node_weight(black_box(coord)))
     });
 
     group.bench_function("node_references_iter", |b| {
@@ -94,10 +98,12 @@ fn edge_access_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("edge_access");
 
     let graph = Graph::new_with(
-        100,
-        100,
-        |x, y| (x * 100 + y) as f32,
-        |_, _, _| thread_rng().gen_range(1..=10),
+        SquareShape::new(100, 100),
+        |coord: SquareOffset| {
+            let (x, y) = (coord.0.horizontal(), coord.0.vertical());
+            x * 100 + y
+        } as f32,
+        |_, _| thread_rng().gen_range(1..=10),
     );
 
     group.bench_function("edge_references_iter", |b| {
@@ -108,11 +114,10 @@ fn edge_access_bench(c: &mut Criterion) {
         })
     });
 
-    use lattice_graph::square::NodeIndex;
-    let node_id = NodeIndex::new(50usize.into(), 0usize.into()); // 50*100 + 0 = 5000
+    let coord = SquareOffset::from((50, 0));
     group.bench_function("edges_from_node", |b| {
         b.iter(|| {
-            for edge_ref in graph.edges(black_box(node_id)) {
+            for edge_ref in graph.edges(black_box(coord)) {
                 black_box(edge_ref.weight());
             }
         })
@@ -125,18 +130,19 @@ fn neighbors_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("neighbors");
 
     let graph = Graph::new_with(
-        100,
-        100,
-        |x, y| (x * 100 + y) as f32,
-        |_, _, _| thread_rng().gen_range(1..=10),
+        SquareShape::new(100, 100),
+        |coord: SquareOffset| {
+            let (x, y) = (coord.0.horizontal(), coord.0.vertical());
+            x * 100 + y
+        } as f32,
+        |_, _| thread_rng().gen_range(1..=10),
     );
 
-    use lattice_graph::square::NodeIndex;
-    let node_id = NodeIndex::new(50usize.into(), 0usize.into()); // 50*100 + 0 = 5000
+    let coord = SquareOffset::from((50, 0));
 
     group.bench_function("neighbors_iter", |b| {
         b.iter(|| {
-            for neighbor in graph.neighbors(black_box(node_id)) {
+            for neighbor in graph.neighbors(black_box(coord)) {
                 black_box(neighbor);
             }
         })
@@ -145,8 +151,8 @@ fn neighbors_bench(c: &mut Criterion) {
     group.finish();
 }
 
-fn array2_vs_fixedvec2d_bench(c: &mut Criterion) {
-    let mut group = c.benchmark_group("array2_operations");
+fn array2_vs_abstract_bench(c: &mut Criterion) {
+    let mut group = c.benchmark_group("array2_vs_abstract");
 
     let h = 100;
     let v = 100;
@@ -192,6 +198,48 @@ fn array2_vs_fixedvec2d_bench(c: &mut Criterion) {
         })
     });
 
+    // Abstract graph creation and access for comparison
+    let abstract_graph = Graph::new_with(
+        SquareShape::new(h, v),
+        |coord: SquareOffset| {
+            let (x, y) = (coord.0.horizontal(), coord.0.vertical());
+            x * v + y
+        } as f32,
+        |_, _| 1,
+    );
+
+    group.bench_function("abstract_creation", |b| {
+        b.iter(|| {
+            Graph::new_with(
+                SquareShape::new(black_box(h), black_box(v)),
+                |coord: SquareOffset| {
+                    let (x, y) = (coord.0.horizontal(), coord.0.vertical());
+                    x * v + y
+                } as f32,
+                |_, _| 1,
+            )
+        })
+    });
+
+    group.bench_function("abstract_random_access", |b| {
+        b.iter(|| {
+            for _ in 0..1000 {
+                let x = thread_rng().gen_range(0..h);
+                let y = thread_rng().gen_range(0..v);
+                let coord = SquareOffset::from((x, y));
+                black_box(abstract_graph.node_weight(coord));
+            }
+        })
+    });
+
+    group.bench_function("abstract_sequential_access", |b| {
+        b.iter(|| {
+            for node_ref in abstract_graph.node_references() {
+                black_box(node_ref.weight());
+            }
+        })
+    });
+
     group.finish();
 }
 
@@ -202,6 +250,6 @@ criterion_group!(
     node_access_bench,
     edge_access_bench,
     neighbors_bench,
-    array2_vs_fixedvec2d_bench
+    array2_vs_abstract_bench
 );
 criterion_main!(benches);

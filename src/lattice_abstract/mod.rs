@@ -198,75 +198,49 @@ impl<N, E, S: Shape> Data for LatticeGraph<N, E, S> {
 
 impl<N, E, S: Shape> DataMap for LatticeGraph<N, E, S> {
     fn node_weight(&self, id: Self::NodeId) -> Option<&Self::NodeWeight> {
-        let offset = self.s.to_offset(id);
+        let offset = self.s.to_offset(id).ok()?;
         // SAFETY : offset must be checked in `to_offset`
-        offset
-            .map(move |offset| unsafe {
-                if cfg!(debug_assertions) {
-                    self.nodes
-                        .get((offset.horizontal, offset.vertical))
-                        .unwrap()
-                } else {
-                    self.nodes
-                        .get((offset.horizontal, offset.vertical))
-                        .unwrap_unchecked()
-                }
-            })
-            .ok()
+        Some(unsafe { self.nodes.uget((offset.horizontal, offset.vertical)) })
     }
 
     fn edge_weight(&self, id: Self::EdgeId) -> Option<&Self::EdgeWeight> {
-        let offset = self.s.to_offset(id.0);
+        let offset = self.s.to_offset(id.0).ok()?;
         let ax = id.1.to_index();
-        if let Ok(offset) = offset {
-            if self.s.move_coord(id.0, id.1.foward()).is_err() {
-                return None;
-            }
-            unsafe {
+
+        if self.s.move_coord(id.0, id.1.foward()).is_err() {
+            return None;
+        }
+        // SAFETY : offset must be checked in `to_offset` and `move_coord`
+        unsafe {
+            Some(
                 self.edges
                     .get_unchecked(ax)
-                    .get((offset.horizontal, offset.vertical))
-            }
-        } else {
-            None
+                    .uget((offset.horizontal, offset.vertical)),
+            )
         }
     }
 }
 
 impl<N, E, S: Shape> DataMapMut for LatticeGraph<N, E, S> {
     fn node_weight_mut(&mut self, id: Self::NodeId) -> Option<&mut Self::NodeWeight> {
-        let offset = self.s.to_offset(id);
+        let offset = self.s.to_offset(id).ok()?;
 
         // SAFETY : offset must be checked in `to_offset`
-        offset
-            .map(move |offset| unsafe {
-                if cfg!(debug_assertions) {
-                    self.nodes
-                        .get_mut((offset.horizontal, offset.vertical))
-                        .unwrap()
-                } else {
-                    self.nodes
-                        .get_mut((offset.horizontal, offset.vertical))
-                        .unwrap_unchecked()
-                }
-            })
-            .ok()
+        unsafe { Some(self.nodes.uget_mut((offset.horizontal, offset.vertical))) }
     }
 
     fn edge_weight_mut(&mut self, id: Self::EdgeId) -> Option<&mut Self::EdgeWeight> {
-        let offset = self.s.to_offset(id.0);
+        let offset = self.s.to_offset(id.0).ok()?;
         let ax = id.1.to_index();
-        if let Ok(offset) = offset {
-            if self.s.move_coord(id.0, id.1.foward()).is_err() {
-                return None;
-            }
-            unsafe {
+        if self.s.move_coord(id.0, id.1.foward()).is_err() {
+            return None;
+        }
+        unsafe {
+            Some(
                 self.edges
                     .get_unchecked_mut(ax)
-                    .get_mut((offset.horizontal, offset.vertical))
-            }
-        } else {
-            None
+                    .uget_mut((offset.horizontal, offset.vertical)),
+            )
         }
     }
 }
@@ -284,6 +258,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
     }
 
     #[doc(hidden)]
+    #[inline]
     pub unsafe fn node_weight_unchecked_raw(
         &self,
         offset: Offset,
@@ -305,6 +280,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
     }
 
     #[doc(hidden)]
+    #[inline]
     pub unsafe fn edge_weight_unchecked_raw(
         &self,
         (offset, ax): (Offset, usize),
@@ -316,6 +292,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
     }
 
     #[doc(hidden)]
+    #[inline]
     pub unsafe fn node_weight_mut_unchecked(
         &mut self,
         id: <LatticeGraph<N, E, S> as GraphBase>::NodeId,
@@ -328,6 +305,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
     }
 
     #[doc(hidden)]
+    #[inline]
     pub unsafe fn edge_weight_mut_unchecked(
         &mut self,
         id: <LatticeGraph<N, E, S> as GraphBase>::EdgeId,
@@ -345,6 +323,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EdgeTypeWrap<A>(PhantomData<A>);
 impl<A: Axis> EdgeType for EdgeTypeWrap<A> {
+    #[inline]
     fn is_directed() -> bool {
         A::DIRECTED
     }

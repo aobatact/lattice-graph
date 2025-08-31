@@ -24,12 +24,14 @@ pub trait Shape: Clone {
     /// Vertical node count.
     fn vertical(&self) -> usize;
     /// Node count.
+    #[inline]
     fn node_count(&self) -> usize {
         self.horizontal() * self.vertical()
     }
     /// Convert coordinate to `Offset`.
     fn to_offset(&self, coord: Self::Coordinate) -> Result<Offset, Self::OffsetConvertError>;
     /// Convert coordinate to Offset without a check.
+    #[inline]
     unsafe fn to_offset_unchecked(&self, coord: Self::Coordinate) -> Offset {
         self.to_offset(coord)
             .unwrap_or_else(|_| crate::unreachable_debug_checked())
@@ -38,6 +40,7 @@ pub trait Shape: Clone {
     fn offset_to_coordinate(&self, offset: Offset) -> Self::Coordinate;
 
     /// Convert coordinate from index.
+    #[inline]
     fn index_to_coordinate(&self, index: usize) -> Self::Coordinate {
         self.offset_to_coordinate(self.index_to_offset(index))
     }
@@ -47,12 +50,14 @@ pub trait Shape: Clone {
         offset.ok().map(|o| self.offset_to_index(o))
     }
     /// Convert index to offset.
+    #[inline]
     fn index_to_offset(&self, index: usize) -> Offset {
         let v = index % self.vertical();
         let h = index / self.vertical();
         Offset::new(h, v)
     }
     /// Covert offset to index.
+    #[inline]
     fn offset_to_index(&self, o: Offset) -> usize {
         o.horizontal * self.vertical() + o.vertical
     }
@@ -87,6 +92,7 @@ pub trait Shape: Clone {
             .unwrap_or_else(|_| unreachable_debug_checked())
     }
     ///Check whether two coordinate is in neighbor.
+    #[inline]
     fn is_neighbor(&self, a: Self::Coordinate, b: Self::Coordinate) -> bool {
         self.get_direction(a, b).is_some()
     }

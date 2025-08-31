@@ -24,7 +24,10 @@ See [`hex::hex2d`] for details.
 
 // fixedvec2d module replaced with ndarray
 pub use ndarray::{Array2, ArrayView2, ArrayViewMut2};
+#[deprecated]
 pub mod square;
+#[deprecated]
+#[allow(deprecated)]
 pub use square::SquareGraph;
 pub mod hex;
 pub mod lattice_abstract;

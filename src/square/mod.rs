@@ -1,4 +1,4 @@
-//! Square 2d Lattice Graph. It does not use [`lattice_abstract`](`crate::lattice_abstract`) for historical and performance reason.
+//! Square 2d Lattice Graph.
 
 use crate::unreachable_debug_checked;
 use ndarray::Array2;

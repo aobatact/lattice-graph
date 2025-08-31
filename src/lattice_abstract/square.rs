@@ -1,4 +1,4 @@
-//! Square graph using Abstract Lattice Graph. If you want a undirected square graph, it is recommended to use specialized [`SquareGraph`](`crate::SquareGraph`).
+//! Square graph using Abstract Lattice Graph.
 //! Use this for directed graph or square with diagonal direction graph.
 
 use super::*;

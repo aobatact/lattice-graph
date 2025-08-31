@@ -31,6 +31,11 @@ pub trait Shape: Clone {
     /// Convert coordinate to `Offset`.
     fn to_offset(&self, coord: Self::Coordinate) -> Result<Offset, Self::OffsetConvertError>;
     /// Convert coordinate to Offset without a check.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the coordinate is valid for this shape.
+    /// Invalid coordinates may cause undefined behavior.
     #[inline]
     unsafe fn to_offset_unchecked(&self, coord: Self::Coordinate) -> Offset {
         self.to_offset(coord)
@@ -83,6 +88,11 @@ pub trait Shape: Clone {
     ) -> Result<Self::Coordinate, Self::CoordinateMoveError>;
     /// Move coordinates to the next coordinate in the direction.
     /// Caller should be sure that the source and the target coord is valid coord.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that both the source coordinate is valid and that
+    /// moving in the given direction results in a valid coordinate within the shape bounds.
     unsafe fn move_coord_unchecked(
         &self,
         coord: Self::Coordinate,
@@ -216,6 +226,10 @@ pub trait Axis: Copy + PartialEq {
     /// Convert to index.
     fn to_index(&self) -> usize;
     /// Convert form index.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the index is within valid bounds for this coordinate type.
     unsafe fn from_index_unchecked(index: usize) -> Self {
         Self::from_index(index).unwrap_or_else(|| unreachable_debug_checked())
     }
@@ -250,6 +264,10 @@ pub trait AxisDirection: Clone {
     /// Convert to index.
     fn dir_to_index(&self) -> usize;
     /// Convert from index.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the index corresponds to a valid direction value.
     unsafe fn dir_from_index_unchecked(index: usize) -> Self;
     /// Convert from index.
     fn dir_from_index(index: usize) -> Option<Self>

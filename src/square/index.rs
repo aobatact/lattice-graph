@@ -97,6 +97,12 @@ impl<Ix: IndexType> NodeIndex<Ix> {
     }
 
     /// Get the edge from this node. This does not check whether the node is valid in graph.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the resulting edge index is valid within the graph bounds.
+    /// For backward directions, this function performs unchecked subtraction which may underflow
+    /// if the node is at the boundary of the graph.
     pub unsafe fn get_edge_id_unchecked(&self, dir: SquareDirection) -> EdgeIndex<Ix> {
         match dir {
             SquareDirection::Foward(x) => (*self, x),

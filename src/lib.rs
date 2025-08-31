@@ -20,8 +20,6 @@ Use [`hex2d`](`hex2d`) as a
 See [`hex::hex2d`] for details.
 */
 
-#![allow(clippy::missing_safety_doc)]
-
 // fixedvec2d module replaced with ndarray
 pub use ndarray::{Array2, ArrayView2, ArrayViewMut2};
 #[deprecated]

@@ -40,6 +40,12 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
 
     /// Creates a graph with uninitalized node and edge weight data.
     /// It is extremely unsafe so should use with [`MaybeUninit`](`core::mem::MaybeUninit`) and use [`assume_init`](`Self::assume_init`).
+    ///
+    /// # Safety
+    ///
+    /// The returned graph contains uninitialized memory. The caller must properly initialize
+    /// all nodes and edges before calling `assume_init`, or use the graph only with
+    /// MaybeUninit-safe operations.
     pub unsafe fn new_uninit(s: S) -> LatticeGraph<MaybeUninit<N>, MaybeUninit<E>, S> {
         let nodes = Array2::uninit((s.horizontal(), s.vertical()));
         let ac = S::Axis::COUNT;
@@ -107,6 +113,12 @@ impl<N, E, S: Shape + Default> LatticeGraph<N, E, S> {
 
     /// Creates a graph with uninitalized node and edge weight data with [`Shape`] from default.
     /// It is extremely unsafe so should use with [`MaybeUninit`](`core::mem::MaybeUninit`) and use [`assume_init`](`Self::assume_init`).
+    ///
+    /// # Safety
+    ///
+    /// The returned graph contains uninitialized memory. The caller must properly initialize
+    /// all nodes and edges before calling `assume_init`, or use the graph only with
+    /// MaybeUninit-safe operations.
     pub unsafe fn new_uninit_s() -> LatticeGraph<MaybeUninit<N>, MaybeUninit<E>, S> {
         Self::new_uninit(S::default())
     }
@@ -141,6 +153,12 @@ impl<N, E, S: Shape> LatticeGraph<MaybeUninit<N>, MaybeUninit<E>, S> {
     let hex_init = unsafe{ hex.assume_init() };
     ```
     */
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that all nodes and edges in the graph have been properly
+    /// initialized. Calling this on a graph with any uninitialized data results in
+    /// undefined behavior.
     pub unsafe fn assume_init(self) -> LatticeGraph<N, E, S> {
         let md = std::mem::ManuallyDrop::new(self);
         LatticeGraph {

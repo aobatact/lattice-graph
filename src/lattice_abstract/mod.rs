@@ -3,7 +3,7 @@
 
 use crate::unreachable_debug_checked;
 use fixedbitset::FixedBitSet;
-use ndarray::Array2;
+use ndarray::{Array2, Array3};
 use petgraph::{
     data::{DataMap, DataMapMut},
     visit::{Data, GraphBase, GraphProp, IntoNodeIdentifiers, NodeCount, VisitMap, Visitable},
@@ -27,14 +27,14 @@ pub mod square;
 /// The actural behaviour is dependent on [`Shape`](`shapes::Shape`).
 pub struct LatticeGraph<N, E, S: Shape> {
     nodes: Array2<N>,
-    edges: Vec<Array2<E>>,
+    edges: Array3<E>,
     s: S,
 }
 
 impl<N, E, S: Shape> LatticeGraph<N, E, S> {
     /// Creates a graph from raw data. This api might change.
     #[doc(hidden)]
-    pub unsafe fn new_raw(nodes: Array2<N>, edges: Vec<Array2<E>>, s: S) -> Self {
+    pub unsafe fn new_raw(nodes: Array2<N>, edges: Array3<E>, s: S) -> Self {
         Self { nodes, edges, s }
     }
 
@@ -49,11 +49,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
     pub unsafe fn new_uninit(s: S) -> LatticeGraph<MaybeUninit<N>, MaybeUninit<E>, S> {
         let nodes = Array2::uninit((s.horizontal(), s.vertical()));
         let ac = S::Axis::COUNT;
-        let mut edges = Vec::with_capacity(ac);
-        for _i in 0..ac {
-            edges.push(Array2::uninit((s.horizontal(), s.vertical())))
-        }
-        debug_assert_eq!(edges.len(), S::Axis::COUNT);
+        let edges = Array3::uninit((s.horizontal(), s.vertical(), ac));
         LatticeGraph { nodes, edges, s }
     }
 
@@ -80,13 +76,13 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
             let offset = s.index_to_offset(i);
             let c = s.offset_to_coordinate(offset);
             unsafe { std::ptr::write(nodes.get_unchecked_mut(i), MaybeUninit::new(n(c))) }
-            for (j, edge) in edges.iter_mut().enumerate() {
+            for j in 0..S::Axis::COUNT {
                 let a = unsafe { <S::Axis as Axis>::from_index_unchecked(j) };
                 if s.move_coord(c, a.foward()).is_err() {
                     continue;
                 }
                 let ex = e(c, a);
-                let t = edge.get_mut((offset.horizontal, offset.vertical));
+                let t = edges.get_mut((offset.horizontal, offset.vertical, j));
                 if let Some(x) = t {
                     unsafe { std::ptr::write(x, MaybeUninit::new(ex)) };
                 }
@@ -163,10 +159,7 @@ impl<N, E, S: Shape> LatticeGraph<MaybeUninit<N>, MaybeUninit<E>, S> {
         let md = std::mem::ManuallyDrop::new(self);
         LatticeGraph {
             nodes: core::ptr::read(&md.nodes).assume_init(),
-            edges: core::ptr::read(&md.edges)
-                .into_iter()
-                .map(|e| e.assume_init())
-                .collect(),
+            edges: core::ptr::read(&md.edges).assume_init(),
             s: core::ptr::read(&md.s),
         }
     }
@@ -178,13 +171,14 @@ impl<N, E, S: Shape> Drop for LatticeGraph<N, E, S> {
         if std::mem::needs_drop::<E>() {
             let ni = self.node_identifiers();
             let s = &self.s;
-            let e = &mut self.edges;
             unsafe {
-                for (di, edges) in e.drain(..).enumerate() {
+                for di in 0..S::Axis::COUNT {
                     let dir = S::Axis::from_index_unchecked(di).foward();
-                    for (coord, mut e) in ni.clone().zip(edges.into_iter()) {
+                    for coord in ni.clone() {
                         if s.move_coord(coord, dir.clone()).is_ok() {
-                            drop_in_place(&mut e);
+                            let offset = s.to_offset_unchecked(coord);
+                            let e = self.edges.get_mut((offset.horizontal, offset.vertical, di)).unwrap_unchecked();
+                            drop_in_place(e);
                         }
                     }
                 }
@@ -234,8 +228,7 @@ impl<N, E, S: Shape> DataMap for LatticeGraph<N, E, S> {
         unsafe {
             Some(
                 self.edges
-                    .get_unchecked(ax)
-                    .uget((offset.horizontal, offset.vertical)),
+                    .uget((offset.horizontal, offset.vertical, ax)),
             )
         }
     }
@@ -258,8 +251,7 @@ impl<N, E, S: Shape> DataMapMut for LatticeGraph<N, E, S> {
         unsafe {
             Some(
                 self.edges
-                    .get_unchecked_mut(ax)
-                    .uget_mut((offset.horizontal, offset.vertical)),
+                    .uget_mut((offset.horizontal, offset.vertical, ax)),
             )
         }
     }
@@ -306,8 +298,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
         (offset, ax): (Offset, usize),
     ) -> &<LatticeGraph<N, E, S> as Data>::EdgeWeight {
         self.edges
-            .get_unchecked(ax)
-            .get((offset.horizontal, offset.vertical))
+            .get((offset.horizontal, offset.vertical, ax))
             .unwrap_unchecked()
     }
 
@@ -333,8 +324,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
         let offset = self.s.to_offset_unchecked(id.0);
         let ax = id.1.to_index();
         self.edges
-            .get_unchecked_mut(ax)
-            .get_mut((offset.horizontal, offset.vertical))
+            .get_mut((offset.horizontal, offset.vertical, ax))
             .unwrap_unchecked()
     }
 }

@@ -1,4 +1,5 @@
-//! Square 2d Lattice Graph. It does not use [`lattice_abstract`](`crate::lattice_abstract`) for historical and performance reason.
+//! Square 2d Lattice Graph.
+#![allow(deprecated)]
 
 use crate::unreachable_debug_checked;
 use ndarray::Array2;
@@ -125,6 +126,7 @@ impl Shape for HVLoop {
 /// Node(i,j)   - Edge(i,j,Horizontal)   - Node(i+1,j)
 /// ```
 #[derive(Clone, Debug)]
+#[deprecated = "use UndirectedSquareGraph instead"]
 pub struct SquareGraph<N, E, Ix = usize, S = DefaultShape>
 where
     Ix: IndexType,

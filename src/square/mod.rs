@@ -45,10 +45,20 @@ pub trait Shape: Copy {
 /// This trick is to optimize when there is no loop in graph.
 pub trait SizeInfo: Copy {
     /// Should only be called when [`Shape::LOOP_HORIZONTAL`] is true.
+    ///
+    /// # Safety
+    ///
+    /// This function must only be called when the shape has horizontal looping enabled.
+    /// Calling it otherwise will result in undefined behavior (debug panic or unreachable code).
     unsafe fn horizontal_size(&self) -> usize {
         unreachable_debug_checked()
     }
     /// Should only be called when [`Shape::LOOP_VERTICAL`] is true.
+    ///
+    /// # Safety
+    ///
+    /// This function must only be called when the shape has vertical looping enabled.
+    /// Calling it otherwise will result in undefined behavior (debug panic or unreachable code).
     unsafe fn vertical_size(&self) -> usize {
         unreachable_debug_checked()
     }
@@ -146,6 +156,13 @@ where
 {
     /// Create a `SquareGraph` from raw data.
     /// It only check whether the size of nodes and edges are correct in `debug_assertion`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the dimensions of the arrays are consistent:
+    /// - `horizontal` should have compatible dimensions for horizontal edges
+    /// - `vertical` should have compatible dimensions for vertical edges
+    /// - The arrays must form a valid square lattice graph structure
     pub unsafe fn new_raw(nodes: Array2<N>, horizontal: Array2<E>, vertical: Array2<E>) -> Self {
         let s = Self {
             nodes,

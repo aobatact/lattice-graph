@@ -378,41 +378,49 @@ impl<S: Shape> VisMap<S> {
     pub(crate) fn new(s: S) -> Self {
         let h = s.horizontal();
         let v = s.vertical();
-        let mut vec = Vec::with_capacity(h);
-        for _ in 0..h {
-            vec.push(FixedBitSet::with_capacity(v));
-        }
+        // Row-major: outer vector for vertical (rows), inner FixedBitSet for horizontal (columns)
+        let vec = (0..v)
+            .map(|_| FixedBitSet::with_capacity(h))
+            .collect();
         Self { v: vec, s }
     }
 }
 
 impl<S: Shape> VisitMap<S::Coordinate> for VisMap<S> {
     fn visit(&mut self, a: S::Coordinate) -> bool {
-        let offset = self.s.to_offset(a);
-        if let Ok(a) = offset {
-            !self.v[a.horizontal].put(a.vertical)
-        } else {
-            false
-        }
+        self.s.to_offset(a)
+            .ok()
+            .and_then(|offset| {
+                // Row-major: v[vertical][horizontal]
+                self.v.get_mut(offset.vertical)
+                    .map(|bitset| !bitset.put(offset.horizontal))
+            })
+            .unwrap_or(false)
     }
 
     fn is_visited(&self, a: &S::Coordinate) -> bool {
-        let offset = self.s.to_offset(*a);
-        if let Ok(a) = offset {
-            self.v[a.horizontal].contains(a.vertical)
-        } else {
-            false
-        }
+        self.s.to_offset(*a)
+            .ok()
+            .and_then(|offset| {
+                // Row-major: v[vertical][horizontal]
+                self.v.get(offset.vertical)
+                    .map(|bitset| bitset.contains(offset.horizontal))
+            })
+            .unwrap_or(false)
     }
 
     fn unvisit(&mut self, a: S::Coordinate) -> bool {
-        let offset = self.s.to_offset(a);
-        if let Ok(offset) = offset {
-            self.v[offset.horizontal].set(offset.vertical, false);
-            true
-        } else {
-            false
-        }
+        self.s.to_offset(a)
+            .ok()
+            .and_then(|offset| {
+                // Row-major: v[vertical][horizontal]
+                self.v.get_mut(offset.vertical)
+                    .map(|bitset| {
+                        bitset.set(offset.horizontal, false);
+                        true
+                    })
+            })
+            .unwrap_or(false)
     }
 }
 

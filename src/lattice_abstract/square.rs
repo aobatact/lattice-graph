@@ -251,6 +251,46 @@ impl Shape for SquareShape {
     }
     
     #[inline(always)]
+    fn move_offset(&self, offset: Offset, dir: &DirectedSquareAxis) -> Result<Offset, ()> {
+        let Offset { horizontal: h, vertical: v } = offset;
+        
+        let new_offset = match *dir {
+            DirectedSquareAxis::X => {
+                let new_h = h + 1;
+                if new_h < self.horizontal() {
+                    Some(Offset { horizontal: new_h, vertical: v })
+                } else {
+                    None
+                }
+            }
+            DirectedSquareAxis::Y => {
+                let new_v = v + 1;
+                if new_v < self.vertical() {
+                    Some(Offset { horizontal: h, vertical: new_v })
+                } else {
+                    None
+                }
+            }
+            DirectedSquareAxis::RX => {
+                if h > 0 {
+                    Some(Offset { horizontal: h - 1, vertical: v })
+                } else {
+                    None
+                }
+            }
+            DirectedSquareAxis::RY => {
+                if v > 0 {
+                    Some(Offset { horizontal: h, vertical: v - 1 })
+                } else {
+                    None
+                }
+            }
+        };
+        
+        new_offset.ok_or(())
+    }
+    
+    #[inline(always)]
     fn is_neighbor(&self, a: SquareOffset, b: SquareOffset) -> bool {
         is_neighbor(a, b)
     }

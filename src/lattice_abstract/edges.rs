@@ -175,12 +175,28 @@ where
     where
         Dt: Default,
     {
-        let offset = g.s.to_offset(a);
+        // Since this is unchecked, we know the coordinate is valid
+        let offset = g.s.to_offset_unchecked(a);
         Edges {
             graph: g,
             node: a,
             state: 0,
-            offset: offset.unwrap_or_else(|_| unreachable_debug_checked()),
+            offset,
+            directed: Dt::default(),
+        }
+    }
+    
+    unsafe fn new_unchecked_from_offset(g: &'a LatticeGraph<N, E, S>, offset: Offset) -> Edges<'a, N, E, S, C, Dt>
+    where
+        Dt: Default,
+    {
+        // Create from offset directly, avoiding coordinate conversion
+        let coord = g.s.offset_to_coordinate(offset);
+        Edges {
+            graph: g,
+            node: coord,
+            state: 0,
+            offset,
             directed: Dt::default(),
         }
     }
@@ -198,24 +214,28 @@ where
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        while self.state
-            < if Dt::DIRECTED {
-                A::COUNT
-            } else {
-                A::UNDIRECTED_COUNT
-            }
-        {
+        let max_state = if Dt::DIRECTED {
+            A::COUNT
+        } else {
+            A::UNDIRECTED_COUNT
+        };
+        
+        while self.state < max_state {
             unsafe {
                 let d = D::dir_from_index_unchecked(self.state);
-                let n = self.graph.s.move_coord(self.node, d.clone());
                 let st = self.state;
                 self.state += 1;
-                if let Ok(target) = n {
-                    let (nx, ne) =
-                        self.directed
-                            .get_raw_id(&self.graph.s, &d, self.offset, target, st);
+                
+                // Try to move offset directly without coordinate conversion
+                if let Ok(target_offset) = self.graph.s.move_offset(self.offset, &d) {
+                    // Get target coordinate only when needed
+                    let target = self.graph.s.offset_to_coordinate(target_offset);
+                    
+                    let (nx, ne) = self.directed.get_raw_id(
+                        &self.graph.s, &d, self.offset, target, st
+                    );
                     debug_assert_eq!(A::from_direction(d.clone()).to_index(), ne);
-                    //let ne = S::Axis::from_direction(d.clone()).to_index();
+                    
                     let e = self.graph.edge_weight_unchecked_raw((nx, ne));
                     let (source_id, target_id) = if self.directed.need_reverse() {
                         (target, self.node)
@@ -310,15 +330,16 @@ where
                 }
             }
             if self.current_offset.horizontal < self.g.s.horizontal() {
-                let x = self.g.s.offset_to_coordinate(self.current_offset);
+                // Use the current offset directly
+                let current = self.current_offset;
                 // Move to next position (row-major order for cache efficiency)
                 self.current_offset.vertical += 1;
                 if self.current_offset.vertical >= self.g.s.vertical() {
                     self.current_offset.vertical = 0;
                     self.current_offset.horizontal += 1;
                 }
-                //self.e = Some(self.g.edges(x));
-                self.e = Some(unsafe { Edges::new_unchecked(self.g, x) });
+                // Create Edges directly from offset
+                self.e = Some(unsafe { Edges::new_unchecked_from_offset(self.g, current) });
             } else {
                 return None;
             }

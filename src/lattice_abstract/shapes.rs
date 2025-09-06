@@ -86,6 +86,19 @@ pub trait Shape: Clone {
         coord: Self::Coordinate,
         dir: <Self::Axis as Axis>::Direction,
     ) -> Result<Self::Coordinate, Self::CoordinateMoveError>;
+    
+    /// Move offset directly to the next offset in the direction.
+    /// This is more efficient than converting offset->coord->move->coord->offset.
+    #[inline]
+    fn move_offset(
+        &self,
+        offset: Offset,
+        dir: &<Self::Axis as Axis>::Direction,
+    ) -> Result<Offset, Self::CoordinateMoveError> {
+        let coord = self.offset_to_coordinate(offset);
+        let moved = self.move_coord(coord, dir.clone())?;
+        self.to_offset(moved).map_err(|_| unsafe { unreachable_debug_checked() })
+    }
     /// Move coordinates to the next coordinate in the direction.
     /// Caller should be sure that the source and the target coord is valid coord.
     ///
@@ -159,6 +172,14 @@ impl<S: Shape> Shape for &S {
         dir: <Self::Axis as Axis>::Direction,
     ) -> Result<Self::Coordinate, Self::CoordinateMoveError> {
         (*self).move_coord(coord, dir)
+    }
+    
+    fn move_offset(
+        &self,
+        offset: Offset,
+        dir: &<Self::Axis as Axis>::Direction,
+    ) -> Result<Offset, Self::CoordinateMoveError> {
+        (*self).move_offset(offset, dir)
     }
 
     unsafe fn move_coord_unchecked(

@@ -307,6 +307,24 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
             .get((offset.horizontal, offset.vertical, ax))
             .unwrap_unchecked()
     }
+    
+    #[doc(hidden)]
+    #[inline]
+    pub unsafe fn neighbor_node_weight_unchecked_raw(
+        &self,
+        source_offset: Offset,
+        dir: &<S::Axis as Axis>::Direction,
+    ) -> Option<(&N, Offset)> {
+        // Try to move to neighbor offset directly
+        if let Ok(target_offset) = self.s.move_offset(source_offset, dir) {
+            let node_ref = self.nodes
+                .get((target_offset.horizontal, target_offset.vertical))
+                .unwrap_unchecked();
+            Some((node_ref, target_offset))
+        } else {
+            None
+        }
+    }
 
     #[doc(hidden)]
     #[inline]

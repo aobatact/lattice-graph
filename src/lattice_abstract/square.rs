@@ -144,13 +144,42 @@ fn move_coord<S: Shape>(
     coord: SquareOffset,
     dir: DirectedSquareAxis,
 ) -> Result<SquareOffset, ()> {
-    let o = match dir {
-        DirectedSquareAxis::X => coord.0.add_x(1).check_x(s.horizontal()),
-        DirectedSquareAxis::Y => coord.0.add_y(1).check_y(s.vertical()),
-        DirectedSquareAxis::RX => coord.0.sub_x(1),
-        DirectedSquareAxis::RY => coord.0.sub_y(1),
+    let Offset { horizontal: h, vertical: v } = coord.0;
+    
+    let new_offset = match dir {
+        DirectedSquareAxis::X => {
+            let new_h = h + 1;
+            if new_h < s.horizontal() {
+                Some(Offset { horizontal: new_h, vertical: v })
+            } else {
+                None
+            }
+        }
+        DirectedSquareAxis::Y => {
+            let new_v = v + 1;
+            if new_v < s.vertical() {
+                Some(Offset { horizontal: h, vertical: new_v })
+            } else {
+                None
+            }
+        }
+        DirectedSquareAxis::RX => {
+            if h > 0 {
+                Some(Offset { horizontal: h - 1, vertical: v })
+            } else {
+                None
+            }
+        }
+        DirectedSquareAxis::RY => {
+            if v > 0 {
+                Some(Offset { horizontal: h, vertical: v - 1 })
+            } else {
+                None
+            }
+        }
     };
-    o.map(SquareOffset).ok_or(())
+    
+    new_offset.map(SquareOffset).ok_or(())
 }
 
 impl Shape for SquareShape {
@@ -205,6 +234,20 @@ impl Shape for SquareShape {
     #[inline(always)]
     fn move_coord(&self, coord: SquareOffset, dir: DirectedSquareAxis) -> Result<SquareOffset, ()> {
         move_coord(self, coord, dir)
+    }
+    
+    #[inline(always)]
+    unsafe fn move_coord_unchecked(&self, coord: SquareOffset, dir: DirectedSquareAxis) -> SquareOffset {
+        let Offset { horizontal: h, vertical: v } = coord.0;
+        
+        let new_offset = match dir {
+            DirectedSquareAxis::X => Offset { horizontal: h + 1, vertical: v },
+            DirectedSquareAxis::Y => Offset { horizontal: h, vertical: v + 1 },
+            DirectedSquareAxis::RX => Offset { horizontal: h - 1, vertical: v },
+            DirectedSquareAxis::RY => Offset { horizontal: h, vertical: v - 1 },
+        };
+        
+        SquareOffset(new_offset)
     }
 }
 
@@ -296,6 +339,20 @@ impl Shape for SquareShape<petgraph::Directed> {
         dir: DirectedSquareAxis,
     ) -> Result<Self::Coordinate, Self::CoordinateMoveError> {
         move_coord(self, coord, dir)
+    }
+    
+    #[inline(always)]
+    unsafe fn move_coord_unchecked(&self, coord: Self::Coordinate, dir: DirectedSquareAxis) -> Self::Coordinate {
+        let Offset { horizontal: h, vertical: v } = coord.0;
+        
+        let new_offset = match dir {
+            DirectedSquareAxis::X => Offset { horizontal: h + 1, vertical: v },
+            DirectedSquareAxis::Y => Offset { horizontal: h, vertical: v + 1 },
+            DirectedSquareAxis::RX => Offset { horizontal: h - 1, vertical: v },
+            DirectedSquareAxis::RY => Offset { horizontal: h, vertical: v - 1 },
+        };
+        
+        SquareOffset(new_offset)
     }
 }
 

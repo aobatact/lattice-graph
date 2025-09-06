@@ -249,7 +249,18 @@ impl Shape for SquareShape {
         
         SquareOffset(new_offset)
     }
+    
+    #[inline(always)]
+    fn is_neighbor(&self, a: SquareOffset, b: SquareOffset) -> bool {
+        is_neighbor(a, b)
+    }
+    
+    #[inline(always)]
+    fn get_direction(&self, source: SquareOffset, target: SquareOffset) -> Option<DirectedSquareAxis> {
+        get_direction(source, target)
+    }
 }
+
 
 /// Axis for directed square graph.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -353,6 +364,45 @@ impl Shape for SquareShape<petgraph::Directed> {
         };
         
         SquareOffset(new_offset)
+    }
+    
+    #[inline(always)]
+    fn is_neighbor(&self, a: Self::Coordinate, b: Self::Coordinate) -> bool {
+        is_neighbor(a, b)
+    }
+    
+    #[inline(always)]
+    fn get_direction(&self, source: Self::Coordinate, target: Self::Coordinate) -> Option<DirectedSquareAxis> {
+        get_direction(source, target)
+    }
+}
+
+#[inline(always)]
+fn is_neighbor(a: SquareOffset, b: SquareOffset) -> bool {
+    let Offset { horizontal: ah, vertical: av } = a.0;
+    let Offset { horizontal: bh, vertical: bv } = b.0;
+        
+    let dh = bh as isize - ah as isize;
+    let dv = bv as isize - av as isize;
+        
+    // Check if it's exactly one step in a cardinal direction
+    (dh == 0 && dv.abs() == 1) || (dv == 0 && dh.abs() == 1)
+}
+
+#[inline(always)]
+fn get_direction(source: SquareOffset, target: SquareOffset) -> Option<DirectedSquareAxis> {
+    let Offset { horizontal: sh, vertical: sv } = source.0;
+    let Offset { horizontal: th, vertical: tv } = target.0;
+        
+    let dh = th as isize - sh as isize;
+    let dv = tv as isize - sv as isize;
+        
+    match (dh, dv) {
+        (1, 0) => Some(DirectedSquareAxis::X),
+        (0, 1) => Some(DirectedSquareAxis::Y),
+        (-1, 0) => Some(DirectedSquareAxis::RX),
+        (0, -1) => Some(DirectedSquareAxis::RY),
+        _ => None,
     }
 }
 

@@ -289,7 +289,7 @@ where
 pub struct EdgeReferences<'a, N, E, S: Shape, C = <S as Shape>::Coordinate> {
     g: &'a LatticeGraph<N, E, S>,
     e: Option<Edges<'a, N, E, S, C, AxisMarker>>,
-    index: usize,
+    current_offset: shapes::Offset,
 }
 
 impl<'a, N, E, S, C, D, A> Iterator for EdgeReferences<'a, N, E, S, C>
@@ -309,9 +309,14 @@ where
                     return next;
                 }
             }
-            if self.index < self.g.s.node_count() {
-                let x = self.g.s.index_to_coordinate(self.index);
-                self.index += 1;
+            if self.current_offset.horizontal < self.g.s.horizontal() {
+                let x = self.g.s.offset_to_coordinate(self.current_offset);
+                // Move to next position (row-major order for cache efficiency)
+                self.current_offset.vertical += 1;
+                if self.current_offset.vertical >= self.g.s.vertical() {
+                    self.current_offset.vertical = 0;
+                    self.current_offset.horizontal += 1;
+                }
                 //self.e = Some(self.g.edges(x));
                 self.e = Some(unsafe { Edges::new_unchecked(self.g, x) });
             } else {
@@ -321,8 +326,14 @@ where
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let node_len = self.g.node_count() - self.index;
-        let maxlen = node_len * S::Axis::UNDIRECTED_COUNT
+        let remaining_nodes = if self.current_offset.horizontal < self.g.s.horizontal() {
+            let remaining_in_current_row = self.g.s.vertical() - self.current_offset.vertical;
+            let remaining_rows = self.g.s.horizontal() - self.current_offset.horizontal - 1;
+            remaining_in_current_row + remaining_rows * self.g.s.vertical()
+        } else {
+            0
+        };
+        let maxlen = remaining_nodes * S::Axis::UNDIRECTED_COUNT
             + self
                 .e
                 .as_ref()
@@ -355,7 +366,7 @@ where
         EdgeReferences {
             g: self,
             e: None,
-            index: 0,
+            current_offset: shapes::Offset::new(0, 0),
         }
     }
 }

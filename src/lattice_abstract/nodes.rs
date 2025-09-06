@@ -9,7 +9,7 @@ use super::*;
 /// Iterate all index of [`LatticeGraph`]. See [`IntoNodeIdentifiers`].
 #[derive(Clone, Debug)]
 pub struct NodeIndices<S> {
-    index: usize,
+    current_offset: shapes::Offset,
     s: S,
 }
 
@@ -17,18 +17,31 @@ impl<S: shapes::Shape> Iterator for NodeIndices<S> {
     type Item = <S as Shape>::Coordinate;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.index < self.s.node_count() {
-            let x = self.s.index_to_coordinate(self.index);
-            self.index += 1;
-            Some(x)
-        } else {
-            None
+        if self.current_offset.horizontal >= self.s.horizontal() {
+            return None;
         }
+        
+        let coord = self.s.offset_to_coordinate(self.current_offset);
+        
+        // Move to next position (row-major order for cache efficiency)
+        self.current_offset.vertical += 1;
+        if self.current_offset.vertical >= self.s.vertical() {
+            self.current_offset.vertical = 0;
+            self.current_offset.horizontal += 1;
+        }
+        
+        Some(coord)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.s.node_count() - self.index;
-        (len, Some(len))
+        let remaining = if self.current_offset.horizontal < self.s.horizontal() {
+            let remaining_in_current_row = self.s.vertical() - self.current_offset.vertical;
+            let remaining_rows = self.s.horizontal() - self.current_offset.horizontal - 1;
+            remaining_in_current_row + remaining_rows * self.s.vertical()
+        } else {
+            0
+        };
+        (remaining, Some(remaining))
     }
 }
 
@@ -41,7 +54,7 @@ impl<N, E, S: Shape> IntoNodeIdentifiers for &LatticeGraph<N, E, S> {
 
     fn node_identifiers(self) -> Self::NodeIdentifiers {
         NodeIndices {
-            index: 0,
+            current_offset: shapes::Offset::new(0, 0),
             s: self.s.clone(),
         }
     }
@@ -50,20 +63,28 @@ impl<N, E, S: Shape> IntoNodeIdentifiers for &LatticeGraph<N, E, S> {
 /// Iterate all nodes of [`LatticeGraph`]. See [`IntoNodeReferences`].
 pub struct NodeReferences<'a, N, E, S: Shape> {
     graph: &'a LatticeGraph<N, E, S>,
-    index: usize,
+    current_offset: shapes::Offset,
 }
 
 impl<'a, N, E, S: Shape> Iterator for NodeReferences<'a, N, E, S> {
     type Item = (<S as Shape>::Coordinate, &'a N);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.index < self.graph.s.node_count() {
-            let x = self.graph.s.index_to_coordinate(self.index);
-            self.index += 1;
-            Some((x, unsafe { self.graph.node_weight_unchecked(x) }))
-        } else {
-            None
+        if self.current_offset.horizontal >= self.graph.s.horizontal() {
+            return None;
         }
+        
+        let coord = self.graph.s.offset_to_coordinate(self.current_offset);
+        let node_ref = unsafe { self.graph.node_weight_unchecked_raw(self.current_offset) };
+        
+        // Move to next position (row-major order for cache efficiency)
+        self.current_offset.vertical += 1;
+        if self.current_offset.vertical >= self.graph.s.vertical() {
+            self.current_offset.vertical = 0;
+            self.current_offset.horizontal += 1;
+        }
+        
+        Some((coord, node_ref))
     }
 }
 
@@ -79,7 +100,7 @@ impl<'a, N, E, S: Shape> IntoNodeReferences for &'a LatticeGraph<N, E, S> {
     fn node_references(self) -> Self::NodeReferences {
         NodeReferences {
             graph: self,
-            index: 0,
+            current_offset: shapes::Offset::new(0, 0),
         }
     }
 }

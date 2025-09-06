@@ -70,21 +70,27 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
     {
         let mut uninit = unsafe { Self::new_uninit(s) };
         let s = &uninit.s;
-        let nodes = uninit.nodes.as_slice_mut().unwrap();
+        let nodes = &mut uninit.nodes;
         let edges = &mut uninit.edges;
-        for i in 0..s.node_count() {
-            let offset = s.index_to_offset(i);
-            let c = s.offset_to_coordinate(offset);
-            unsafe { std::ptr::write(nodes.get_unchecked_mut(i), MaybeUninit::new(n(c))) }
-            for j in 0..S::Axis::COUNT {
-                let a = unsafe { <S::Axis as Axis>::from_index_unchecked(j) };
-                if s.move_coord(c, a.foward()).is_err() {
-                    continue;
+        // Iterate in row-major order for better cache efficiency
+        for h in 0..s.horizontal() {
+            for v in 0..s.vertical() {
+                let offset = shapes::Offset::new(h, v);
+                let c = s.offset_to_coordinate(offset);
+                unsafe { 
+                    let node_ptr = nodes.get_mut((h, v)).unwrap();
+                    std::ptr::write(node_ptr, MaybeUninit::new(n(c)));
                 }
-                let ex = e(c, a);
-                let t = edges.get_mut((offset.horizontal, offset.vertical, j));
-                if let Some(x) = t {
-                    unsafe { std::ptr::write(x, MaybeUninit::new(ex)) };
+                for j in 0..S::Axis::COUNT {
+                    let a = unsafe { <S::Axis as Axis>::from_index_unchecked(j) };
+                    if s.move_coord(c, a.foward()).is_err() {
+                        continue;
+                    }
+                    let ex = e(c, a);
+                    let t = edges.get_mut((h, v, j));
+                    if let Some(x) = t {
+                        unsafe { std::ptr::write(x, MaybeUninit::new(ex)) };
+                    }
                 }
             }
         }

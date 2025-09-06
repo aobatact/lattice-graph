@@ -230,6 +230,7 @@ pub trait Axis: Copy + PartialEq {
     /// # Safety
     ///
     /// The caller must ensure that the index is within valid bounds for this coordinate type.
+    #[inline]
     unsafe fn from_index_unchecked(index: usize) -> Self {
         Self::from_index(index).unwrap_or_else(|| unreachable_debug_checked())
     }
@@ -243,6 +244,7 @@ pub trait Axis: Copy + PartialEq {
     fn backward(self) -> Self::Direction;
     /// Check the direction is forward for this axis.
     /// Returns true if the direction is `DIRECTED` is `true`, or the index of the axis and direction matches.
+    #[inline]
     fn is_forward_direction(dir: &Self::Direction) -> bool {
         Self::DIRECTED || dir.dir_to_index() == Self::from_direction(dir.clone()).to_index()
     }
@@ -283,12 +285,15 @@ where
     fn is_forward(&self) -> bool {
         true
     }
+    #[inline]
     fn dir_to_index(&self) -> usize {
         <Self as Axis>::to_index(self)
     }
+    #[inline]
     unsafe fn dir_from_index_unchecked(index: usize) -> Self {
         <Self as Axis>::from_index_unchecked(index)
     }
+    #[inline]
     fn dir_from_index(index: usize) -> Option<Self>
     where
         Self: Sized,

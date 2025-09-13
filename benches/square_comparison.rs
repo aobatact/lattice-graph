@@ -8,20 +8,26 @@ use std::collections::HashMap;
 use std::hint::black_box;
 
 // Import abstract square implementation
-use lattice_graph::lattice_abstract::square::{UndirectedSquareGraph, SquareOffset, SquareShape};
+use lattice_graph::lattice_abstract::square::{SquareOffset, SquareShape, UndirectedSquareGraph};
 
 type PetGraph = Graph<f32, i32, Undirected>;
 
 // Helper function to create a petgraph UnGraph equivalent to the square grid
-fn create_petgraph_square(h: usize, v: usize) -> (PetGraph, HashMap<(usize, usize), petgraph::graph::NodeIndex>) {
+fn create_petgraph_square(
+    h: usize,
+    v: usize,
+) -> (
+    PetGraph,
+    HashMap<(usize, usize), petgraph::graph::NodeIndex>,
+) {
     let mut graph = Graph::new_undirected();
     let mut coord_to_node = HashMap::new();
-    
+
     // Pre-allocate capacity for better performance
     graph.reserve_nodes(h * v);
     graph.reserve_edges((h - 1) * v + h * (v - 1));
     coord_to_node.reserve(h * v);
-    
+
     // Create all nodes first
     for x in 0..h {
         for y in 0..v {
@@ -30,30 +36,30 @@ fn create_petgraph_square(h: usize, v: usize) -> (PetGraph, HashMap<(usize, usiz
             coord_to_node.insert((x, y), node_idx);
         }
     }
-    
+
     // Add edges between adjacent nodes
     for x in 0..h {
         for y in 0..v {
             let current_node = coord_to_node[&(x, y)];
-            
+
             // Right edge
             if x + 1 < h {
                 let right_node = coord_to_node[&(x + 1, y)];
-                // Use deterministic weights matching the abstract graph
+                // Use deterministic weights matching the lattice graph
                 let edge_weight = ((x + y) % 10 + 1) as i32;
                 graph.add_edge(current_node, right_node, edge_weight);
             }
-            
+
             // Down edge
             if y + 1 < v {
                 let down_node = coord_to_node[&(x, y + 1)];
-                // Use deterministic weights matching the abstract graph  
+                // Use deterministic weights matching the lattice graph
                 let edge_weight = ((x + y) % 10 + 1) as i32;
                 graph.add_edge(current_node, down_node, edge_weight);
             }
         }
     }
-    
+
     (graph, coord_to_node)
 }
 
@@ -62,7 +68,7 @@ fn creation_comparison(c: &mut Criterion) {
 
     for (h, v) in [(10, 10), (50, 50), (100, 100)] {
         group.bench_with_input(
-            BenchmarkId::new("abstract_square", format!("{}x{}", h, v)),
+            BenchmarkId::new("lattice_square", format!("{}x{}", h, v)),
             &(h, v),
             |b, &(h, v)| {
                 b.iter(|| {
@@ -81,11 +87,7 @@ fn creation_comparison(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("petgraph_ungraph", format!("{}x{}", h, v)),
             &(h, v),
-            |b, &(h, v)| {
-                b.iter(|| {
-                    create_petgraph_square(black_box(h), black_box(v))
-                })
-            },
+            |b, &(h, v)| b.iter(|| create_petgraph_square(black_box(h), black_box(v))),
         );
     }
 
@@ -98,7 +100,7 @@ fn node_access_comparison(c: &mut Criterion) {
     let h = 100;
     let v = 100;
 
-    let abstract_graph = UndirectedSquareGraph::<f32, i32>::new_with(
+    let lattice_graph = UndirectedSquareGraph::<f32, i32>::new_with(
         SquareShape::new(h, v),
         |coord: SquareOffset| {
             let (x, y) = (coord.0.horizontal(), coord.0.vertical());
@@ -109,9 +111,9 @@ fn node_access_comparison(c: &mut Criterion) {
 
     let (petgraph, coord_to_node) = create_petgraph_square(h, v);
 
-    group.bench_function("abstract_square_node_weight", |b| {
+    group.bench_function("lattice_square_node_weight", |b| {
         let coord = SquareOffset::from((50, 50));
-        b.iter(|| abstract_graph.node_weight(black_box(coord)))
+        b.iter(|| lattice_graph.node_weight(black_box(coord)))
     });
 
     group.bench_function("petgraph_node_weight", |b| {
@@ -119,9 +121,9 @@ fn node_access_comparison(c: &mut Criterion) {
         b.iter(|| petgraph.node_weight(black_box(node_idx)))
     });
 
-    group.bench_function("abstract_square_node_iter", |b| {
+    group.bench_function("lattice_square_node_iter", |b| {
         b.iter(|| {
-            for node_ref in abstract_graph.node_references() {
+            for node_ref in lattice_graph.node_references() {
                 black_box(node_ref.weight());
             }
         })
@@ -144,7 +146,7 @@ fn edge_access_comparison(c: &mut Criterion) {
     let h = 100;
     let v = 100;
 
-    let abstract_graph = UndirectedSquareGraph::<f32, i32>::new_with(
+    let lattice_graph = UndirectedSquareGraph::<f32, i32>::new_with(
         SquareShape::new(h, v),
         |coord: SquareOffset| {
             let (x, y) = (coord.0.horizontal(), coord.0.vertical());
@@ -155,9 +157,9 @@ fn edge_access_comparison(c: &mut Criterion) {
 
     let (petgraph, coord_to_node) = create_petgraph_square(h, v);
 
-    group.bench_function("abstract_square_edge_iter", |b| {
+    group.bench_function("lattice_square_edge_iter", |b| {
         b.iter(|| {
-            for edge_ref in abstract_graph.edge_references() {
+            for edge_ref in lattice_graph.edge_references() {
                 black_box(edge_ref.weight());
             }
         })
@@ -171,10 +173,10 @@ fn edge_access_comparison(c: &mut Criterion) {
         })
     });
 
-    group.bench_function("abstract_square_edges_from_node", |b| {
+    group.bench_function("lattice_square_edges_from_node", |b| {
         let coord = SquareOffset::from((50, 50));
         b.iter(|| {
-            for edge_ref in abstract_graph.edges(black_box(coord)) {
+            for edge_ref in lattice_graph.edges(black_box(coord)) {
                 black_box(edge_ref.weight());
             }
         })
@@ -198,7 +200,7 @@ fn neighbors_comparison(c: &mut Criterion) {
     let h = 100;
     let v = 100;
 
-    let abstract_graph = UndirectedSquareGraph::<f32, i32>::new_with(
+    let lattice_graph = UndirectedSquareGraph::<f32, i32>::new_with(
         SquareShape::new(h, v),
         |coord: SquareOffset| {
             let (x, y) = (coord.0.horizontal(), coord.0.vertical());
@@ -209,10 +211,10 @@ fn neighbors_comparison(c: &mut Criterion) {
 
     let (petgraph, coord_to_node) = create_petgraph_square(h, v);
 
-    group.bench_function("abstract_square_neighbors", |b| {
+    group.bench_function("lattice_square_neighbors", |b| {
         let coord = SquareOffset::from((50, 50));
         b.iter(|| {
-            for neighbor in abstract_graph.neighbors(black_box(coord)) {
+            for neighbor in lattice_graph.neighbors(black_box(coord)) {
                 black_box(neighbor);
             }
         })
@@ -233,8 +235,8 @@ fn neighbors_comparison(c: &mut Criterion) {
 fn astar_comparison(c: &mut Criterion) {
     let mut group = c.benchmark_group("square_astar_comparison");
 
-    for (h, v) in [(10, 10), (20, 20), (50, 50)] {        
-        let abstract_graph = UndirectedSquareGraph::<f32, i32>::new_with(
+    for (h, v) in [(10, 10), (20, 20), (50, 50)] {
+        let lattice_graph = UndirectedSquareGraph::<f32, i32>::new_with(
             SquareShape::new(h, v),
             |coord: SquareOffset| {
                 let (x, y) = (coord.0.horizontal(), coord.0.vertical());
@@ -250,7 +252,7 @@ fn astar_comparison(c: &mut Criterion) {
         let (petgraph, coord_to_node) = create_petgraph_square(h, v);
 
         group.bench_with_input(
-            BenchmarkId::new("abstract_square_astar", format!("{}x{}", h, v)),
+            BenchmarkId::new("lattice_square_astar", format!("{}x{}", h, v)),
             &(h, v),
             |b, _| {
                 let start = SquareOffset::from((0, 0));
@@ -258,13 +260,14 @@ fn astar_comparison(c: &mut Criterion) {
 
                 b.iter(|| {
                     astar(
-                        &abstract_graph,
+                        &lattice_graph,
                         black_box(start),
                         |finish| finish == black_box(goal),
                         |e| *e.weight() as f32,
                         |node| {
                             // Manhattan distance heuristic
-                            let dx = (node.0.horizontal() as i32 - goal.0.horizontal() as i32).abs();
+                            let dx =
+                                (node.0.horizontal() as i32 - goal.0.horizontal() as i32).abs();
                             let dy = (node.0.vertical() as i32 - goal.0.vertical() as i32).abs();
                             (dx + dy) as f32
                         },
@@ -287,8 +290,8 @@ fn astar_comparison(c: &mut Criterion) {
                         |finish| finish == black_box(goal_node),
                         |e| *e.weight() as f32,
                         |node_idx| {
-                            // Same Manhattan distance heuristic as abstract square
-                            // Convert node index back to coordinates (same layout as abstract square)
+                            // Same Manhattan distance heuristic as lattice square
+                            // Convert node index back to coordinates (same layout as lattice square)
                             let index = node_idx.index();
                             let x = index / v;
                             let y = index % v;
@@ -314,7 +317,7 @@ fn memory_access_comparison(c: &mut Criterion) {
         let h = 10;
         let v = 10;
 
-        let abstract_graph = UndirectedSquareGraph::<f32, i32>::new_with(
+        let lattice_graph = UndirectedSquareGraph::<f32, i32>::new_with(
             SquareShape::new(h, v),
             |coord: SquareOffset| {
                 let (x, y) = (coord.0.horizontal(), coord.0.vertical());
@@ -325,13 +328,13 @@ fn memory_access_comparison(c: &mut Criterion) {
 
         let (petgraph, coord_to_node) = create_petgraph_square(h, v);
 
-        group.bench_function("abstract_10x10_random_access", |b| {
+        group.bench_function("lattice_10x10_random_access", |b| {
             b.iter(|| {
                 for _ in 0..100 {
                     let x = thread_rng().gen_range(0..h);
                     let y = thread_rng().gen_range(0..v);
                     let coord = SquareOffset::from((x, y));
-                    black_box(abstract_graph.node_weight(coord));
+                    black_box(lattice_graph.node_weight(coord));
                 }
             })
         });
@@ -353,7 +356,7 @@ fn memory_access_comparison(c: &mut Criterion) {
         let h = 500;
         let v = 500;
 
-        let abstract_graph = UndirectedSquareGraph::<f32, i32>::new_with(
+        let lattice_graph = UndirectedSquareGraph::<f32, i32>::new_with(
             SquareShape::new(h, v),
             |coord: SquareOffset| {
                 let (x, y) = (coord.0.horizontal(), coord.0.vertical());
@@ -364,13 +367,13 @@ fn memory_access_comparison(c: &mut Criterion) {
 
         let (petgraph, coord_to_node) = create_petgraph_square(h, v);
 
-        group.bench_function("abstract_500x500_random_access", |b| {
+        group.bench_function("lattice_500x500_random_access", |b| {
             b.iter(|| {
                 for _ in 0..100 {
                     let x = thread_rng().gen_range(0..h);
                     let y = thread_rng().gen_range(0..v);
                     let coord = SquareOffset::from((x, y));
-                    black_box(abstract_graph.node_weight(coord));
+                    black_box(lattice_graph.node_weight(coord));
                 }
             })
         });

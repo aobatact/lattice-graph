@@ -81,6 +81,7 @@ pub struct AxisMarker;
 pub struct AxisDirMarker;
 /// Marker for [`Edges`].
 pub trait DtMarker {
+    /// Whether the edges are directed.
     const DIRECTED: bool;
     // trick to be used in [`IntoEdgesDirected`]
     #[inline]
@@ -117,7 +118,7 @@ impl DtMarker for AxisDirMarker {
 /// [`petgraph::Direction`] as marker for [`Edges`] used in [`IntoEdgesDirected`].
 impl DtMarker for petgraph::Direction {
     const DIRECTED: bool = false;
-    // const MAYREVERSE: bool = true;
+
     unsafe fn get_raw_id<S: Shape>(
         &self,
         s: &S,
@@ -171,22 +172,10 @@ where
         }
     }
 
-    unsafe fn new_unchecked(g: &'a LatticeGraph<N, E, S>, a: C) -> Edges<'a, N, E, S, C, Dt>
-    where
-        Dt: Default,
-    {
-        // Since this is unchecked, we know the coordinate is valid
-        let offset = g.s.to_offset_unchecked(a);
-        Edges {
-            graph: g,
-            node: a,
-            state: 0,
-            offset,
-            directed: Dt::default(),
-        }
-    }
-    
-    unsafe fn new_unchecked_from_offset(g: &'a LatticeGraph<N, E, S>, offset: Offset) -> Edges<'a, N, E, S, C, Dt>
+    unsafe fn new_unchecked_from_offset(
+        g: &'a LatticeGraph<N, E, S>,
+        offset: Offset,
+    ) -> Edges<'a, N, E, S, C, Dt>
     where
         Dt: Default,
     {
@@ -212,30 +201,29 @@ where
 {
     type Item = EdgeReference<'a, C, E, D, A>;
 
-    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         let max_state = if Dt::DIRECTED {
             A::COUNT
         } else {
             A::UNDIRECTED_COUNT
         };
-        
+
         while self.state < max_state {
             unsafe {
                 let d = D::dir_from_index_unchecked(self.state);
                 let st = self.state;
                 self.state += 1;
-                
+
                 // Try to move offset directly without coordinate conversion
                 if let Ok(target_offset) = self.graph.s.move_offset(self.offset, &d) {
                     // Get target coordinate only when needed
                     let target = self.graph.s.offset_to_coordinate(target_offset);
-                    
-                    let (nx, ne) = self.directed.get_raw_id(
-                        &self.graph.s, &d, self.offset, target, st
-                    );
+
+                    let (nx, ne) =
+                        self.directed
+                            .get_raw_id(&self.graph.s, &d, self.offset, target, st);
                     debug_assert_eq!(A::from_direction(d.clone()).to_index(), ne);
-                    
+
                     let e = self.graph.edge_weight_unchecked_raw((nx, ne));
                     let (source_id, target_id) = if self.directed.need_reverse() {
                         (target, self.node)

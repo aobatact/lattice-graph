@@ -86,7 +86,7 @@ pub trait Shape: Clone {
         coord: Self::Coordinate,
         dir: <Self::Axis as Axis>::Direction,
     ) -> Result<Self::Coordinate, Self::CoordinateMoveError>;
-    
+
     /// Move offset directly to the next offset in the direction.
     /// This is more efficient than converting offset->coord->move->coord->offset.
     #[inline]
@@ -97,7 +97,8 @@ pub trait Shape: Clone {
     ) -> Result<Offset, Self::CoordinateMoveError> {
         let coord = self.offset_to_coordinate(offset);
         let moved = self.move_coord(coord, dir.clone())?;
-        self.to_offset(moved).map_err(|_| unsafe { unreachable_debug_checked() })
+        self.to_offset(moved)
+            .map_err(|_| unsafe { unreachable_debug_checked() })
     }
     /// Move coordinates to the next coordinate in the direction.
     /// Caller should be sure that the source and the target coord is valid coord.
@@ -173,7 +174,7 @@ impl<S: Shape> Shape for &S {
     ) -> Result<Self::Coordinate, Self::CoordinateMoveError> {
         (*self).move_coord(coord, dir)
     }
-    
+
     fn move_offset(
         &self,
         offset: Offset,
@@ -260,7 +261,7 @@ pub trait Axis: Copy + PartialEq {
     where
         Self: Sized;
     /// To forward direction. It is nop when Axis is `DIRECTED`.
-    fn foward(self) -> Self::Direction;
+    fn forward(self) -> Self::Direction;
     /// To backward direction. It reverses when Axis is `DIRECTED`.
     fn backward(self) -> Self::Direction;
     /// Check the direction is forward for this axis.
@@ -275,15 +276,6 @@ pub trait Axis: Copy + PartialEq {
 
 /// Direction of axis. It tells which direction is connected to node.
 pub trait AxisDirection: Clone {
-    /// Check this match whith [`Axis`]. It will always return true when `Axis` is directed.
-    #[deprecated(note = "Use Axis::is_forward_direction instead.")]
-    fn is_forward(&self) -> bool;
-    /// Check this doesn't match whith [`Axis`]. It will always return false when `Axis` is directed.
-    #[deprecated(note = "Use !Axis::is_forward_direction instead.")]
-    #[allow(deprecated)]
-    fn is_backward(&self) -> bool {
-        !self.is_forward()
-    }
     /// Convert to index.
     fn dir_to_index(&self) -> usize;
     /// Convert from index.
@@ -303,9 +295,6 @@ impl<A> AxisDirection for A
 where
     A: Axis<Direction = Self>,
 {
-    fn is_forward(&self) -> bool {
-        true
-    }
     #[inline]
     fn dir_to_index(&self) -> usize {
         <Self as Axis>::to_index(self)
@@ -333,13 +322,6 @@ pub enum Direction<T> {
 
 #[allow(deprecated)]
 impl<T: Axis> AxisDirection for Direction<T> {
-    fn is_forward(&self) -> bool {
-        match self {
-            Direction::Foward(_) => true,
-            Direction::Backward(_) => false,
-        }
-    }
-
     fn dir_to_index(&self) -> usize {
         match self {
             Direction::Foward(x) => x.to_index(),

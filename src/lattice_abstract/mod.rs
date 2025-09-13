@@ -77,13 +77,13 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
             for v in 0..s.vertical() {
                 let offset = shapes::Offset::new(h, v);
                 let c = s.offset_to_coordinate(offset);
-                unsafe { 
+                unsafe {
                     let node_ptr = nodes.get_mut((h, v)).unwrap();
                     std::ptr::write(node_ptr, MaybeUninit::new(n(c)));
                 }
                 for j in 0..S::Axis::COUNT {
                     let a = unsafe { <S::Axis as Axis>::from_index_unchecked(j) };
-                    if s.move_coord(c, a.foward()).is_err() {
+                    if s.move_coord(c, a.forward()).is_err() {
                         continue;
                     }
                     let ex = e(c, a);
@@ -179,11 +179,14 @@ impl<N, E, S: Shape> Drop for LatticeGraph<N, E, S> {
             let s = &self.s;
             unsafe {
                 for di in 0..S::Axis::COUNT {
-                    let dir = S::Axis::from_index_unchecked(di).foward();
+                    let dir = S::Axis::from_index_unchecked(di).forward();
                     for coord in ni.clone() {
                         if s.move_coord(coord, dir.clone()).is_ok() {
                             let offset = s.to_offset_unchecked(coord);
-                            let e = self.edges.get_mut((offset.horizontal, offset.vertical, di)).unwrap_unchecked();
+                            let e = self
+                                .edges
+                                .get_mut((offset.horizontal, offset.vertical, di))
+                                .unwrap_unchecked();
                             drop_in_place(e);
                         }
                     }
@@ -227,16 +230,11 @@ impl<N, E, S: Shape> DataMap for LatticeGraph<N, E, S> {
         let offset = self.s.to_offset(id.0).ok()?;
         let ax = id.1.to_index();
 
-        if self.s.move_coord(id.0, id.1.foward()).is_err() {
+        if self.s.move_coord(id.0, id.1.forward()).is_err() {
             return None;
         }
         // SAFETY : offset must be checked in `to_offset` and `move_coord`
-        unsafe {
-            Some(
-                self.edges
-                    .uget((offset.horizontal, offset.vertical, ax)),
-            )
-        }
+        unsafe { Some(self.edges.uget((offset.horizontal, offset.vertical, ax))) }
     }
 }
 
@@ -251,7 +249,7 @@ impl<N, E, S: Shape> DataMapMut for LatticeGraph<N, E, S> {
     fn edge_weight_mut(&mut self, id: Self::EdgeId) -> Option<&mut Self::EdgeWeight> {
         let offset = self.s.to_offset(id.0).ok()?;
         let ax = id.1.to_index();
-        if self.s.move_coord(id.0, id.1.foward()).is_err() {
+        if self.s.move_coord(id.0, id.1.forward()).is_err() {
             return None;
         }
         unsafe {
@@ -307,7 +305,7 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
             .get((offset.horizontal, offset.vertical, ax))
             .unwrap_unchecked()
     }
-    
+
     #[doc(hidden)]
     #[inline]
     pub unsafe fn neighbor_node_weight_unchecked_raw(
@@ -317,7 +315,8 @@ impl<N, E, S: Shape> LatticeGraph<N, E, S> {
     ) -> Option<(&N, Offset)> {
         // Try to move to neighbor offset directly
         if let Ok(target_offset) = self.s.move_offset(source_offset, dir) {
-            let node_ref = self.nodes
+            let node_ref = self
+                .nodes
                 .get((target_offset.horizontal, target_offset.vertical))
                 .unwrap_unchecked();
             Some((node_ref, target_offset))
@@ -379,46 +378,48 @@ impl<S: Shape> VisMap<S> {
         let h = s.horizontal();
         let v = s.vertical();
         // Row-major: outer vector for vertical (rows), inner FixedBitSet for horizontal (columns)
-        let vec = (0..v)
-            .map(|_| FixedBitSet::with_capacity(h))
-            .collect();
+        let vec = (0..v).map(|_| FixedBitSet::with_capacity(h)).collect();
         Self { v: vec, s }
     }
 }
 
 impl<S: Shape> VisitMap<S::Coordinate> for VisMap<S> {
     fn visit(&mut self, a: S::Coordinate) -> bool {
-        self.s.to_offset(a)
+        self.s
+            .to_offset(a)
             .ok()
             .and_then(|offset| {
                 // Row-major: v[vertical][horizontal]
-                self.v.get_mut(offset.vertical)
+                self.v
+                    .get_mut(offset.vertical)
                     .map(|bitset| !bitset.put(offset.horizontal))
             })
             .unwrap_or(false)
     }
 
     fn is_visited(&self, a: &S::Coordinate) -> bool {
-        self.s.to_offset(*a)
+        self.s
+            .to_offset(*a)
             .ok()
             .and_then(|offset| {
                 // Row-major: v[vertical][horizontal]
-                self.v.get(offset.vertical)
+                self.v
+                    .get(offset.vertical)
                     .map(|bitset| bitset.contains(offset.horizontal))
             })
             .unwrap_or(false)
     }
 
     fn unvisit(&mut self, a: S::Coordinate) -> bool {
-        self.s.to_offset(a)
+        self.s
+            .to_offset(a)
             .ok()
             .and_then(|offset| {
                 // Row-major: v[vertical][horizontal]
-                self.v.get_mut(offset.vertical)
-                    .map(|bitset| {
-                        bitset.set(offset.horizontal, false);
-                        true
-                    })
+                self.v.get_mut(offset.vertical).map(|bitset| {
+                    bitset.set(offset.horizontal, false);
+                    true
+                })
             })
             .unwrap_or(false)
     }

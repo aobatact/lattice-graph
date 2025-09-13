@@ -342,13 +342,13 @@ where
         } else {
             0
         };
-        let maxlen = remaining_nodes * S::Axis::UNDIRECTED_COUNT
+        let max_len = remaining_nodes * S::Axis::UNDIRECTED_COUNT
             + self
                 .e
                 .as_ref()
                 .map(|x| x.size_hint().1.unwrap_or(0))
                 .unwrap_or(0);
-        (0, Some(maxlen))
+        (0, Some(max_len))
     }
 }
 

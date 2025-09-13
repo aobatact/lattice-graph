@@ -1,7 +1,7 @@
 /*!
-Extention library for [petgraph](https://crates.io/crates/petgraph).
+Extension library for [petgraph](https://crates.io/crates/petgraph).
 This adds a specialized graph for lattice (or grid) based graph structures for petgraph.
-This probides a smaller and faster graph than the general purpose `petgraph::Graph` struct.
+This provides a smaller and faster graph than the general purpose `petgraph::Graph` struct.
 It can be used for path finding in tilemap based game.
 This is for developing game, but it can be used for other purposes as well.
 
@@ -20,7 +20,6 @@ Use [`hex2d`](`hex2d`) as a
 See [`hex::hex2d`] for details.
 */
 
-// fixedvec2d module replaced with ndarray
 pub use ndarray::{Array2, ArrayView2, ArrayViewMut2};
 #[deprecated]
 pub mod square;

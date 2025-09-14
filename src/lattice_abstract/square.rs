@@ -89,6 +89,19 @@ impl Axis for SquareAxis {
             DirectedSquareAxis::RX | DirectedSquareAxis::RY => false,
         }
     }
+
+    #[inline]
+    fn next_direction(dir: &Self::Direction) -> Option<Self::Direction>
+    where
+        Self::Direction: Sized,
+    {
+        match dir {
+            DirectedSquareAxis::X => Some(DirectedSquareAxis::Y),
+            DirectedSquareAxis::Y => Some(DirectedSquareAxis::RX),
+            DirectedSquareAxis::RX => Some(DirectedSquareAxis::RY),
+            DirectedSquareAxis::RY => None,
+        }
+    }
 }
 
 /// Offset for square lattice graph.

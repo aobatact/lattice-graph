@@ -273,6 +273,7 @@ pub trait Axis: Copy + PartialEq {
     /// Convert from direction.
     fn from_direction(dir: Self::Direction) -> Self;
 
+    #[inline]
     fn next_direction(dir: &Self::Direction) -> Option<Self::Direction>
     where
         Self::Direction: Sized,

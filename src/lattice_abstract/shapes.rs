@@ -272,10 +272,23 @@ pub trait Axis: Copy + PartialEq {
     }
     /// Convert from direction.
     fn from_direction(dir: Self::Direction) -> Self;
+
+    fn next_direction(dir: &Self::Direction) -> Option<Self::Direction>
+    where
+        Self::Direction: Sized,
+    {
+        let current_index = dir.dir_to_index();
+        let next_index = current_index + 1;
+        if next_index < Self::UNDIRECTED_COUNT {
+            Some(unsafe { Self::Direction::dir_from_index_unchecked(next_index) })
+        } else {
+            None
+        }
+    }
 }
 
 /// Direction of axis. It tells which direction is connected to node.
-pub trait AxisDirection: Clone {
+pub trait AxisDirection: Clone + std::fmt::Debug {
     /// Convert to index.
     fn dir_to_index(&self) -> usize;
     /// Convert from index.
@@ -288,12 +301,17 @@ pub trait AxisDirection: Clone {
     fn dir_from_index(index: usize) -> Option<Self>
     where
         Self: Sized;
+    /// Get the next direction in iteration order.
+    /// Returns `None` if this is the last direction.
+    fn next_direction(&self) -> Option<Self>
+    where
+        Self: Sized;
 }
 
 /// Implementation for Axis of directed graph.
 impl<A> AxisDirection for A
 where
-    A: Axis<Direction = Self>,
+    A: Axis<Direction = Self> + std::fmt::Debug,
 {
     #[inline]
     fn dir_to_index(&self) -> usize {
@@ -310,6 +328,13 @@ where
     {
         <Self as Axis>::from_index(index)
     }
+    #[inline]
+    fn next_direction(&self) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        A::next_direction(self)
+    }
 }
 
 /// Implementation of [`AxisDirection`] when [`Axis::DIRECTED`] is false.
@@ -321,7 +346,7 @@ pub enum Direction<T> {
 }
 
 #[allow(deprecated)]
-impl<T: Axis> AxisDirection for Direction<T> {
+impl<T: Axis + std::fmt::Debug> AxisDirection for Direction<T> {
     fn dir_to_index(&self) -> usize {
         match self {
             Direction::Forward(x) => x.to_index(),
@@ -345,6 +370,19 @@ impl<T: Axis> AxisDirection for Direction<T> {
             Some(unsafe { Direction::Forward(T::from_index_unchecked(index)) })
         } else {
             T::from_index(index - T::COUNT).map(|x| Direction::Backward(x))
+        }
+    }
+
+    fn next_direction(&self) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        let current_index = self.dir_to_index();
+        let next_index = current_index + 1;
+        if next_index < T::UNDIRECTED_COUNT {
+            Some(unsafe { Self::dir_from_index_unchecked(next_index) })
+        } else {
+            None
         }
     }
 }

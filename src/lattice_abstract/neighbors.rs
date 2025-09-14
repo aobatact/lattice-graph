@@ -9,15 +9,18 @@ use super::*;
 pub struct Neighbors<'a, N, E, S: Shape, C = <S as Shape>::Coordinate> {
     graph: &'a LatticeGraph<N, E, S>,
     node: C,
-    state: usize,
+    current_direction: Option<<<S as Shape>::Axis as Axis>::Direction>,
 }
 
 impl<'a, N, E, S: Shape, C> Neighbors<'a, N, E, S, C> {
-    pub(crate) fn new(graph: &'a LatticeGraph<N, E, S>, node: C) -> Self {
+    pub(crate) fn new(graph: &'a LatticeGraph<N, E, S>, node: C) -> Self
+    where
+        <<S as Shape>::Axis as Axis>::Direction: AxisDirection,
+    {
         Self {
             graph,
             node,
-            state: 0,
+            current_direction: unsafe { Some(<<S as Shape>::Axis as Axis>::Direction::dir_from_index_unchecked(0)) },
         }
     }
 }
@@ -33,22 +36,28 @@ where
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        while self.state < S::Axis::UNDIRECTED_COUNT {
-            unsafe {
-                let d = D::dir_from_index_unchecked(self.state);
-                let n = self.graph.s.move_coord(self.node, d.clone());
-                self.state += 1;
-                if let Ok(target) = n {
-                    return Some(target);
-                }
+        while let Some(current_dir) = &self.current_direction {
+            let d = current_dir.clone();
+
+            // Move to next direction for next iteration
+            self.current_direction = d.next_direction();
+
+            let n = self.graph.s.move_coord(self.node, d);
+            if let Ok(target) = n {
+                return Some(target);
             }
         }
         None
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let x = S::Axis::UNDIRECTED_COUNT - self.state;
-        (0, Some(x))
+        let remaining = if let Some(ref current_dir) = self.current_direction {
+            let current_index = current_dir.dir_to_index();
+            S::Axis::UNDIRECTED_COUNT - current_index
+        } else {
+            0
+        };
+        (0, Some(remaining))
     }
 }
 

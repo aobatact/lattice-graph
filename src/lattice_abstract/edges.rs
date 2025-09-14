@@ -69,7 +69,7 @@ pub struct Edges<'a, N, E, S: Shape, C = <S as Shape>::Coordinate, Dt = AxisDirM
     graph: &'a LatticeGraph<N, E, S>,
     node: C,
     offset: Offset,
-    state: usize,
+    current_direction: Option<<<S as Shape>::Axis as Axis>::Direction>,
     directed: Dt,
 }
 
@@ -159,14 +159,15 @@ where
 
     fn new_d(g: &'a LatticeGraph<N, E, S>, a: C, d: Dt) -> Edges<'a, N, E, S, C, Dt> {
         let offset = g.s.to_offset(a);
+        let current_direction = if offset.is_ok() {
+            unsafe { Some(D::dir_from_index_unchecked(0)) }
+        } else {
+            None
+        };
         Edges {
             graph: g,
             node: a,
-            state: if offset.is_ok() {
-                0
-            } else {
-                S::Axis::UNDIRECTED_COUNT
-            },
+            current_direction,
             offset: offset.unwrap_or_else(|_| unsafe { unreachable_debug_checked() }),
             directed: d,
         }
@@ -184,7 +185,7 @@ where
         Edges {
             graph: g,
             node: coord,
-            state: 0,
+            current_direction: Some(D::dir_from_index_unchecked(0)),
             offset,
             directed: Dt::default(),
         }
@@ -202,54 +203,55 @@ where
     type Item = EdgeReference<'a, C, E, D, A>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let max_state = if Dt::DIRECTED {
-            A::COUNT
-        } else {
-            A::UNDIRECTED_COUNT
-        };
+        while let Some(current_dir) = &self.current_direction {
+            let d = current_dir.clone();
+            
+            // Move to next direction for next iteration
+            self.current_direction = d.next_direction();
 
-        while self.state < max_state {
-            unsafe {
-                let d = D::dir_from_index_unchecked(self.state);
-                let st = self.state;
-                self.state += 1;
+            // Try to move offset directly without coordinate conversion
+            if let Ok(target_offset) = self.graph.s.move_offset(self.offset, &d) {
+                // Get target coordinate only when needed
+                let target = self.graph.s.offset_to_coordinate(target_offset);
 
-                // Try to move offset directly without coordinate conversion
-                if let Ok(target_offset) = self.graph.s.move_offset(self.offset, &d) {
-                    // Get target coordinate only when needed
-                    let target = self.graph.s.offset_to_coordinate(target_offset);
+                let st = d.dir_to_index();
+                let (nx, ne) = unsafe {
+                    self.directed
+                        .get_raw_id(&self.graph.s, &d, self.offset, target, st)
+                };
+                debug_assert_eq!(A::from_direction(d.clone()).to_index(), ne);
 
-                    let (nx, ne) =
-                        self.directed
-                            .get_raw_id(&self.graph.s, &d, self.offset, target, st);
-                    debug_assert_eq!(A::from_direction(d.clone()).to_index(), ne);
-
-                    let e = self.graph.edge_weight_unchecked_raw((nx, ne));
-                    let (source_id, target_id) = if self.directed.need_reverse() {
-                        (target, self.node)
-                    } else {
-                        (self.node, target)
-                    };
-                    return Some(EdgeReference {
-                        source_id,
-                        target_id,
-                        edge_weight: e,
-                        direction: d,
-                        axis: PhantomData,
-                    });
-                }
+                let e = unsafe { self.graph.edge_weight_unchecked_raw((nx, ne)) };
+                let (source_id, target_id) = if self.directed.need_reverse() {
+                    (target, self.node)
+                } else {
+                    (self.node, target)
+                };
+                return Some(EdgeReference {
+                    source_id,
+                    target_id,
+                    edge_weight: e,
+                    direction: d,
+                    axis: PhantomData,
+                });
             }
         }
         None
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let x = if Dt::DIRECTED {
-            A::COUNT
+        let remaining = if let Some(ref current_dir) = self.current_direction {
+            let current_index = current_dir.dir_to_index();
+            let max_count = if Dt::DIRECTED {
+                A::COUNT
+            } else {
+                A::UNDIRECTED_COUNT
+            };
+            max_count - current_index
         } else {
-            A::UNDIRECTED_COUNT
-        } - self.state;
-        (0, Some(x))
+            0
+        };
+        (0, Some(remaining))
     }
 }
 

@@ -302,6 +302,10 @@ pub trait AxisDirection: Clone + std::fmt::Debug {
     fn dir_from_index(index: usize) -> Option<Self>
     where
         Self: Sized;
+    /// Get the initial direction (first direction in iteration order).
+    fn init() -> Self
+    where
+        Self: Sized;
     /// Get the next direction in iteration order.
     /// Returns `None` if this is the last direction.
     fn next_direction(&self) -> Option<Self>
@@ -328,6 +332,13 @@ where
         Self: Sized,
     {
         <Self as Axis>::from_index(index)
+    }
+    #[inline]
+    fn init() -> Self
+    where
+        Self: Sized,
+    {
+        unsafe { Self::dir_from_index_unchecked(0) }
     }
     #[inline]
     fn next_direction(&self) -> Option<Self>
@@ -372,6 +383,13 @@ impl<T: Axis + std::fmt::Debug> AxisDirection for Direction<T> {
         } else {
             T::from_index(index - T::COUNT).map(|x| Direction::Backward(x))
         }
+    }
+
+    fn init() -> Self
+    where
+        Self: Sized,
+    {
+        unsafe { Self::dir_from_index_unchecked(0) }
     }
 
     fn next_direction(&self) -> Option<Self>

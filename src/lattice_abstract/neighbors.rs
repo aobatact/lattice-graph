@@ -20,7 +20,7 @@ impl<'a, N, E, S: Shape, C> Neighbors<'a, N, E, S, C> {
         Self {
             graph,
             node,
-            current_direction: unsafe { Some(<<S as Shape>::Axis as Axis>::Direction::dir_from_index_unchecked(0)) },
+            current_direction: Some(<<S as Shape>::Axis as Axis>::Direction::init()),
         }
     }
 }
@@ -42,8 +42,7 @@ where
             // Move to next direction for next iteration
             self.current_direction = d.next_direction();
 
-            let n = self.graph.s.move_coord(self.node, d);
-            if let Ok(target) = n {
+            if let Ok(target) = self.graph.s.move_coord(self.node, d) {
                 return Some(target);
             }
         }

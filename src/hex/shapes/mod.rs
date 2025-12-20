@@ -46,7 +46,7 @@ impl Axis for AxisR {
         }
     }
 
-    fn foward(self) -> Self::Direction {
+    fn forward(self) -> Self::Direction {
         unsafe { AxisDR::from_index_unchecked(self.to_index()) }
     }
 
@@ -118,7 +118,7 @@ impl Axis for AxisDR {
         }
     }
 
-    fn foward(self) -> Self::Direction {
+    fn forward(self) -> Self::Direction {
         self
     }
 
@@ -180,7 +180,7 @@ impl Axis for AxisQ {
         }
     }
 
-    fn foward(self) -> Self::Direction {
+    fn forward(self) -> Self::Direction {
         unsafe { AxisDQ::from_index_unchecked(self.to_index()) }
     }
 
@@ -252,7 +252,7 @@ impl Axis for AxisDQ {
         }
     }
 
-    fn foward(self) -> Self::Direction {
+    fn forward(self) -> Self::Direction {
         self
     }
 

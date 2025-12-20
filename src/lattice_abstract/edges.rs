@@ -69,7 +69,7 @@ pub struct Edges<'a, N, E, S: Shape, C = <S as Shape>::Coordinate, Dt = AxisDirM
     graph: &'a LatticeGraph<N, E, S>,
     node: C,
     offset: Offset,
-    state: usize,
+    current_direction: Option<<<S as Shape>::Axis as Axis>::Direction>,
     directed: Dt,
 }
 
@@ -81,6 +81,7 @@ pub struct AxisMarker;
 pub struct AxisDirMarker;
 /// Marker for [`Edges`].
 pub trait DtMarker {
+    /// Whether the edges are directed.
     const DIRECTED: bool;
     // trick to be used in [`IntoEdgesDirected`]
     #[inline]
@@ -117,7 +118,7 @@ impl DtMarker for AxisDirMarker {
 /// [`petgraph::Direction`] as marker for [`Edges`] used in [`IntoEdgesDirected`].
 impl DtMarker for petgraph::Direction {
     const DIRECTED: bool = false;
-    // const MAYREVERSE: bool = true;
+
     unsafe fn get_raw_id<S: Shape>(
         &self,
         s: &S,
@@ -158,29 +159,34 @@ where
 
     fn new_d(g: &'a LatticeGraph<N, E, S>, a: C, d: Dt) -> Edges<'a, N, E, S, C, Dt> {
         let offset = g.s.to_offset(a);
+        let current_direction = if offset.is_ok() {
+            unsafe { Some(D::dir_from_index_unchecked(0)) }
+        } else {
+            None
+        };
         Edges {
             graph: g,
             node: a,
-            state: if offset.is_ok() {
-                0
-            } else {
-                S::Axis::UNDIRECTED_COUNT
-            },
+            current_direction,
             offset: offset.unwrap_or_else(|_| unsafe { unreachable_debug_checked() }),
             directed: d,
         }
     }
 
-    unsafe fn new_unchecked(g: &'a LatticeGraph<N, E, S>, a: C) -> Edges<'a, N, E, S, C, Dt>
+    unsafe fn new_unchecked_from_offset(
+        g: &'a LatticeGraph<N, E, S>,
+        offset: Offset,
+    ) -> Edges<'a, N, E, S, C, Dt>
     where
         Dt: Default,
     {
-        let offset = g.s.to_offset(a);
+        // Create from offset directly, avoiding coordinate conversion
+        let coord = g.s.offset_to_coordinate(offset);
         Edges {
             graph: g,
-            node: a,
-            state: 0,
-            offset: offset.unwrap_or_else(|_| unreachable_debug_checked()),
+            node: coord,
+            current_direction: Some(D::dir_from_index_unchecked(0)),
+            offset,
             directed: Dt::default(),
         }
     }
@@ -197,50 +203,55 @@ where
     type Item = EdgeReference<'a, C, E, D, A>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while self.state
-            < if Dt::DIRECTED {
-                A::COUNT
-            } else {
-                A::UNDIRECTED_COUNT
-            }
-        {
-            unsafe {
-                let d = D::dir_from_index_unchecked(self.state);
-                let n = self.graph.s.move_coord(self.node, d.clone());
-                let st = self.state;
-                self.state += 1;
-                if let Ok(target) = n {
-                    let (nx, ne) =
-                        self.directed
-                            .get_raw_id(&self.graph.s, &d, self.offset, target, st);
-                    debug_assert_eq!(A::from_direction(d.clone()).to_index(), ne);
-                    //let ne = S::Axis::from_direction(d.clone()).to_index();
-                    let e = self.graph.edge_weight_unchecked_raw((nx, ne));
-                    let (source_id, target_id) = if self.directed.need_reverse() {
-                        (target, self.node)
-                    } else {
-                        (self.node, target)
-                    };
-                    return Some(EdgeReference {
-                        source_id,
-                        target_id,
-                        edge_weight: e,
-                        direction: d,
-                        axis: PhantomData,
-                    });
-                }
+        while let Some(current_dir) = &self.current_direction {
+            let d = current_dir.clone();
+            
+            // Move to next direction for next iteration
+            self.current_direction = d.next_direction();
+
+            // Try to move offset directly without coordinate conversion
+            if let Ok(target_offset) = self.graph.s.move_offset(self.offset, &d) {
+                // Get target coordinate only when needed
+                let target = self.graph.s.offset_to_coordinate(target_offset);
+
+                let st = d.dir_to_index();
+                let (nx, ne) = unsafe {
+                    self.directed
+                        .get_raw_id(&self.graph.s, &d, self.offset, target, st)
+                };
+                debug_assert_eq!(A::from_direction(d.clone()).to_index(), ne);
+
+                let e = unsafe { self.graph.edge_weight_unchecked_raw((nx, ne)) };
+                let (source_id, target_id) = if self.directed.need_reverse() {
+                    (target, self.node)
+                } else {
+                    (self.node, target)
+                };
+                return Some(EdgeReference {
+                    source_id,
+                    target_id,
+                    edge_weight: e,
+                    direction: d,
+                    axis: PhantomData,
+                });
             }
         }
         None
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let x = if Dt::DIRECTED {
-            A::COUNT
+        let remaining = if let Some(ref current_dir) = self.current_direction {
+            let current_index = current_dir.dir_to_index();
+            let max_count = if Dt::DIRECTED {
+                A::COUNT
+            } else {
+                A::UNDIRECTED_COUNT
+            };
+            max_count - current_index
         } else {
-            A::UNDIRECTED_COUNT
-        } - self.state;
-        (0, Some(x))
+            0
+        };
+        (0, Some(remaining))
     }
 }
 
@@ -288,7 +299,7 @@ where
 pub struct EdgeReferences<'a, N, E, S: Shape, C = <S as Shape>::Coordinate> {
     g: &'a LatticeGraph<N, E, S>,
     e: Option<Edges<'a, N, E, S, C, AxisMarker>>,
-    index: usize,
+    current_offset: shapes::Offset,
 }
 
 impl<'a, N, E, S, C, D, A> Iterator for EdgeReferences<'a, N, E, S, C>
@@ -308,11 +319,17 @@ where
                     return next;
                 }
             }
-            if self.index < self.g.s.node_count() {
-                let x = self.g.s.index_to_coordinate(self.index);
-                self.index += 1;
-                //self.e = Some(self.g.edges(x));
-                self.e = Some(unsafe { Edges::new_unchecked(self.g, x) });
+            if self.current_offset.horizontal < self.g.s.horizontal() {
+                // Use the current offset directly
+                let current = self.current_offset;
+                // Move to next position (row-major order for cache efficiency)
+                self.current_offset.vertical += 1;
+                if self.current_offset.vertical >= self.g.s.vertical() {
+                    self.current_offset.vertical = 0;
+                    self.current_offset.horizontal += 1;
+                }
+                // Create Edges directly from offset
+                self.e = Some(unsafe { Edges::new_unchecked_from_offset(self.g, current) });
             } else {
                 return None;
             }
@@ -320,14 +337,20 @@ where
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let node_len = self.g.node_count() - self.index;
-        let maxlen = node_len * S::Axis::UNDIRECTED_COUNT
+        let remaining_nodes = if self.current_offset.horizontal < self.g.s.horizontal() {
+            let remaining_in_current_row = self.g.s.vertical() - self.current_offset.vertical;
+            let remaining_rows = self.g.s.horizontal() - self.current_offset.horizontal - 1;
+            remaining_in_current_row + remaining_rows * self.g.s.vertical()
+        } else {
+            0
+        };
+        let max_len = remaining_nodes * S::Axis::UNDIRECTED_COUNT
             + self
                 .e
                 .as_ref()
                 .map(|x| x.size_hint().1.unwrap_or(0))
                 .unwrap_or(0);
-        (0, Some(maxlen))
+        (0, Some(max_len))
     }
 }
 
@@ -354,7 +377,7 @@ where
         EdgeReferences {
             g: self,
             e: None,
-            index: 0,
+            current_offset: shapes::Offset::new(0, 0),
         }
     }
 }

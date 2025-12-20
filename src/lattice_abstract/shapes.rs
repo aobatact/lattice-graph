@@ -79,13 +79,27 @@ pub trait Shape: Clone {
     }
     /// Move coordinates to the next coordinate in the direction.
     /// Coordinate should be a valid coordinate and should be checked before using `move_coord`.
-    /// This is because the target coordinate might be valid even thought the souce coord is invalid,
-    /// and some code validate the direction by moveing the coord.
+    /// This is because the target coordinate might be valid even thought the source coord is invalid,
+    /// and some code validate the direction by moving the coord.
     fn move_coord(
         &self,
         coord: Self::Coordinate,
         dir: <Self::Axis as Axis>::Direction,
     ) -> Result<Self::Coordinate, Self::CoordinateMoveError>;
+
+    /// Move offset directly to the next offset in the direction.
+    /// This is more efficient than converting offset->coord->move->coord->offset.
+    #[inline]
+    fn move_offset(
+        &self,
+        offset: Offset,
+        dir: &<Self::Axis as Axis>::Direction,
+    ) -> Result<Offset, Self::CoordinateMoveError> {
+        let coord = self.offset_to_coordinate(offset);
+        let moved = self.move_coord(coord, dir.clone())?;
+        self.to_offset(moved)
+            .map_err(|_| unsafe { unreachable_debug_checked() })
+    }
     /// Move coordinates to the next coordinate in the direction.
     /// Caller should be sure that the source and the target coord is valid coord.
     ///
@@ -101,12 +115,12 @@ pub trait Shape: Clone {
         self.move_coord(coord, dir)
             .unwrap_or_else(|_| unreachable_debug_checked())
     }
-    ///Check whether two coordinate is in neighbor.
+    ///Check whether two coordinates is in neighbor.
     #[inline]
     fn is_neighbor(&self, a: Self::Coordinate, b: Self::Coordinate) -> bool {
         self.get_direction(a, b).is_some()
     }
-    ///Get direction if two coordiante is in neighbor.
+    ///Get direction if two coordinates is in neighbor.
     fn get_direction(
         &self,
         source: Self::Coordinate,
@@ -159,6 +173,14 @@ impl<S: Shape> Shape for &S {
         dir: <Self::Axis as Axis>::Direction,
     ) -> Result<Self::Coordinate, Self::CoordinateMoveError> {
         (*self).move_coord(coord, dir)
+    }
+
+    fn move_offset(
+        &self,
+        offset: Offset,
+        dir: &<Self::Axis as Axis>::Direction,
+    ) -> Result<Offset, Self::CoordinateMoveError> {
+        (*self).move_offset(offset, dir)
     }
 
     unsafe fn move_coord_unchecked(
@@ -230,6 +252,7 @@ pub trait Axis: Copy + PartialEq {
     /// # Safety
     ///
     /// The caller must ensure that the index is within valid bounds for this coordinate type.
+    #[inline]
     unsafe fn from_index_unchecked(index: usize) -> Self {
         Self::from_index(index).unwrap_or_else(|| unreachable_debug_checked())
     }
@@ -238,29 +261,35 @@ pub trait Axis: Copy + PartialEq {
     where
         Self: Sized;
     /// To forward direction. It is nop when Axis is `DIRECTED`.
-    fn foward(self) -> Self::Direction;
+    fn forward(self) -> Self::Direction;
     /// To backward direction. It reverses when Axis is `DIRECTED`.
     fn backward(self) -> Self::Direction;
     /// Check the direction is forward for this axis.
     /// Returns true if the direction is `DIRECTED` is `true`, or the index of the axis and direction matches.
+    #[inline]
     fn is_forward_direction(dir: &Self::Direction) -> bool {
         Self::DIRECTED || dir.dir_to_index() == Self::from_direction(dir.clone()).to_index()
     }
     /// Convert from direction.
     fn from_direction(dir: Self::Direction) -> Self;
+
+    #[inline]
+    fn next_direction(dir: &Self::Direction) -> Option<Self::Direction>
+    where
+        Self::Direction: Sized,
+    {
+        let current_index = dir.dir_to_index();
+        let next_index = current_index + 1;
+        if next_index < Self::UNDIRECTED_COUNT {
+            Some(unsafe { Self::Direction::dir_from_index_unchecked(next_index) })
+        } else {
+            None
+        }
+    }
 }
 
 /// Direction of axis. It tells which direction is connected to node.
-pub trait AxisDirection: Clone {
-    /// Check this match whith [`Axis`]. It will always return true when `Axis` is directed.
-    #[deprecated(note = "Use Axis::is_forward_direction instead.")]
-    fn is_forward(&self) -> bool;
-    /// Check this doesn't match whith [`Axis`]. It will always return false when `Axis` is directed.
-    #[deprecated(note = "Use !Axis::is_forward_direction instead.")]
-    #[allow(deprecated)]
-    fn is_backward(&self) -> bool {
-        !self.is_forward()
-    }
+pub trait AxisDirection: Clone + std::fmt::Debug {
     /// Convert to index.
     fn dir_to_index(&self) -> usize;
     /// Convert from index.
@@ -273,57 +302,73 @@ pub trait AxisDirection: Clone {
     fn dir_from_index(index: usize) -> Option<Self>
     where
         Self: Sized;
+    /// Get the initial direction (first direction in iteration order).
+    fn init() -> Self
+    where
+        Self: Sized;
+    /// Get the next direction in iteration order.
+    /// Returns `None` if this is the last direction.
+    fn next_direction(&self) -> Option<Self>
+    where
+        Self: Sized;
 }
 
-/// Implimention for Axis of directed graph.
+/// Implementation for Axis of directed graph.
 impl<A> AxisDirection for A
 where
-    A: Axis<Direction = Self>,
+    A: Axis<Direction = Self> + std::fmt::Debug,
 {
-    fn is_forward(&self) -> bool {
-        true
-    }
+    #[inline]
     fn dir_to_index(&self) -> usize {
         <Self as Axis>::to_index(self)
     }
+    #[inline]
     unsafe fn dir_from_index_unchecked(index: usize) -> Self {
         <Self as Axis>::from_index_unchecked(index)
     }
+    #[inline]
     fn dir_from_index(index: usize) -> Option<Self>
     where
         Self: Sized,
     {
         <Self as Axis>::from_index(index)
     }
+    #[inline]
+    fn init() -> Self
+    where
+        Self: Sized,
+    {
+        unsafe { Self::dir_from_index_unchecked(0) }
+    }
+    #[inline]
+    fn next_direction(&self) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        A::next_direction(self)
+    }
 }
 
-/// Implimention of [`AxisDirection`] when [`Axis::DIRECTED`] is false.
+/// Implementation of [`AxisDirection`] when [`Axis::DIRECTED`] is false.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[deprecated]
 pub enum Direction<T> {
-    Foward(T),
+    Forward(T),
     Backward(T),
 }
 
 #[allow(deprecated)]
-impl<T: Axis> AxisDirection for Direction<T> {
-    fn is_forward(&self) -> bool {
-        match self {
-            Direction::Foward(_) => true,
-            Direction::Backward(_) => false,
-        }
-    }
-
+impl<T: Axis + std::fmt::Debug> AxisDirection for Direction<T> {
     fn dir_to_index(&self) -> usize {
         match self {
-            Direction::Foward(x) => x.to_index(),
+            Direction::Forward(x) => x.to_index(),
             Direction::Backward(x) => x.to_index() + T::COUNT,
         }
     }
 
     unsafe fn dir_from_index_unchecked(index: usize) -> Self {
         if index < T::COUNT {
-            Direction::Foward(T::from_index_unchecked(index))
+            Direction::Forward(T::from_index_unchecked(index))
         } else {
             Direction::Backward(T::from_index_unchecked(index - T::COUNT))
         }
@@ -334,17 +379,37 @@ impl<T: Axis> AxisDirection for Direction<T> {
         Self: Sized,
     {
         if index < T::COUNT {
-            Some(unsafe { Direction::Foward(T::from_index_unchecked(index)) })
+            Some(unsafe { Direction::Forward(T::from_index_unchecked(index)) })
         } else {
             T::from_index(index - T::COUNT).map(|x| Direction::Backward(x))
         }
     }
+
+    fn init() -> Self
+    where
+        Self: Sized,
+    {
+        unsafe { Self::dir_from_index_unchecked(0) }
+    }
+
+    fn next_direction(&self) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        let current_index = self.dir_to_index();
+        let next_index = current_index + 1;
+        if next_index < T::UNDIRECTED_COUNT {
+            Some(unsafe { Self::dir_from_index_unchecked(next_index) })
+        } else {
+            None
+        }
+    }
 }
 
-/// Representention of where is the node in graph.
+/// Representation of where is the node in graph.
 pub trait Coordinate: Copy + PartialEq {}
 
-/// Actual postion in the stroage.
+/// Actual position in the storage.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Offset {
     pub(crate) horizontal: usize,
@@ -360,33 +425,35 @@ impl Offset {
         }
     }
     /// Get a horizontal.
+    #[inline(always)]
     pub fn horizontal(&self) -> usize {
         self.horizontal
     }
     /// Get a vertical.
+    #[inline(always)]
     pub fn vertical(&self) -> usize {
         self.vertical
     }
-    #[inline]
+    #[inline(always)]
     pub(crate) fn add_x(&self, x: usize) -> Self {
         Offset::new(self.horizontal + x, self.vertical)
     }
-    #[inline]
+    #[inline(always)]
     pub(crate) fn add_y(&self, y: usize) -> Self {
         Offset::new(self.horizontal, self.vertical + y)
     }
-    #[inline]
+    #[inline(always)]
     pub(crate) fn set_x(&self, x: usize) -> Self {
         Offset::new(x, self.vertical)
     }
     // pub(crate) fn set_y(&self, y: usize) -> Self {
     //     Offset::new(self.horizontal, y)
     // }
-    #[inline]
+    #[inline(always)]
     pub(crate) fn sub_x(&self, x: usize) -> Option<Self> {
         Some(Offset::new(self.horizontal.checked_sub(x)?, self.vertical))
     }
-    #[inline]
+    #[inline(always)]
     pub(crate) fn sub_y(&self, y: usize) -> Option<Self> {
         Some(Offset::new(self.horizontal, self.vertical.checked_sub(y)?))
     }

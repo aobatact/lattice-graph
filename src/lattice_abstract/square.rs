@@ -32,12 +32,9 @@ impl Axis for SquareAxis {
         Self::COUNT * 2
     };
 
-    #[inline]
+    #[inline(always)]
     fn to_index(&self) -> usize {
-        match self {
-            SquareAxis::X => 0,
-            SquareAxis::Y => 1,
-        }
+        *self as usize
     }
 
     #[inline]
@@ -62,7 +59,7 @@ impl Axis for SquareAxis {
     }
 
     #[inline]
-    fn foward(self) -> Self::Direction {
+    fn forward(self) -> Self::Direction {
         match self {
             SquareAxis::X => DirectedSquareAxis::X,
             SquareAxis::Y => DirectedSquareAxis::Y,
@@ -80,10 +77,29 @@ impl Axis for SquareAxis {
     #[inline]
     fn from_direction(dir: Self::Direction) -> Self {
         match dir {
-            DirectedSquareAxis::X |
-            DirectedSquareAxis::RX => Self::X,
-            DirectedSquareAxis::Y |
-            DirectedSquareAxis::RY => Self::Y,
+            DirectedSquareAxis::X | DirectedSquareAxis::RX => Self::X,
+            DirectedSquareAxis::Y | DirectedSquareAxis::RY => Self::Y,
+        }
+    }
+
+    #[inline]
+    fn is_forward_direction(dir: &Self::Direction) -> bool {
+        match dir {
+            DirectedSquareAxis::X | DirectedSquareAxis::Y => true,
+            DirectedSquareAxis::RX | DirectedSquareAxis::RY => false,
+        }
+    }
+
+    #[inline]
+    fn next_direction(dir: &Self::Direction) -> Option<Self::Direction>
+    where
+        Self::Direction: Sized,
+    {
+        match dir {
+            DirectedSquareAxis::X => Some(DirectedSquareAxis::Y),
+            DirectedSquareAxis::Y => Some(DirectedSquareAxis::RX),
+            DirectedSquareAxis::RX => Some(DirectedSquareAxis::RY),
+            DirectedSquareAxis::RY => None,
         }
     }
 }
@@ -94,14 +110,14 @@ impl Axis for SquareAxis {
 pub struct SquareOffset(pub Offset);
 
 impl PartialEq<(usize, usize)> for SquareOffset {
-    #[inline]
+    #[inline(always)]
     fn eq(&self, other: &(usize, usize)) -> bool {
         self.0.horizontal == other.0 && self.0.vertical == other.1
     }
 }
 
 impl From<(usize, usize)> for SquareOffset {
-    #[inline]
+    #[inline(always)]
     fn from(x: (usize, usize)) -> Self {
         SquareOffset(Offset {
             horizontal: x.0,
@@ -132,7 +148,7 @@ impl<E> SquareShape<E> {
     }
 }
 
-#[inline]
+#[inline(always)]
 fn range_check<S: Shape>(s: S, coord: SquareOffset) -> Result<Offset, ()> {
     if coord.0.horizontal < s.horizontal() && coord.0.vertical < s.vertical() {
         Ok(coord.0)
@@ -141,19 +157,63 @@ fn range_check<S: Shape>(s: S, coord: SquareOffset) -> Result<Offset, ()> {
     }
 }
 
-#[inline]
+#[inline(always)]
 fn move_coord<S: Shape>(
     s: S,
     coord: SquareOffset,
     dir: DirectedSquareAxis,
 ) -> Result<SquareOffset, ()> {
-    let o = match dir {
-        DirectedSquareAxis::X => coord.0.add_x(1).check_x(s.horizontal()),
-        DirectedSquareAxis::Y => coord.0.add_y(1).check_y(s.vertical()),
-        DirectedSquareAxis::RX => coord.0.sub_x(1),
-        DirectedSquareAxis::RY => coord.0.sub_y(1),
+    let Offset {
+        horizontal: h,
+        vertical: v,
+    } = coord.0;
+
+    let new_offset = match dir {
+        DirectedSquareAxis::X => {
+            let new_h = h + 1;
+            if new_h < s.horizontal() {
+                Some(Offset {
+                    horizontal: new_h,
+                    vertical: v,
+                })
+            } else {
+                None
+            }
+        }
+        DirectedSquareAxis::Y => {
+            let new_v = v + 1;
+            if new_v < s.vertical() {
+                Some(Offset {
+                    horizontal: h,
+                    vertical: new_v,
+                })
+            } else {
+                None
+            }
+        }
+        DirectedSquareAxis::RX => {
+            if h > 0 {
+                Some(Offset {
+                    horizontal: h - 1,
+                    vertical: v,
+                })
+            } else {
+                None
+            }
+        }
+        DirectedSquareAxis::RY => {
+            if v > 0 {
+                Some(Offset {
+                    horizontal: h,
+                    vertical: v - 1,
+                })
+            } else {
+                None
+            }
+        }
     };
-    o.map(SquareOffset).ok_or(())
+
+    new_offset.map(SquareOffset).ok_or(())
 }
 
 impl Shape for SquareShape {
@@ -162,27 +222,27 @@ impl Shape for SquareShape {
     type OffsetConvertError = ();
     type CoordinateMoveError = ();
 
-    #[inline]
+    #[inline(always)]
     fn to_offset(&self, coord: Self::Coordinate) -> Result<Offset, ()> {
         range_check(self, coord)
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn to_offset_unchecked(&self, coord: Self::Coordinate) -> Offset {
         coord.0
     }
 
-    #[inline]
+    #[inline(always)]
     fn offset_to_coordinate(&self, offset: Offset) -> Self::Coordinate {
         SquareOffset(offset)
     }
 
-    #[inline]
+    #[inline(always)]
     fn horizontal(&self) -> usize {
         self.h
     }
 
-    #[inline]
+    #[inline(always)]
     fn vertical(&self) -> usize {
         self.v
     }
@@ -205,9 +265,111 @@ impl Shape for SquareShape {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     fn move_coord(&self, coord: SquareOffset, dir: DirectedSquareAxis) -> Result<SquareOffset, ()> {
         move_coord(self, coord, dir)
+    }
+
+    #[inline(always)]
+    unsafe fn move_coord_unchecked(
+        &self,
+        coord: SquareOffset,
+        dir: DirectedSquareAxis,
+    ) -> SquareOffset {
+        let Offset {
+            horizontal: h,
+            vertical: v,
+        } = coord.0;
+
+        let new_offset = match dir {
+            DirectedSquareAxis::X => Offset {
+                horizontal: h + 1,
+                vertical: v,
+            },
+            DirectedSquareAxis::Y => Offset {
+                horizontal: h,
+                vertical: v + 1,
+            },
+            DirectedSquareAxis::RX => Offset {
+                horizontal: h - 1,
+                vertical: v,
+            },
+            DirectedSquareAxis::RY => Offset {
+                horizontal: h,
+                vertical: v - 1,
+            },
+        };
+
+        SquareOffset(new_offset)
+    }
+
+    #[inline(always)]
+    fn move_offset(&self, offset: Offset, dir: &DirectedSquareAxis) -> Result<Offset, ()> {
+        let Offset {
+            horizontal: h,
+            vertical: v,
+        } = offset;
+
+        let new_offset = match *dir {
+            DirectedSquareAxis::X => {
+                let new_h = h + 1;
+                if new_h < self.horizontal() {
+                    Some(Offset {
+                        horizontal: new_h,
+                        vertical: v,
+                    })
+                } else {
+                    None
+                }
+            }
+            DirectedSquareAxis::Y => {
+                let new_v = v + 1;
+                if new_v < self.vertical() {
+                    Some(Offset {
+                        horizontal: h,
+                        vertical: new_v,
+                    })
+                } else {
+                    None
+                }
+            }
+            DirectedSquareAxis::RX => {
+                if h > 0 {
+                    Some(Offset {
+                        horizontal: h - 1,
+                        vertical: v,
+                    })
+                } else {
+                    None
+                }
+            }
+            DirectedSquareAxis::RY => {
+                if v > 0 {
+                    Some(Offset {
+                        horizontal: h,
+                        vertical: v - 1,
+                    })
+                } else {
+                    None
+                }
+            }
+        };
+
+        new_offset.ok_or(())
+    }
+
+    #[inline(always)]
+    fn is_neighbor(&self, a: SquareOffset, b: SquareOffset) -> bool {
+        is_neighbor(a, b)
+    }
+
+    #[inline(always)]
+    fn get_direction(
+        &self,
+        source: SquareOffset,
+        target: SquareOffset,
+    ) -> Option<DirectedSquareAxis> {
+        get_direction(source, target)
     }
 }
 
@@ -229,17 +391,12 @@ impl Axis for DirectedSquareAxis {
     const DIRECTED: bool = true;
     type Direction = Self;
 
-    #[inline]
+    #[inline(always)]
     fn to_index(&self) -> usize {
-        match self {
-            DirectedSquareAxis::X => 0,
-            DirectedSquareAxis::Y => 1,
-            DirectedSquareAxis::RX => 2,
-            DirectedSquareAxis::RY => 3,
-        }
+        *self as usize
     }
 
-    #[inline]
+    #[inline(always)]
     fn from_index(index: usize) -> Option<Self> {
         Some(match index {
             0 => DirectedSquareAxis::X,
@@ -251,7 +408,7 @@ impl Axis for DirectedSquareAxis {
     }
 
     #[inline]
-    fn foward(self) -> Self::Direction {
+    fn forward(self) -> Self::Direction {
         self
     }
 
@@ -266,8 +423,27 @@ impl Axis for DirectedSquareAxis {
     }
 
     #[inline]
+    unsafe fn from_index_unchecked(index: usize) -> Self {
+        match index {
+            0 => DirectedSquareAxis::X,
+            1 => DirectedSquareAxis::Y,
+            2 => DirectedSquareAxis::RX,
+            3 => DirectedSquareAxis::RY,
+            _ => core::hint::unreachable_unchecked(),
+        }
+    }
+
+    #[inline]
     fn from_direction(dir: Self::Direction) -> Self {
         dir
+    }
+
+    #[inline]
+    fn is_forward_direction(dir: &Self::Direction) -> bool {
+        match dir {
+            DirectedSquareAxis::X | DirectedSquareAxis::Y => true,
+            DirectedSquareAxis::RX | DirectedSquareAxis::RY => false,
+        }
     }
 }
 
@@ -304,6 +480,94 @@ impl Shape for SquareShape<petgraph::Directed> {
         dir: DirectedSquareAxis,
     ) -> Result<Self::Coordinate, Self::CoordinateMoveError> {
         move_coord(self, coord, dir)
+    }
+
+    #[inline(always)]
+    unsafe fn move_coord_unchecked(
+        &self,
+        coord: Self::Coordinate,
+        dir: DirectedSquareAxis,
+    ) -> Self::Coordinate {
+        let Offset {
+            horizontal: h,
+            vertical: v,
+        } = coord.0;
+
+        let new_offset = match dir {
+            DirectedSquareAxis::X => Offset {
+                horizontal: h + 1,
+                vertical: v,
+            },
+            DirectedSquareAxis::Y => Offset {
+                horizontal: h,
+                vertical: v + 1,
+            },
+            DirectedSquareAxis::RX => Offset {
+                horizontal: h - 1,
+                vertical: v,
+            },
+            DirectedSquareAxis::RY => Offset {
+                horizontal: h,
+                vertical: v - 1,
+            },
+        };
+
+        SquareOffset(new_offset)
+    }
+
+    #[inline(always)]
+    fn is_neighbor(&self, a: Self::Coordinate, b: Self::Coordinate) -> bool {
+        is_neighbor(a, b)
+    }
+
+    #[inline(always)]
+    fn get_direction(
+        &self,
+        source: Self::Coordinate,
+        target: Self::Coordinate,
+    ) -> Option<DirectedSquareAxis> {
+        get_direction(source, target)
+    }
+}
+
+#[inline(always)]
+fn is_neighbor(a: SquareOffset, b: SquareOffset) -> bool {
+    let Offset {
+        horizontal: ah,
+        vertical: av,
+    } = a.0;
+    let Offset {
+        horizontal: bh,
+        vertical: bv,
+    } = b.0;
+
+    let dh = bh as isize - ah as isize;
+    let dv = bv as isize - av as isize;
+
+    // Check if it's exactly one step in a cardinal direction
+    (dh == 0 && dv.abs() == 1) || (dv == 0 && dh.abs() == 1)
+}
+
+#[inline(always)]
+fn get_direction(source: SquareOffset, target: SquareOffset) -> Option<DirectedSquareAxis> {
+    let Offset {
+        horizontal: sh,
+        vertical: sv,
+    } = source.0;
+    let Offset {
+        horizontal: th,
+        vertical: tv,
+    } = target.0;
+
+    let dh = th as isize - sh as isize;
+    let dv = tv as isize - sv as isize;
+
+    match (dh, dv) {
+        (1, 0) => Some(DirectedSquareAxis::X),
+        (0, 1) => Some(DirectedSquareAxis::Y),
+        (-1, 0) => Some(DirectedSquareAxis::RX),
+        (0, -1) => Some(DirectedSquareAxis::RY),
+        _ => None,
     }
 }
 
@@ -351,7 +615,7 @@ impl Axis for SquareDiagonalAxis {
     }
 
     #[inline]
-    fn foward(self) -> Self::Direction {
+    fn forward(self) -> Self::Direction {
         unsafe { DirectedSquareDiagonalAxis::from_index_unchecked(self.to_index()) }
     }
 
@@ -437,7 +701,7 @@ impl Axis for DirectedSquareDiagonalAxis {
     }
 
     #[inline]
-    fn foward(self) -> Self::Direction {
+    fn forward(self) -> Self::Direction {
         self
     }
 
